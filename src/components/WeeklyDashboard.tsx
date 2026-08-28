@@ -365,7 +365,7 @@ export const WeeklyDashboard: React.FC<WeeklyDashboardProps> = ({ onStartReview 
         initial={{ opacity: 0, y: -10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.3 }}
-        className="relative border border-border bg-card p-6 rounded-lg shadow-2xs"
+        className="relative border border-[#171719]/10 bg-white p-6 sm:p-8 rounded-[25px] shadow-sm"
       >
         <CornerPlus />
         <SectionHeader
@@ -375,20 +375,20 @@ export const WeeklyDashboard: React.FC<WeeklyDashboardProps> = ({ onStartReview 
           action={
             <div className="flex items-center gap-2">
               <Button
-                variant="outline"
+                variant="accent"
                 size="sm"
                 onClick={handleSimulateNewMilestone}
-                className="gap-1.5 font-mono text-xs cursor-pointer"
+                className="gap-1.5 font-bold text-xs cursor-pointer rounded-[9px]"
                 title="Dispara a animação de escala e o pulso BorderTrail em uma meta/marco"
               >
-                <Trophy className="w-3.5 h-3.5 text-amber-500" />
+                <Trophy className="w-3.5 h-3.5 text-[#171719]" />
                 <span>SIMULAR META</span>
               </Button>
               <Button
                 variant="outline"
                 size="sm"
                 onClick={loadMetrics}
-                className="gap-1.5 font-mono text-xs cursor-pointer"
+                className="gap-1.5 font-bold text-xs cursor-pointer rounded-[9px]"
               >
                 <RefreshCw className="w-3.5 h-3.5" />
                 <span>ATUALIZAR</span>
@@ -428,10 +428,10 @@ export const WeeklyDashboard: React.FC<WeeklyDashboardProps> = ({ onStartReview 
                   triggerMilestoneCelebration(m.id);
                 }
               }}
-              className={`relative border bg-card rounded-lg p-4 flex flex-col justify-between shadow-2xs transition-colors select-none font-mono ${
+              className={`relative border bg-white rounded-[20px] p-4 flex flex-col justify-between shadow-xs transition-all select-none font-mono ${
                 isPulsing
-                  ? 'border-foreground/80 shadow-md ring-1 ring-foreground/20'
-                  : 'border-border hover:border-border/80'
+                  ? 'border-[#08ba61] shadow-md ring-2 ring-[#1ff98c]'
+                  : 'border-[#171719]/10 hover:border-[#171719]/30'
               } ${isPulsing ? 'overflow-hidden' : ''}`}
             >
               <CornerPlus size="size-2.5" />
@@ -443,36 +443,36 @@ export const WeeklyDashboard: React.FC<WeeklyDashboardProps> = ({ onStartReview 
                   transition={{ repeat: Infinity, duration: 4, ease: 'linear' }}
                   style={{
                     boxShadow:
-                      '0px 0px 40px 20px rgb(255 255 255 / 45%), 0 0 70px 35px rgb(0 0 0 / 35%)',
+                      '0px 0px 40px 20px rgba(31, 249, 140, 0.5), 0 0 70px 35px rgba(8, 186, 97, 0.4)',
                   }}
                 />
               )}
 
-              <div className="flex items-center justify-between text-muted-foreground">
-                <IconComp className={`w-4 h-4 ${m.iconColor || 'text-foreground'}`} />
+              <div className="flex items-center justify-between text-[#71717a]">
+                <IconComp className={`w-4 h-4 ${m.iconColor || 'text-[#171719]'}`} />
                 <div className="flex items-center space-x-1">
                   {m.isMilestone && (
-                    <Sparkles className="w-2.5 h-2.5 text-amber-500 animate-pulse" />
+                    <Sparkles className="w-2.5 h-2.5 text-[#08ba61] animate-pulse" />
                   )}
-                  <span className="text-[10px] uppercase font-bold text-muted-foreground">
+                  <span className="text-[10px] uppercase font-bold text-[#71717a]">
                     {m.label}
                   </span>
                 </div>
               </div>
 
               <div className="my-2.5">
-                <span className="font-extrabold tracking-tighter text-3xl text-foreground">
+                <span className="font-extrabold tracking-tighter text-3xl text-[#171719]">
                   {m.value}
                 </span>
                 {m.unit && (
-                  <span className="text-xs text-muted-foreground font-mono ml-1">
+                  <span className="text-xs text-[#71717a] font-mono ml-1">
                     {m.unit}
                   </span>
                 )}
               </div>
 
               {m.badge ? (
-                <div className={`flex items-center text-[10px] font-semibold ${m.badgeColor}`}>
+                <div className="flex items-center text-[10px] font-bold text-[#08ba61]">
                   <ArrowUpRight className="w-3 h-3 mr-0.5" />
                   <span>{m.badge}</span>
                 </div>
@@ -482,13 +482,13 @@ export const WeeklyDashboard: React.FC<WeeklyDashboardProps> = ({ onStartReview 
                     e.stopPropagation();
                     m.onAction?.();
                   }}
-                  className="text-[10px] font-bold text-foreground hover:underline flex items-center gap-1 cursor-pointer"
+                  className="text-[10px] font-bold text-[#171719] hover:text-[#08ba61] hover:underline flex items-center gap-1 cursor-pointer"
                 >
                   <span>{m.actionText}</span>
                   <ArrowRight className="w-2.5 h-2.5" />
                 </button>
               ) : (
-                <span className="text-[10px] text-muted-foreground">{m.subtext}</span>
+                <span className="text-[10px] text-[#71717a]">{m.subtext}</span>
               )}
             </motion.div>
           );
@@ -537,11 +537,11 @@ export const WeeklyDashboard: React.FC<WeeklyDashboardProps> = ({ onStartReview 
                       damping: 16,
                     },
                   }}
-                  className={`relative border bg-card rounded-lg p-4 shadow-2xs transition-colors ${
+                  className={`relative border bg-white rounded-[20px] p-4 sm:p-5 shadow-xs transition-all ${
                     isAchieved
-                      ? 'border-foreground/80 bg-muted/20'
-                      : 'border-border hover:border-border/80'
-                  } ${isPulsing ? 'overflow-hidden ring-1 ring-foreground/30 shadow-md' : ''}`}
+                      ? 'border-[#08ba61] bg-[#1ff98c]/5'
+                      : 'border-[#171719]/10 hover:border-[#171719]/25'
+                  } ${isPulsing ? 'overflow-hidden ring-2 ring-[#1ff98c] shadow-md' : ''}`}
                 >
                   <CornerPlus size="size-2.5" />
 
@@ -552,7 +552,7 @@ export const WeeklyDashboard: React.FC<WeeklyDashboardProps> = ({ onStartReview 
                       transition={{ repeat: Infinity, duration: 5, ease: 'linear' }}
                       style={{
                         boxShadow:
-                          '0px 0px 45px 22px rgb(255 255 255 / 45%), 0 0 75px 35px rgb(0 0 0 / 35%)',
+                          '0px 0px 45px 22px rgba(31, 249, 140, 0.5), 0 0 75px 35px rgba(8, 186, 97, 0.4)',
                       }}
                     />
                   )}
@@ -561,10 +561,10 @@ export const WeeklyDashboard: React.FC<WeeklyDashboardProps> = ({ onStartReview 
                     <div className="flex items-start space-x-3">
                       <button
                         onClick={() => handleToggleDailyGoal(goal.id)}
-                        className={`mt-0.5 w-5 h-5 rounded flex items-center justify-center border transition cursor-pointer ${
+                        className={`mt-0.5 w-5 h-5 rounded-[6px] flex items-center justify-center border transition cursor-pointer ${
                           isAchieved
-                            ? 'bg-foreground text-background border-foreground font-bold shadow-2xs'
-                            : 'border-muted-foreground/40 hover:border-foreground text-transparent'
+                            ? 'bg-[#08ba61] text-white border-[#08ba61] font-bold shadow-xs'
+                            : 'border-[#171719]/30 hover:border-[#08ba61] text-transparent bg-white'
                         }`}
                         title={isAchieved ? 'Marcar como pendente' : 'Concluir meta'}
                       >
@@ -576,37 +576,37 @@ export const WeeklyDashboard: React.FC<WeeklyDashboardProps> = ({ onStartReview 
                           <h4
                             className={`text-xs font-bold tracking-tight transition ${
                               isAchieved
-                                ? 'text-foreground line-through decoration-muted-foreground'
-                                : 'text-foreground'
+                                ? 'text-[#171719] line-through decoration-[#71717a]'
+                                : 'text-[#171719]'
                             }`}
                           >
                             {goal.titulo}
                           </h4>
-                          <span className="text-[10px] font-bold text-muted-foreground px-1.5 py-0.2 rounded bg-muted">
+                          <span className="text-[10px] font-bold text-[#08ba61] px-1.5 py-0.2 rounded-full bg-[#1ff98c]/20 border border-[#08ba61]/20">
                             +{goal.xp_recompensa} XP
                           </span>
                         </div>
-                        <p className="text-[11px] text-muted-foreground mt-0.5">
+                        <p className="text-[11px] text-[#71717a] mt-0.5">
                           {goal.descricao}
                         </p>
                       </div>
                     </div>
 
                     <div className="text-right shrink-0">
-                      <span className="text-xs font-extrabold text-foreground">
+                      <span className="text-xs font-extrabold text-[#171719]">
                         {goal.progresso_atual}/{goal.meta_total}
                       </span>
-                      <span className="text-[10px] text-muted-foreground ml-1">
+                      <span className="text-[10px] text-[#71717a] ml-1">
                         {goal.unidade}
                       </span>
                     </div>
                   </div>
 
                   {/* Barra de Progresso Animada */}
-                  <div className="mt-3 w-full bg-muted rounded-full h-1.5 overflow-hidden border border-border">
+                  <div className="mt-3 w-full bg-[#ededed] rounded-full h-1.5 overflow-hidden border border-[#171719]/10">
                     <motion.div
                       className={`h-full rounded-full ${
-                        isAchieved ? 'bg-foreground' : 'bg-foreground/80'
+                        isAchieved ? 'bg-[#08ba61]' : 'bg-[#171719]'
                       }`}
                       initial={{ width: 0 }}
                       animate={{ width: `${pct}%` }}
@@ -659,11 +659,11 @@ export const WeeklyDashboard: React.FC<WeeklyDashboardProps> = ({ onStartReview 
                       damping: 16,
                     },
                   }}
-                  className={`relative border bg-card rounded-lg p-4 shadow-2xs transition-colors ${
+                  className={`relative border bg-white rounded-[20px] p-4 sm:p-5 shadow-xs transition-all ${
                     isUnlocked
-                      ? 'border-foreground/80 bg-muted/20'
-                      : 'border-border hover:border-border/80'
-                  } ${isPulsing ? 'overflow-hidden ring-1 ring-foreground/30 shadow-md' : ''}`}
+                      ? 'border-[#08ba61] bg-[#1ff98c]/5'
+                      : 'border-[#171719]/10 hover:border-[#171719]/25'
+                  } ${isPulsing ? 'overflow-hidden ring-2 ring-[#1ff98c] shadow-md' : ''}`}
                 >
                   <CornerPlus size="size-2.5" />
 
@@ -674,7 +674,7 @@ export const WeeklyDashboard: React.FC<WeeklyDashboardProps> = ({ onStartReview 
                       transition={{ repeat: Infinity, duration: 5, ease: 'linear' }}
                       style={{
                         boxShadow:
-                          '0px 0px 45px 22px rgb(255 255 255 / 45%), 0 0 75px 35px rgb(0 0 0 / 35%)',
+                          '0px 0px 45px 22px rgba(31, 249, 140, 0.5), 0 0 75px 35px rgba(8, 186, 97, 0.4)',
                       }}
                     />
                   )}
@@ -682,10 +682,10 @@ export const WeeklyDashboard: React.FC<WeeklyDashboardProps> = ({ onStartReview 
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex items-start space-x-3">
                       <div
-                        className={`w-8 h-8 rounded-lg flex items-center justify-center border shrink-0 ${
+                        className={`w-8 h-8 rounded-[9px] flex items-center justify-center border shrink-0 ${
                           isUnlocked
-                            ? 'bg-foreground text-background border-foreground'
-                            : 'bg-muted text-muted-foreground border-border'
+                            ? 'bg-[#171719] text-[#1ff98c] border-[#171719]'
+                            : 'bg-[#ededed] text-[#71717a] border-[#171719]/10'
                         }`}
                       >
                         <Award className="w-4 h-4" />
@@ -693,22 +693,22 @@ export const WeeklyDashboard: React.FC<WeeklyDashboardProps> = ({ onStartReview 
 
                       <div>
                         <div className="flex items-center space-x-2">
-                          <h4 className="text-xs font-bold text-foreground tracking-tight">
+                          <h4 className="text-xs font-bold text-[#171719] tracking-tight">
                             {ms.titulo}
                           </h4>
                           <span
-                            className={`text-[9px] font-bold px-1.5 py-0.2 rounded border ${
+                            className={`text-[9px] font-bold px-1.5 py-0.2 rounded-full border ${
                               ms.nivel === 'Ouro'
-                                ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/30'
+                                ? 'bg-[#1ff98c]/20 text-[#08ba61] border-[#08ba61]/30'
                                 : ms.nivel === 'Prata'
-                                ? 'bg-slate-500/10 text-slate-600 dark:text-slate-300 border-slate-500/30'
-                                : 'bg-orange-500/10 text-orange-600 dark:text-orange-400 border-orange-500/30'
+                                ? 'bg-[#ededed] text-[#171719] border-[#171719]/20'
+                                : 'bg-[#ededed] text-[#71717a] border-[#171719]/10'
                             }`}
                           >
                             {ms.nivel}
                           </span>
                         </div>
-                        <p className="text-[11px] text-muted-foreground mt-0.5">
+                        <p className="text-[11px] text-[#71717a] mt-0.5">
                           {ms.descricao}
                         </p>
                       </div>
@@ -717,11 +717,11 @@ export const WeeklyDashboard: React.FC<WeeklyDashboardProps> = ({ onStartReview 
                     <div className="text-right shrink-0">
                       {isUnlocked ? (
                         <div className="flex flex-col items-end">
-                          <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded bg-foreground text-background">
+                          <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-[9px] bg-[#08ba61] text-white">
                             <Sparkles className="w-3 h-3" />
                             CONQUISTADO
                           </span>
-                          <span className="text-[9px] text-muted-foreground mt-0.5">
+                          <span className="text-[9px] text-[#71717a] mt-0.5">
                             {ms.data_conquista || 'Concluído'}
                           </span>
                         </div>
@@ -730,7 +730,7 @@ export const WeeklyDashboard: React.FC<WeeklyDashboardProps> = ({ onStartReview 
                           size="sm"
                           variant="outline"
                           onClick={() => handleCompleteMilestone(ms.id)}
-                          className="text-[10px] h-6 px-2 font-mono cursor-pointer"
+                          className="text-[10px] h-6 px-2 font-bold cursor-pointer rounded-[9px]"
                         >
                           Concluir
                         </Button>
@@ -739,15 +739,15 @@ export const WeeklyDashboard: React.FC<WeeklyDashboardProps> = ({ onStartReview 
                   </div>
 
                   {/* Barra de Progresso */}
-                  <div className="mt-3 flex items-center justify-between text-[10px] text-muted-foreground mb-1">
+                  <div className="mt-3 flex items-center justify-between text-[10px] text-[#71717a] mb-1">
                     <span>Progresso do Marco:</span>
-                    <span className="font-bold text-foreground">
+                    <span className="font-bold text-[#171719]">
                       {ms.progresso_atual}/{ms.meta_total} {ms.unidade}
                     </span>
                   </div>
-                  <div className="w-full bg-muted rounded-full h-1.5 overflow-hidden border border-border">
+                  <div className="w-full bg-[#ededed] rounded-full h-1.5 overflow-hidden border border-[#171719]/10">
                     <motion.div
-                      className="h-full rounded-full bg-foreground"
+                      className="h-full rounded-full bg-[#08ba61]"
                       initial={{ width: 0 }}
                       animate={{ width: `${pct}%` }}
                       transition={{ duration: 0.6, ease: 'easeOut' }}
@@ -765,17 +765,24 @@ export const WeeklyDashboard: React.FC<WeeklyDashboardProps> = ({ onStartReview 
         initial={{ opacity: 0, y: 15 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.4 }}
-        className="relative border border-border bg-card rounded-lg p-6 shadow-sm space-y-3 overflow-hidden font-mono"
+        className="relative border border-[#171719]/10 bg-white rounded-[25px] p-6 sm:p-7 shadow-sm space-y-3 overflow-hidden font-mono"
       >
-        <BorderTrail size={120} transition={{ repeat: Infinity, duration: 8, ease: 'linear' }} />
+        <BorderTrail
+          size={120}
+          transition={{ repeat: Infinity, duration: 8, ease: 'linear' }}
+          style={{
+            boxShadow:
+              '0px 0px 50px 25px rgba(31, 249, 140, 0.35), 0 0 80px 40px rgba(8, 186, 97, 0.25)',
+          }}
+        />
         <CornerPlus />
 
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-2">
-            <div className="inline-flex items-center rounded border border-border bg-muted/60 px-2 py-0.5 font-mono text-[10px] font-semibold text-muted-foreground uppercase">
+            <div className="inline-flex items-center rounded-full border border-[#171719]/15 bg-[#ededed] px-2.5 py-0.5 font-mono text-[10px] font-bold text-[#171719] uppercase">
               AI PEDAGOGICAL INSIGHT
             </div>
-            <span className="font-bold text-sm text-foreground">Diretriz Estratégica para o Próximo Ciclo</span>
+            <span className="font-extrabold text-sm text-[#171719]">Diretriz Estratégica para o Próximo Ciclo</span>
           </div>
 
           <Button
@@ -783,14 +790,14 @@ export const WeeklyDashboard: React.FC<WeeklyDashboardProps> = ({ onStartReview 
             size="sm"
             onClick={handleRefreshAIRecommendation}
             disabled={isLoadingRec}
-            className="font-mono text-xs text-muted-foreground hover:text-foreground cursor-pointer"
+            className="font-bold text-xs text-[#71717a] hover:text-[#171719] cursor-pointer rounded-[9px]"
           >
             <RefreshCw className={`w-3.5 h-3.5 mr-1.5 ${isLoadingRec ? 'animate-spin' : ''}`} />
             <span>{isLoadingRec ? 'Analisando...' : 'Reanalisar'}</span>
           </Button>
         </div>
 
-        <p className="text-xs sm:text-sm text-muted-foreground leading-relaxed">
+        <p className="text-xs sm:text-sm text-[#71717a] leading-relaxed">
           {metrics.recomendacao_objetiva}
         </p>
       </motion.div>
@@ -800,15 +807,15 @@ export const WeeklyDashboard: React.FC<WeeklyDashboardProps> = ({ onStartReview 
         <div className="flex items-center justify-between flex-wrap gap-2">
           <div>
             <div className="flex items-center space-x-2">
-              <BrainCircuit className="w-4 h-4 text-foreground" />
-              <h3 className="text-sm font-bold tracking-tight text-foreground uppercase">
+              <BrainCircuit className="w-4 h-4 text-[#171719]" />
+              <h3 className="text-sm font-extrabold tracking-tight text-[#171719] uppercase">
                 3 Tópicos Prioritários Sugeridos pelo Grafo de Memória
               </h3>
-              <div className="inline-flex items-center rounded border border-border bg-muted/60 px-2 py-0.5 text-[10px] font-semibold text-muted-foreground uppercase">
+              <div className="inline-flex items-center rounded-full border border-[#171719]/15 bg-[#1ff98c]/20 px-2 py-0.5 text-[10px] font-bold text-[#08ba61] uppercase">
                 NEXT CHAT SESSION
               </div>
             </div>
-            <p className="text-xs text-muted-foreground mt-0.5">
+            <p className="text-xs text-[#71717a] mt-0.5">
               Identificados automaticamente pela topologia do grafo (taxa de erro, dependências conceituais e retenção).
             </p>
           </div>
@@ -818,7 +825,7 @@ export const WeeklyDashboard: React.FC<WeeklyDashboardProps> = ({ onStartReview 
             size="sm"
             onClick={loadMetrics}
             disabled={isLoadingPriority}
-            className="font-mono text-xs cursor-pointer gap-1.5"
+            className="font-bold text-xs cursor-pointer gap-1.5 rounded-[9px]"
           >
             <RefreshCw className={`w-3 h-3 ${isLoadingPriority ? 'animate-spin' : ''}`} />
             <span>{isLoadingPriority ? 'Recalculando...' : 'Atualizar Grafo'}</span>
@@ -829,10 +836,10 @@ export const WeeklyDashboard: React.FC<WeeklyDashboardProps> = ({ onStartReview 
           {priorityTopics.map((topic, idx) => {
             const urgencyBadgeColor =
               topic.nivel_urgencia === 'critica'
-                ? 'border-rose-500/40 bg-rose-500/10 text-rose-600 dark:text-rose-400'
+                ? 'border-rose-500/40 bg-rose-500/10 text-rose-600'
                 : topic.nivel_urgencia === 'alta'
-                ? 'border-amber-500/40 bg-amber-500/10 text-amber-600 dark:text-amber-400'
-                : 'border-border bg-muted text-muted-foreground';
+                ? 'border-amber-500/40 bg-amber-500/10 text-amber-600'
+                : 'border-[#171719]/10 bg-[#ededed] text-[#71717a]';
 
             return (
               <motion.div
@@ -840,42 +847,42 @@ export const WeeklyDashboard: React.FC<WeeklyDashboardProps> = ({ onStartReview 
                 initial={{ opacity: 0, y: 15 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.35, delay: idx * 0.08 }}
-                className="relative border border-border bg-card rounded-lg p-4 shadow-2xs space-y-3 flex flex-col justify-between overflow-hidden"
+                className="relative border border-[#171719]/10 bg-white rounded-[20px] p-5 shadow-xs space-y-3 flex flex-col justify-between overflow-hidden"
               >
                 <CornerPlus size="size-2" />
 
                 <div className="space-y-2.5">
                   <div className="flex items-center justify-between gap-1.5">
-                    <span className="font-mono text-[10px] font-bold text-muted-foreground">
+                    <span className="font-mono text-[10px] font-bold text-[#71717a]">
                       #{idx + 1} PRIORIDADE
                     </span>
                     <span
-                      className={`text-[9px] font-mono uppercase font-bold px-1.5 py-0.5 rounded border ${urgencyBadgeColor}`}
+                      className={`text-[9px] font-mono uppercase font-bold px-2 py-0.5 rounded-full border ${urgencyBadgeColor}`}
                     >
                       Urgência {topic.nivel_urgencia}
                     </span>
                   </div>
 
                   <div>
-                    <h4 className="text-sm font-bold text-foreground tracking-tight">
+                    <h4 className="text-sm font-bold text-[#171719] tracking-tight">
                       {topic.titulo}
                     </h4>
-                    <p className="text-xs text-muted-foreground mt-1 leading-relaxed line-clamp-2">
+                    <p className="text-xs text-[#71717a] mt-1 leading-relaxed line-clamp-2">
                       {topic.motivo_prioridade}
                     </p>
                   </div>
 
                   {/* Nível de Domínio & Frequência de Erro */}
-                  <div className="bg-muted/40 p-2 rounded border border-border space-y-1.5 text-[11px]">
-                    <div className="flex justify-between items-center text-muted-foreground">
+                  <div className="bg-[#ededed] p-2.5 rounded-[9px] border border-[#171719]/10 space-y-1.5 text-[11px]">
+                    <div className="flex justify-between items-center text-[#71717a]">
                       <span>Domínio no Grafo:</span>
-                      <span className="font-bold text-foreground">{topic.dominio_atual}%</span>
+                      <span className="font-bold text-[#171719]">{topic.dominio_atual}%</span>
                     </div>
-                    <div className="w-full bg-muted rounded-full h-1.5 overflow-hidden border border-border">
+                    <div className="w-full bg-white rounded-full h-1.5 overflow-hidden border border-[#171719]/10">
                       <div
                         className={`h-full rounded-full ${
                           topic.dominio_atual >= 70
-                            ? 'bg-emerald-500'
+                            ? 'bg-[#08ba61]'
                             : topic.dominio_atual >= 40
                             ? 'bg-amber-500'
                             : 'bg-rose-500'
@@ -886,11 +893,11 @@ export const WeeklyDashboard: React.FC<WeeklyDashboardProps> = ({ onStartReview 
                   </div>
 
                   {/* Estratégia Sugerida */}
-                  <div className="text-[11px] text-muted-foreground space-y-0.5">
-                    <span className="font-bold text-foreground block text-[10px] uppercase">
+                  <div className="text-[11px] text-[#71717a] space-y-0.5">
+                    <span className="font-bold text-[#171719] block text-[10px] uppercase">
                       Estratégia Recomendada:
                     </span>
-                    <p className="leading-snug italic">"{topic.estrategia_sugerida}"</p>
+                    <p className="leading-snug italic text-[#171719]">"{topic.estrategia_sugerida}"</p>
                   </div>
 
                   {/* Nós Relacionados / Dependências */}
@@ -899,7 +906,7 @@ export const WeeklyDashboard: React.FC<WeeklyDashboardProps> = ({ onStartReview 
                       {topic.nos_relacionados.slice(0, 3).map((rel, rIdx) => (
                         <span
                           key={rIdx}
-                          className="text-[9px] px-1.5 py-0.5 rounded bg-muted border border-border text-muted-foreground"
+                          className="text-[9px] px-2 py-0.5 rounded-[6px] bg-[#ededed] border border-[#171719]/10 text-[#171719] font-bold"
                         >
                           🔗 {rel}
                         </span>
@@ -910,10 +917,11 @@ export const WeeklyDashboard: React.FC<WeeklyDashboardProps> = ({ onStartReview 
 
                 <Button
                   size="sm"
+                  variant="default"
                   onClick={() => onStartReview(topic.titulo)}
-                  className="w-full mt-2 font-mono text-xs cursor-pointer gap-1.5 bg-foreground text-background hover:bg-foreground/90 shadow-2xs"
+                  className="w-full mt-2 font-bold text-xs cursor-pointer gap-1.5 rounded-[9px]"
                 >
-                  <MessageSquare className="w-3.5 h-3.5" />
+                  <MessageSquare className="w-3.5 h-3.5 text-white" />
                   <span>Focar no Chat Agora</span>
                 </Button>
               </motion.div>

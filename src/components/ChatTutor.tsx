@@ -683,27 +683,23 @@ export const ChatTutor: React.FC<ChatTutorProps> = ({
             variant="outline"
             size="sm"
             onClick={() => setIsSpeechRateCoachOpen(true)}
-            className="gap-1.5 text-xs font-semibold cursor-pointer border-border/80 hover:bg-secondary rounded-xl"
+            className="gap-1.5 text-xs font-bold cursor-pointer rounded-[9px]"
             title="Abrir treinador e medidor de taxa de fala (palavras por minuto)"
           >
-            <Gauge className="w-3.5 h-3.5 text-foreground" />
+            <Gauge className="w-3.5 h-3.5 text-[#171719]" />
             <span className="hidden sm:inline">Taxa de Fala (WPM)</span>
             <span className="sm:hidden">WPM</span>
           </Button>
 
           {/* Botão de Modo Ouvir Apenas (Treinamento Auditivo & Onda Sonora) */}
           <Button
-            variant={isListenOnlyMode ? 'default' : 'outline'}
+            variant={isListenOnlyMode ? 'accent' : 'outline'}
             size="sm"
             onClick={handleToggleListenOnly}
-            className={`gap-1.5 text-xs font-semibold cursor-pointer rounded-xl ${
-              isListenOnlyMode
-                ? 'bg-foreground text-background font-bold shadow-xs'
-                : 'border-border/80 text-foreground hover:bg-secondary'
-            }`}
+            className="gap-1.5 text-xs font-bold cursor-pointer rounded-[9px]"
             title="Ativar/desativar modo de treino auditivo (pausa microfone e foca na escuta e ondas sonoras)"
           >
-            <Headphones className={`w-3.5 h-3.5 ${isListenOnlyMode ? 'animate-pulse' : ''}`} />
+            <Headphones className={`w-3.5 h-3.5 ${isListenOnlyMode ? 'animate-bounce text-[#171719]' : 'text-[#171719]'}`} />
             <span className="hidden sm:inline">
               {isListenOnlyMode ? 'Ouvir Apenas: ATIVO' : 'Modo Ouvir Apenas'}
             </span>
@@ -715,10 +711,10 @@ export const ChatTutor: React.FC<ChatTutorProps> = ({
             variant="outline"
             size="sm"
             onClick={() => setIsPronunciationModalOpen(true)}
-            className="gap-1.5 text-xs font-semibold cursor-pointer border-border/80 hover:bg-secondary rounded-xl"
+            className="gap-1.5 text-xs font-bold cursor-pointer rounded-[9px]"
             title="Praticar pronúncia com visualizador de espectro de áudio em tempo real"
           >
-            <Mic className="w-3.5 h-3.5 text-foreground" />
+            <Mic className="w-3.5 h-3.5 text-[#171719]" />
             <span className="hidden sm:inline">Treino de Pronúncia</span>
             <span className="sm:hidden">Pronúncia</span>
           </Button>
@@ -726,22 +722,23 @@ export const ChatTutor: React.FC<ChatTutorProps> = ({
           {/* Botão de Destaque: Gemini Live Voice */}
           <Button
             size="sm"
+            variant="dark"
             onClick={() => setIsLiveModalOpen(true)}
-            className="gap-1.5 text-xs font-semibold cursor-pointer bg-foreground text-background hover:bg-foreground/90 shadow-xs rounded-xl"
+            className="gap-1.5 text-xs font-bold cursor-pointer rounded-[9px]"
             title="Iniciar conversa por voz em tempo real com o Gemini Live API"
           >
-            <Radio className="w-3.5 h-3.5 animate-pulse text-background" />
+            <Radio className="w-3.5 h-3.5 animate-pulse text-[#1ff98c]" />
             <span>Voz Live (API)</span>
           </Button>
 
           {/* Seletor de Modo de Adaptação Dinâmica */}
-          <div className="flex items-center space-x-1.5 bg-secondary/60 border border-border/70 px-2.5 py-1 rounded-xl text-xs">
-            <Sliders className="w-3 h-3 text-muted-foreground" />
-            <span className="text-muted-foreground font-semibold text-[10px] uppercase hidden lg:inline">ADAPTAÇÃO:</span>
+          <div className="flex items-center space-x-1.5 bg-[#ededed] border border-[#171719]/10 px-2.5 py-1 rounded-[9px] text-xs">
+            <Sliders className="w-3 h-3 text-[#171719]" />
+            <span className="text-[#171719]/70 font-bold text-[10px] uppercase hidden lg:inline">ADAPTAÇÃO:</span>
             <select
               value={adaptationPreference}
               onChange={(e) => setAdaptationPreference(e.target.value as any)}
-              className="bg-transparent font-medium text-foreground focus:outline-none cursor-pointer text-xs"
+              className="bg-transparent font-bold text-[#171719] focus:outline-none cursor-pointer text-xs"
               title="Calibração da complexidade pedagógica"
             >
               <option value="auto">🧠 Auto (Grafo)</option>
@@ -752,17 +749,17 @@ export const ChatTutor: React.FC<ChatTutorProps> = ({
           </div>
 
           {/* Seletor de Voz Neural IA (Gemini 3.1 Flash TTS) */}
-          <div className="flex items-center space-x-1.5 bg-secondary/60 border border-border/70 px-2.5 py-1 rounded-xl text-xs">
-            <Volume2 className="w-3 h-3 text-foreground" />
-            <span className="text-muted-foreground font-semibold text-[10px] uppercase hidden md:inline">VOZ IA:</span>
+          <div className="flex items-center space-x-1.5 bg-[#ededed] border border-[#171719]/10 px-2.5 py-1 rounded-[9px] text-xs">
+            <Volume2 className="w-3 h-3 text-[#171719]" />
+            <span className="text-[#171719]/70 font-bold text-[10px] uppercase hidden md:inline">VOZ IA:</span>
             <select
               value={selectedVoice}
               onChange={(e) => handleVoiceChange(e.target.value)}
-              className="bg-transparent font-bold text-foreground focus:outline-none cursor-pointer text-xs"
+              className="bg-transparent font-bold text-[#171719] focus:outline-none cursor-pointer text-xs"
               title="Selecione a persona de voz neural do Gemini para reprodução hiper-realista"
             >
               {NEURAL_VOICES.map((v) => (
-                <option key={v.id} value={v.id} className="bg-card text-foreground">
+                <option key={v.id} value={v.id} className="bg-white text-[#171719]">
                   ✨ {v.name}
                 </option>
               ))}
@@ -772,7 +769,7 @@ export const ChatTutor: React.FC<ChatTutorProps> = ({
           {/* Limpar Histórico */}
           <button
             onClick={handleClearHistory}
-            className="p-2 text-muted-foreground hover:text-foreground hover:bg-muted rounded-lg border border-transparent hover:border-border transition cursor-pointer"
+            className="p-2 text-[#71717a] hover:text-[#171719] hover:bg-[#ededed] rounded-[9px] border border-transparent hover:border-[#171719]/10 transition cursor-pointer"
             title="Limpar histórico da conversa"
           >
             <Trash2 className="w-3.5 h-3.5" />
@@ -780,32 +777,32 @@ export const ChatTutor: React.FC<ChatTutorProps> = ({
         </div>
       </div>
 
-        {/* Painel Central de Mensagens */}
-        <div className="relative flex-1 bg-card/70 backdrop-blur-xs border border-border rounded-lg p-4 overflow-y-auto space-y-4 shadow-2xs overflow-hidden flex flex-col">
-          <CornerPlus />
-          {(isLoading || isRecording) && (
-            <BorderTrail
-              style={{
-                boxShadow:
-                  '0px 0px 60px 30px rgb(255 255 255 / 50%), 0 0 100px 60px rgb(0 0 0 / 50%), 0 0 140px 90px rgb(0 0 0 / 50%)',
-              }}
-              size={100}
-            />
-          )}
+      {/* Painel Central de Mensagens */}
+      <div className="relative flex-1 bg-white border border-[#171719]/10 rounded-[25px] p-4 sm:p-6 overflow-y-auto space-y-4 shadow-sm overflow-hidden flex flex-col">
+        <CornerPlus />
+        {(isLoading || isRecording) && (
+          <BorderTrail
+            style={{
+              boxShadow:
+                '0px 0px 60px 30px rgba(31, 249, 140, 0.4), 0 0 100px 60px rgba(8, 186, 97, 0.3)',
+            }}
+            size={100}
+          />
+        )}
 
         {messages.length === 0 && (
           <div className="h-full flex flex-col items-center justify-center text-center p-6 space-y-4">
-            <div className="w-12 h-12 rounded-lg bg-muted border border-border flex items-center justify-center text-foreground font-mono">
-              <Sparkles className="w-5 h-5 text-foreground" />
+            <div className="w-14 h-14 rounded-[14px] bg-[#1ff98c] border border-[#171719]/20 flex items-center justify-center text-[#171719] shadow-sm">
+              <Sparkles className="w-6 h-6 text-[#171719]" />
             </div>
-            <div className="max-w-md space-y-1">
-              <div className="inline-flex items-center rounded border border-border bg-muted/60 px-2 py-0.5 font-mono text-[10px] font-semibold text-muted-foreground uppercase">
+            <div className="max-w-md space-y-1.5">
+              <div className="inline-flex items-center rounded-full border border-[#171719]/15 bg-[#ededed] px-3 py-0.5 font-mono text-[10px] font-bold text-[#171719] uppercase tracking-wider">
                 ACTIVE LEARNING SESSION
               </div>
-              <h3 className="text-base font-bold tracking-tight text-foreground">
+              <h3 className="text-lg font-extrabold tracking-tight text-[#171719]">
                 Pronto para iniciar sua sessão de aprendizado ativo!
               </h3>
-              <p className="text-xs text-muted-foreground leading-relaxed">
+              <p className="text-xs text-[#71717a] leading-relaxed">
                 Converse com o tutor por texto ou voz. Suas dúvidas, equívocos e domínios serão
                 mapeados dinamicamente no seu Grafo de Conhecimento.
               </p>
@@ -813,30 +810,31 @@ export const ChatTutor: React.FC<ChatTutorProps> = ({
 
             <div className="w-full max-w-lg pt-2 space-y-3">
               {/* Card de Ação Rápida: Gemini Live */}
-              <div className="relative p-3.5 bg-muted/40 border border-border rounded-lg flex items-center justify-between shadow-2xs gap-3">
+              <div className="relative p-4 bg-[#ededed] border border-[#171719]/10 rounded-[20px] flex items-center justify-between shadow-xs gap-3">
                 <div className="flex items-center space-x-3 text-left">
-                  <div className="w-8 h-8 rounded-lg bg-foreground text-background flex items-center justify-center shrink-0">
+                  <div className="w-9 h-9 rounded-[9px] bg-[#171719] text-[#1ff98c] flex items-center justify-center shrink-0">
                     <Radio className="w-4 h-4 animate-pulse" />
                   </div>
                   <div>
-                    <h4 className="text-xs font-bold text-foreground">
+                    <h4 className="text-xs font-bold text-[#171719]">
                       Prática Conversacional em Tempo Real
                     </h4>
-                    <p className="text-[11px] text-muted-foreground">
+                    <p className="text-[11px] text-[#71717a]">
                       Converse por voz com o tutor (Gemini Live API) com baixa latência e fala bidirecional.
                     </p>
                   </div>
                 </div>
                 <Button
                   size="sm"
+                  variant="default"
                   onClick={() => setIsLiveModalOpen(true)}
-                  className="font-mono text-xs shrink-0 cursor-pointer"
+                  className="font-bold text-xs shrink-0 cursor-pointer"
                 >
                   Falar Agora
                 </Button>
               </div>
 
-              <span className="text-[10px] font-mono font-semibold uppercase tracking-wider text-muted-foreground block mb-2 text-center">
+              <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-[#71717a] block mb-2 text-center">
                 Ou escolha uma sugestão rápida de prompt:
               </span>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-left">
@@ -844,10 +842,10 @@ export const ChatTutor: React.FC<ChatTutorProps> = ({
                   <button
                     key={idx}
                     onClick={() => handleSendMessage(prompt)}
-                    className="p-2.5 rounded-lg bg-background hover:bg-muted/60 border border-border text-xs text-foreground transition flex items-center justify-between group shadow-2xs cursor-pointer"
+                    className="p-3 rounded-[9px] bg-white hover:bg-[#ededed] border border-[#171719]/15 text-xs text-[#171719] font-medium transition-all flex items-center justify-between group shadow-xs cursor-pointer"
                   >
                     <span className="truncate mr-2 font-mono text-[11px]">{prompt}</span>
-                    <ChevronRight className="w-3.5 h-3.5 text-muted-foreground group-hover:text-foreground shrink-0" />
+                    <ChevronRight className="w-3.5 h-3.5 text-[#71717a] group-hover:text-[#171719] shrink-0" />
                   </button>
                 ))}
               </div>
@@ -879,21 +877,21 @@ export const ChatTutor: React.FC<ChatTutorProps> = ({
               className={`flex gap-3 ${isUser ? 'justify-end' : 'justify-start'}`}
             >
               {!isUser && (
-                <div className="w-8 h-8 rounded-xl bg-primary text-primary-foreground flex items-center justify-center flex-shrink-0 text-xs font-bold mt-0.5 shadow-xs">
+                <div className="w-8 h-8 rounded-[9px] bg-[#171719] text-[#1ff98c] flex items-center justify-center flex-shrink-0 text-xs font-bold mt-0.5 shadow-xs border border-[#171719]/20">
                   AI
                 </div>
               )}
 
               <div
-                className={`max-w-[88%] sm:max-w-[82%] rounded-2xl p-4 sm:p-4.5 shadow-xs transition-all ${
+                className={`max-w-[88%] sm:max-w-[82%] rounded-[20px] p-4 sm:p-4.5 shadow-xs transition-all ${
                   isUser
-                    ? 'bg-primary text-primary-foreground rounded-tr-xs border border-primary/90'
-                    : 'bg-card text-foreground rounded-tl-xs border border-border/80'
+                    ? 'bg-[#08ba61] text-white rounded-tr-[4px] border border-[#08ba61]'
+                    : 'bg-[#ededed] text-[#171719] rounded-tl-[4px] border border-[#171719]/10'
                 }`}
               >
                 {/* Remetente & Badge XP */}
                 <div className="flex items-center justify-between text-[11px] mb-2 space-x-2">
-                  <span className={`font-bold tracking-tight ${isUser ? 'text-primary-foreground' : 'text-foreground'}`}>
+                  <span className={`font-bold tracking-tight ${isUser ? 'text-white' : 'text-[#171719]'}`}>
                     {isUser ? 'Você' : 'Tutor de Línguas'}
                   </span>
                   <div className="flex items-center space-x-1.5">
@@ -901,12 +899,12 @@ export const ChatTutor: React.FC<ChatTutorProps> = ({
                       <div className="flex items-center gap-1">
                         <button
                           onClick={() => handleToggleMessageAudio(msg.id, msg.conteudo)}
-                          className={`flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-medium transition cursor-pointer border ${
+                          className={`flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold transition cursor-pointer border ${
                             playingAudioId === msg.id
-                              ? 'bg-foreground text-background border-foreground shadow-xs animate-pulse font-bold'
+                              ? 'bg-[#171719] text-[#1ff98c] border-[#171719] shadow-xs animate-pulse'
                               : isVoiceLoading && playingAudioId === msg.id
-                              ? 'bg-secondary text-foreground border-border animate-pulse'
-                              : 'text-muted-foreground hover:text-foreground hover:bg-secondary border-border/60'
+                              ? 'bg-white text-[#171719] border-[#171719]/20 animate-pulse'
+                              : 'bg-white text-[#171719] hover:bg-[#ededed] border-[#171719]/15'
                           }`}
                           title={
                             playingAudioId === msg.id
@@ -919,13 +917,13 @@ export const ChatTutor: React.FC<ChatTutorProps> = ({
                               <Square className="w-3 h-3 fill-current" />
                               <span>PARAR</span>
                               <span className="flex h-1.5 w-1.5 relative">
-                                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-background opacity-75"></span>
-                                <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-background"></span>
+                                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#1ff98c] opacity-75"></span>
+                                <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-[#1ff98c]"></span>
                               </span>
                             </>
                           ) : (
                             <>
-                              <Volume2 className="w-3.5 h-3.5 text-foreground" />
+                              <Volume2 className="w-3.5 h-3.5 text-[#171719]" />
                               <span>Ouvir ({selectedVoice})</span>
                             </>
                           )}

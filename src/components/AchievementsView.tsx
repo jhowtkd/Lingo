@@ -233,38 +233,30 @@ export const AchievementsView: React.FC<AchievementsViewProps> = ({
       <motion.div
         initial={{ opacity: 0, y: -10 }}
         animate={{ opacity: 1, y: 0 }}
-        className="bg-white border border-slate-200 rounded-2xl p-6 shadow-2xs flex flex-col md:flex-row items-start md:items-center justify-between gap-4"
+        className="bg-white border border-[#171719]/10 rounded-[25px] p-6 shadow-xs flex flex-col md:flex-row items-start md:items-center justify-between gap-4"
       >
         <div>
           <div className="flex items-center space-x-2">
-            <motion.div
-              animate={{ rotate: [0, 8, -8, 0] }}
-              transition={{ repeat: Infinity, duration: 4, repeatDelay: 2 }}
-            >
-              <Trophy className="w-5 h-5 text-amber-500" />
-            </motion.div>
-            <h2 className="text-xl font-bold text-slate-900">Conquistas & Progressão</h2>
+            <div className="w-8 h-8 rounded-[9px] bg-[#171719] text-[#1ff98c] flex items-center justify-center font-bold">
+              <Trophy className="w-4 h-4 text-[#1ff98c]" />
+            </div>
+            <h2 className="text-xl font-extrabold text-[#171719]">Conquistas & Progressão</h2>
           </div>
-          <p className="text-xs sm:text-sm text-slate-500 mt-1">
+          <p className="text-xs sm:text-sm text-[#71717a] mt-1 font-mono">
             Recompensas personalizadas por marcos de aprendizagem, superação de dificuldades e consistência.
           </p>
         </div>
 
         <div className="flex items-center space-x-3">
           <motion.div
-            whileHover={{ scale: 1.05 }}
-            className="px-3.5 py-1.5 rounded-xl bg-amber-50 border border-amber-200 text-amber-800 text-xs font-bold flex items-center space-x-1.5 shadow-2xs"
+            whileHover={{ scale: 1.02 }}
+            className="px-3.5 py-1.5 rounded-[9px] bg-[#ededed] border border-[#171719]/15 text-[#171719] text-xs font-bold flex items-center space-x-1.5 shadow-xs font-mono"
           >
-            <motion.div
-              animate={{ scale: [1, 1.2, 1] }}
-              transition={{ repeat: Infinity, duration: 1.5 }}
-            >
-              <Flame className="w-4 h-4 fill-amber-500 text-amber-500" />
-            </motion.div>
+            <Flame className="w-4 h-4 fill-[#08ba61] text-[#08ba61]" />
             <span>{stats.sequencia_dias} Dias Consecutivos</span>
           </motion.div>
 
-          <div className="px-3.5 py-1.5 rounded-xl bg-indigo-50 border border-indigo-200 text-indigo-700 text-xs font-bold shadow-2xs">
+          <div className="px-3.5 py-1.5 rounded-[9px] bg-[#171719] text-[#1ff98c] text-xs font-bold shadow-xs font-mono">
             {unlockedCount} / {achievements.length} Conquistas
           </div>
         </div>
@@ -277,43 +269,43 @@ export const AchievementsView: React.FC<AchievementsViewProps> = ({
           initial={{ opacity: 0, x: -15 }}
           animate={{ opacity: 1, x: 0 }}
           transition={{ duration: 0.3 }}
-          className="bg-white border border-slate-200 rounded-2xl p-5 shadow-2xs space-y-4 relative overflow-hidden"
+          className="bg-white border border-[#171719]/10 rounded-[25px] p-6 shadow-xs space-y-4 relative overflow-hidden"
         >
           <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-2">
-              <div className="w-8 h-8 rounded-lg bg-indigo-50 border border-indigo-200 flex items-center justify-center text-indigo-600">
-                <Star className="w-4 h-4 text-indigo-600 fill-indigo-600" />
+            <div className="flex items-center space-x-2.5">
+              <div className="w-9 h-9 rounded-[9px] bg-[#171719] text-[#1ff98c] flex items-center justify-center">
+                <Star className="w-4 h-4 text-[#1ff98c] fill-[#1ff98c]" />
               </div>
               <div>
-                <h3 className="text-sm font-bold text-slate-900">Nível de Domínio: Nível {stats.nivel}</h3>
-                <span className="text-[11px] text-slate-400">Fluência e Consolidação</span>
+                <h3 className="text-sm font-extrabold text-[#171719]">Nível de Domínio: Nível {stats.nivel}</h3>
+                <span className="text-[11px] text-[#71717a] font-mono">Fluência e Consolidação</span>
               </div>
             </div>
-            <span className="text-xs font-mono font-bold text-indigo-600 bg-indigo-50 px-2 py-1 rounded-lg border border-indigo-100">
+            <span className="text-xs font-mono font-bold text-[#171719] bg-[#ededed] px-2.5 py-1 rounded-[9px] border border-[#171719]/15">
               {stats.xp} XP Total
             </span>
           </div>
 
           <div className="space-y-1.5">
-            <div className="flex justify-between text-xs text-slate-500 font-medium">
+            <div className="flex justify-between text-xs text-[#71717a] font-mono font-bold">
               <span>Progresso para o Nível {stats.nivel + 1}</span>
-              <span className="font-bold text-slate-700">{progressPercent}%</span>
+              <span className="text-[#171719]">{progressPercent}%</span>
             </div>
-            <div className="w-full bg-slate-100 rounded-full h-3 overflow-hidden p-0.5 border border-slate-200">
+            <div className="w-full bg-[#ededed] rounded-full h-3 overflow-hidden p-0.5 border border-[#171719]/10">
               <motion.div
                 initial={{ width: 0 }}
                 animate={{ width: `${progressPercent}%` }}
                 transition={{ duration: 0.8, ease: 'easeOut' }}
-                className="bg-gradient-to-r from-indigo-500 to-indigo-600 h-full rounded-full shadow-xs"
+                className="bg-[#08ba61] h-full rounded-full shadow-xs"
               />
             </div>
-            <div className="flex justify-between text-[11px] text-slate-400">
+            <div className="flex justify-between text-[11px] text-[#71717a] font-mono">
               <span>{xpCurrent} XP no nível atual</span>
               <span>Faltam {Math.max(0, xpNeeded - xpCurrent)} XP</span>
             </div>
           </div>
 
-          <p className="text-xs text-slate-600 bg-slate-50 p-2.5 rounded-xl border border-slate-100">
+          <p className="text-xs text-[#171719] bg-[#ededed] p-3 rounded-[14px] border border-[#171719]/10 font-mono">
             💡 <strong>Como ganhar XP:</strong> +25 XP por resposta reflexiva, +40 XP por checagem superada, +20 XP/minuto em voz Live.
           </p>
         </motion.div>
@@ -323,35 +315,35 @@ export const AchievementsView: React.FC<AchievementsViewProps> = ({
           initial={{ opacity: 0, x: 15 }}
           animate={{ opacity: 1, x: 0 }}
           transition={{ duration: 0.3 }}
-          className="bg-white border border-slate-200 rounded-2xl p-5 shadow-2xs space-y-4"
+          className="bg-white border border-[#171719]/10 rounded-[25px] p-6 shadow-xs space-y-4"
         >
           <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-2">
-              <div className="w-8 h-8 rounded-lg bg-emerald-50 border border-emerald-200 flex items-center justify-center text-emerald-600">
-                <Target className="w-4 h-4 text-emerald-600" />
+            <div className="flex items-center space-x-2.5">
+              <div className="w-9 h-9 rounded-[9px] bg-[#1ff98c] text-[#171719] flex items-center justify-center font-bold">
+                <Target className="w-4 h-4 text-[#171719]" />
               </div>
               <div>
-                <h3 className="text-sm font-bold text-slate-900">Meta Diária de Estudos</h3>
-                <span className="text-[11px] text-slate-400">Consistência sustentável</span>
+                <h3 className="text-sm font-extrabold text-[#171719]">Meta Diária de Estudos</h3>
+                <span className="text-[11px] text-[#71717a] font-mono">Consistência sustentável</span>
               </div>
             </div>
-            <span className="text-xs font-bold text-emerald-700 bg-emerald-50 px-2 py-1 rounded-lg border border-emerald-100">
+            <span className="text-xs font-bold text-[#08ba61] bg-[#1ff98c]/20 px-2.5 py-1 rounded-[9px] border border-[#08ba61]/30 font-mono">
               {stats.minutos_hoje} / {dailyGoal} min hoje
             </span>
           </div>
 
           <div className="space-y-2">
-            <span className="text-xs text-slate-600 font-medium">Selecione sua meta diária de foco:</span>
+            <span className="text-xs text-[#71717a] font-mono font-bold">Selecione sua meta diária de foco:</span>
             <div className="grid grid-cols-4 gap-2">
               {[15, 30, 45, 60].map((mins) => (
                 <motion.button
                   key={mins}
                   whileTap={{ scale: 0.95 }}
                   onClick={() => handleSaveDailyGoal(mins)}
-                  className={`py-2 rounded-xl text-xs font-bold transition border shadow-2xs cursor-pointer ${
+                  className={`py-2 rounded-[9px] text-xs font-bold transition border shadow-xs cursor-pointer font-mono ${
                     dailyGoal === mins
-                      ? 'bg-emerald-600 text-white border-emerald-600 shadow-md'
-                      : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
+                      ? 'bg-[#171719] text-[#1ff98c] border-[#171719]'
+                      : 'bg-white text-[#171719] border-[#171719]/15 hover:bg-[#ededed]'
                   }`}
                 >
                   {mins} min
@@ -366,14 +358,14 @@ export const AchievementsView: React.FC<AchievementsViewProps> = ({
                 initial={{ opacity: 0, y: -5 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0 }}
-                className="text-xs text-emerald-700 font-semibold block"
+                className="text-xs text-[#08ba61] font-bold block font-mono"
               >
                 ✓ Meta diária atualizada com sucesso!
               </motion.span>
             )}
           </AnimatePresence>
 
-          <div className="p-3 bg-slate-50 rounded-xl border border-slate-100 text-[11px] text-slate-600">
+          <div className="p-3 bg-[#ededed] rounded-[14px] border border-[#171719]/10 text-[11px] text-[#71717a] font-mono">
             🛡️ <strong>Hábito Sem Frustração:</strong> Pausas de até 48 horas mantêm sua sequência protegida, estimulando o ritmo de estudos sustentável.
           </div>
         </motion.div>
@@ -382,13 +374,13 @@ export const AchievementsView: React.FC<AchievementsViewProps> = ({
       {/* Galeria de Conquistas */}
       <div className="space-y-4">
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-          <h3 className="text-sm font-bold uppercase tracking-wider text-slate-500 flex items-center space-x-2">
-            <Award className="w-4 h-4 text-amber-500" />
+          <h3 className="text-sm font-extrabold uppercase tracking-wider text-[#71717a] flex items-center space-x-2 font-mono">
+            <Award className="w-4 h-4 text-[#08ba61]" />
             <span>Conquistas Personalizadas ({filteredAchievements.length})</span>
           </h3>
 
           {/* Filtros por Categoria com Transição Animada */}
-          <div className="flex flex-wrap gap-1.5 text-xs">
+          <div className="flex flex-wrap gap-1.5 text-xs font-mono">
             {[
               { id: 'todos', label: 'Todas' },
               { id: 'desbloqueadas', label: 'Desbloqueadas' },
@@ -401,10 +393,10 @@ export const AchievementsView: React.FC<AchievementsViewProps> = ({
               <button
                 key={tab.id}
                 onClick={() => setSelectedCategory(tab.id)}
-                className={`px-3 py-1 rounded-xl font-semibold transition-all cursor-pointer ${
+                className={`px-3 py-1.5 rounded-[9px] font-bold transition-all cursor-pointer ${
                   selectedCategory === tab.id
-                    ? 'bg-slate-900 text-white shadow-xs'
-                    : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'
+                    ? 'bg-[#171719] text-[#1ff98c] shadow-xs'
+                    : 'bg-white border border-[#171719]/15 text-[#71717a] hover:text-[#171719] hover:bg-[#ededed]'
                 }`}
               >
                 {tab.label}
@@ -438,44 +430,44 @@ export const AchievementsView: React.FC<AchievementsViewProps> = ({
                   whileHover={{ y: -3, transition: { duration: 0.15 } }}
                   key={ach.id}
                   onClick={() => setInspectAchievement(ach)}
-                  className={`rounded-2xl p-4.5 border transition-all flex flex-col justify-between cursor-pointer group relative shadow-2xs hover:shadow-md ${
+                  className={`rounded-[20px] p-5 border transition-all flex flex-col justify-between cursor-pointer group relative shadow-xs hover:shadow-md ${
                     ach.desbloqueada
-                      ? 'bg-gradient-to-b from-white to-amber-50/20 border-amber-300/80 hover:border-amber-400'
-                      : 'bg-slate-50/70 border-slate-200 hover:bg-white hover:border-slate-300 opacity-85'
+                      ? 'bg-white border-[#08ba61]/40 hover:border-[#08ba61]'
+                      : 'bg-[#ededed]/50 border-[#171719]/10 hover:bg-white hover:border-[#171719]/25'
                   }`}
                 >
-                  {/* Badge de Desbloqueado com brilho sutil */}
+                  {/* Badge de Desbloqueado */}
                   {ach.desbloqueada && (
-                    <div className="absolute top-0 right-0 w-16 h-16 overflow-hidden rounded-tr-2xl pointer-events-none">
-                      <div className="bg-amber-400 text-slate-950 text-[9px] font-extrabold uppercase py-0.5 text-center transform rotate-45 translate-x-4 translate-y-2 shadow-xs">
-                        ★
-                      </div>
+                    <div className="absolute top-3 right-3">
+                      <span className="px-2 py-0.5 rounded-full bg-[#1ff98c] text-[#171719] text-[9px] font-extrabold uppercase font-mono">
+                        ★ Ativa
+                      </span>
                     </div>
                   )}
 
                   <div>
-                    <div className="flex items-start space-x-3">
-                      {/* Ícone com Efeito Visual Diferenciado */}
+                    <div className="flex items-start space-x-3.5">
+                      {/* Ícone */}
                       <motion.div
-                        whileHover={{ scale: 1.1, rotate: ach.desbloqueada ? 5 : 0 }}
-                        className={`w-12 h-12 rounded-xl flex items-center justify-center shrink-0 border transition-all ${
+                        whileHover={{ scale: 1.05 }}
+                        className={`w-11 h-11 rounded-[12px] flex items-center justify-center shrink-0 border transition-all ${
                           ach.desbloqueada
-                            ? 'bg-gradient-to-br from-amber-50 to-amber-100/80 text-amber-700 border-amber-300 shadow-sm'
-                            : 'bg-slate-100 text-slate-400 border-slate-200'
+                            ? 'bg-[#171719] text-[#1ff98c] border-[#171719]'
+                            : 'bg-white text-[#71717a] border-[#171719]/15'
                         }`}
                       >
                         {ach.desbloqueada ? (
                           renderIcon(ach.icone, true)
                         ) : (
-                          <Lock className="w-5 h-5 text-slate-400" />
+                          <Lock className="w-4 h-4 text-[#71717a]" />
                         )}
                       </motion.div>
 
                       <div className="flex-1 min-w-0 space-y-1">
                         <div className="flex items-center justify-between pr-4">
                           <h4
-                            className={`font-bold text-xs sm:text-sm truncate group-hover:text-indigo-600 transition ${
-                              ach.desbloqueada ? 'text-slate-900' : 'text-slate-600'
+                            className={`font-extrabold text-xs sm:text-sm truncate transition ${
+                              ach.desbloqueada ? 'text-[#171719]' : 'text-[#71717a]'
                             }`}
                           >
                             {ach.titulo}
@@ -483,59 +475,59 @@ export const AchievementsView: React.FC<AchievementsViewProps> = ({
                         </div>
 
                         <span
-                          className={`inline-block text-[10px] font-bold px-1.5 py-0.5 rounded-md border ${
+                          className={`inline-block text-[10px] font-bold px-2 py-0.5 rounded-[6px] border font-mono ${
                             ach.desbloqueada
-                              ? 'text-amber-800 bg-amber-50 border-amber-200'
-                              : 'text-slate-500 bg-slate-100 border-slate-200'
+                              ? 'text-[#08ba61] bg-[#1ff98c]/20 border-[#08ba61]/30'
+                              : 'text-[#71717a] bg-white border-[#171719]/15'
                           }`}
                         >
                           +{ach.xp_recompensa} XP
                         </span>
 
-                        <p className="text-xs text-slate-500 leading-relaxed line-clamp-2">
+                        <p className="text-xs text-[#71717a] leading-relaxed line-clamp-2">
                           {ach.descricao}
                         </p>
                       </div>
                     </div>
                   </div>
 
-                  {/* Barra de Progresso da Conquista com Animação de Preenchimento */}
-                  <div className="mt-3.5 pt-2.5 border-t border-slate-100 space-y-1.5">
+                  {/* Barra de Progresso da Conquista */}
+                  <div className="mt-4 pt-3 border-t border-[#171719]/10 space-y-1.5">
                     {hasProgress && !ach.desbloqueada && (
                       <div className="space-y-1">
-                        <div className="flex justify-between text-[10px] text-slate-500 font-medium">
+                        <div className="flex justify-between text-[10px] text-[#71717a] font-mono font-bold">
                           <span>Progresso</span>
-                          <span className="font-bold text-slate-700">
+                          <span className="text-[#171719]">
                             {ach.progresso_atual} / {ach.progresso_meta} ({pct}%)
                           </span>
                         </div>
-                        <div className="w-full bg-slate-200 rounded-full h-1.5 overflow-hidden">
+                        <div className="w-full bg-[#ededed] rounded-full h-1.5 overflow-hidden border border-[#171719]/10">
                           <motion.div
                             initial={{ width: 0 }}
                             animate={{ width: `${pct}%` }}
                             transition={{ duration: 0.6, ease: 'easeOut' }}
-                            className="bg-indigo-600 h-full rounded-full"
+                            className="bg-[#171719] h-full rounded-full"
                           />
                         </div>
                       </div>
                     )}
 
                     {ach.desbloqueada ? (
-                      <div className="flex items-center justify-between text-[11px] font-semibold text-emerald-700">
+                      <div className="flex items-center justify-between text-[11px] font-bold text-[#08ba61] font-mono">
                         <span className="flex items-center space-x-1">
-                          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                          <CheckCircle2 className="w-3.5 h-3.5 text-[#08ba61]" />
                           <span>Desbloqueada</span>
                         </span>
                         {ach.data_desbloqueio && (
-                          <span className="text-[10px] text-slate-400 font-normal">
+                          <span className="text-[10px] text-[#71717a] font-normal">
                             {new Date(ach.data_desbloqueio).toLocaleDateString('pt-BR')}
                           </span>
                         )}
                       </div>
                     ) : (
-                      <div className="flex items-center justify-between text-[10px] text-slate-400 font-medium">
+                      <div className="flex items-center justify-between text-[10px] text-[#71717a] font-mono">
                         <span>Clique para detalhes</span>
-                        <ChevronRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition text-slate-400" />
+                        <ChevronRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition text-[#71717a]" />
                       </div>
                     )}
                   </div>
@@ -555,31 +547,31 @@ export const AchievementsView: React.FC<AchievementsViewProps> = ({
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.9, y: 20 }}
               transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-              className="bg-white border border-slate-200 rounded-2xl max-w-md w-full p-6 space-y-5 shadow-2xl text-slate-900 relative overflow-hidden"
+              className="bg-white border border-[#171719]/10 rounded-[25px] max-w-md w-full p-6 space-y-5 shadow-2xl text-[#171719] relative overflow-hidden"
             >
               {/* Header do Modal */}
-              <div className="flex items-start justify-between border-b border-slate-100 pb-3">
+              <div className="flex items-start justify-between border-b border-[#171719]/10 pb-3">
                 <div className="flex items-center space-x-3">
                   <div
-                    className={`w-12 h-12 rounded-2xl flex items-center justify-center border shadow-xs ${
+                    className={`w-12 h-12 rounded-[14px] flex items-center justify-center border shadow-xs ${
                       inspectAchievement.desbloqueada
-                        ? 'bg-amber-50 border-amber-300 text-amber-600'
-                        : 'bg-slate-100 border-slate-200 text-slate-400'
+                        ? 'bg-[#171719] border-[#171719] text-[#1ff98c]'
+                        : 'bg-[#ededed] border-[#171719]/15 text-[#71717a]'
                     }`}
                   >
                     {renderIcon(inspectAchievement.icone, inspectAchievement.desbloqueada)}
                   </div>
                   <div>
                     <span
-                      className={`text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-full ${
+                      className={`text-[10px] font-extrabold uppercase px-2.5 py-0.5 rounded-full font-mono ${
                         inspectAchievement.desbloqueada
-                          ? 'bg-emerald-100 text-emerald-800'
-                          : 'bg-slate-100 text-slate-600'
+                          ? 'bg-[#1ff98c]/20 text-[#08ba61] border border-[#08ba61]/30'
+                          : 'bg-[#ededed] text-[#71717a] border border-[#171719]/10'
                       }`}
                     >
                       {inspectAchievement.desbloqueada ? '✓ Conquistada' : '🔒 Em Andamento'}
                     </span>
-                    <h3 className="text-base font-bold text-slate-900 mt-0.5">
+                    <h3 className="text-base font-extrabold text-[#171719] mt-0.5">
                       {inspectAchievement.titulo}
                     </h3>
                   </div>
@@ -587,7 +579,7 @@ export const AchievementsView: React.FC<AchievementsViewProps> = ({
 
                 <button
                   onClick={() => setInspectAchievement(null)}
-                  className="p-1 text-slate-400 hover:text-slate-700 rounded-lg transition cursor-pointer"
+                  className="p-1 text-[#71717a] hover:text-[#171719] rounded-[9px] transition cursor-pointer"
                 >
                   <X className="w-5 h-5" />
                 </button>
@@ -595,16 +587,16 @@ export const AchievementsView: React.FC<AchievementsViewProps> = ({
 
               {/* Descrição & Recompensa */}
               <div className="space-y-3 text-xs sm:text-sm text-left">
-                <p className="text-slate-600 leading-relaxed bg-slate-50 p-3 rounded-xl border border-slate-100">
+                <p className="text-[#71717a] leading-relaxed bg-[#ededed] p-3.5 rounded-[16px] border border-[#171719]/10 font-mono">
                   {inspectAchievement.descricao}
                 </p>
 
-                <div className="flex items-center justify-between p-3 rounded-xl bg-amber-50/60 border border-amber-200 text-amber-950">
-                  <div className="flex items-center space-x-2">
-                    <Sparkles className="w-4 h-4 text-amber-600" />
+                <div className="flex items-center justify-between p-3.5 rounded-[16px] bg-[#1ff98c]/15 border border-[#08ba61]/30 text-[#171719]">
+                  <div className="flex items-center space-x-2 font-mono">
+                    <Sparkles className="w-4 h-4 text-[#08ba61]" />
                     <span className="font-bold">Recompensa ao Concluir:</span>
                   </div>
-                  <span className="font-extrabold text-sm text-amber-800">
+                  <span className="font-extrabold text-sm text-[#08ba61] font-mono">
                     +{inspectAchievement.xp_recompensa} XP
                   </span>
                 </div>
@@ -612,13 +604,13 @@ export const AchievementsView: React.FC<AchievementsViewProps> = ({
                 {/* Barra de Progresso Interna */}
                 {inspectAchievement.progresso_meta !== undefined && (
                   <div className="space-y-1.5 pt-1">
-                    <div className="flex justify-between text-xs text-slate-500 font-medium">
+                    <div className="flex justify-between text-xs text-[#71717a] font-mono font-bold">
                       <span>Progresso Atual</span>
-                      <span className="font-bold text-slate-800">
+                      <span className="text-[#171719]">
                         {inspectAchievement.progresso_atual} / {inspectAchievement.progresso_meta}
                       </span>
                     </div>
-                    <div className="w-full bg-slate-100 rounded-full h-2.5 overflow-hidden border border-slate-200">
+                    <div className="w-full bg-[#ededed] rounded-full h-2.5 overflow-hidden border border-[#171719]/10">
                       <motion.div
                         initial={{ width: 0 }}
                         animate={{
@@ -632,7 +624,7 @@ export const AchievementsView: React.FC<AchievementsViewProps> = ({
                           )}%`,
                         }}
                         transition={{ duration: 0.6 }}
-                        className="bg-indigo-600 h-full rounded-full"
+                        className="bg-[#08ba61] h-full rounded-full"
                       />
                     </div>
                   </div>
@@ -640,11 +632,11 @@ export const AchievementsView: React.FC<AchievementsViewProps> = ({
               </div>
 
               {/* Ações do Modal */}
-              <div className="pt-2 flex items-center justify-between gap-3 border-t border-slate-100">
+              <div className="pt-2 flex items-center justify-between gap-3 border-t border-[#171719]/10">
                 {!inspectAchievement.desbloqueada ? (
                   <button
                     onClick={() => handleSimulateUnlock(inspectAchievement)}
-                    className="w-full py-2.5 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-slate-950 font-bold rounded-xl text-xs transition shadow-md flex items-center justify-center space-x-1.5 cursor-pointer"
+                    className="w-full py-2.5 bg-[#171719] hover:bg-[#171719]/90 text-[#1ff98c] font-bold rounded-[9px] text-xs transition shadow-xs flex items-center justify-center space-x-1.5 cursor-pointer font-mono"
                   >
                     <PartyPopper className="w-4 h-4" />
                     <span>Testar Efeito de Desbloqueio (+XP)</span>
@@ -656,9 +648,9 @@ export const AchievementsView: React.FC<AchievementsViewProps> = ({
                       setCelebrationAchievement(inspectAchievement);
                       setInspectAchievement(null);
                     }}
-                    className="w-full py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold rounded-xl text-xs transition flex items-center justify-center space-x-1.5 cursor-pointer"
+                    className="w-full py-2.5 bg-[#ededed] hover:bg-[#ededed]/80 text-[#171719] font-bold rounded-[9px] text-xs transition flex items-center justify-center space-x-1.5 cursor-pointer border border-[#171719]/15 font-mono"
                   >
-                    <Sparkles className="w-4 h-4" />
+                    <Sparkles className="w-4 h-4 text-[#08ba61]" />
                     <span>Reexibir Celebração e Confetes</span>
                   </button>
                 )}
@@ -669,14 +661,14 @@ export const AchievementsView: React.FC<AchievementsViewProps> = ({
       </AnimatePresence>
 
       {/* Zona de Manutenção de Dados */}
-      <div className="bg-white border border-slate-200 rounded-2xl p-4 flex flex-col sm:flex-row items-center justify-between text-xs text-slate-500 gap-3 shadow-2xs">
+      <div className="bg-white border border-[#171719]/10 rounded-[20px] p-4 flex flex-col sm:flex-row items-center justify-between text-xs text-[#71717a] gap-3 shadow-xs font-mono">
         <span>
           Ambiente MVP com persistência local confiável, animações em tempo real e sincronização reativa.
         </span>
 
         <button
           onClick={onResetData}
-          className="px-3 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-xl transition flex items-center space-x-1 font-semibold cursor-pointer"
+          className="px-3 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-[9px] transition flex items-center space-x-1 font-bold cursor-pointer"
         >
           <RotateCcw className="w-3.5 h-3.5" />
           <span>Restaurar Dados Padrão</span>

@@ -14,6 +14,7 @@ import { MaterialsView } from './components/MaterialsView';
 import { WeeklyDashboard } from './components/WeeklyDashboard';
 import { AchievementsView } from './components/AchievementsView';
 import { LanguageThemeSelector } from './components/LanguageThemeSelector';
+import { ScreenCaptureModal } from './components/ScreenCaptureModal';
 import { Pricing } from './components/ui/single-pricing-card-1';
 import { GridBackground } from './components/ui/grid-background';
 import { CornerPlus } from './components/ui/corner-plus';
@@ -29,6 +30,7 @@ export default function App() {
   const [currentTopic, setCurrentTopic] = useState<string>('Inglês: Connected Speech & Pronúncia Natural');
   const [stats, setStats] = useState<UserStats>(StorageService.getStats());
   const [showTopicModal, setShowTopicModal] = useState(false);
+  const [showScreenshotModal, setShowScreenshotModal] = useState(false);
   const [customTopicInput, setCustomTopicInput] = useState('');
 
   // Identificação do Tema do Idioma Ativo
@@ -114,13 +116,15 @@ export default function App() {
         currentTopic={currentTopic}
         onTopicClick={() => setShowTopicModal(true)}
         onResetData={handleResetData}
+        onOpenScreenshotModal={() => setShowScreenshotModal(true)}
       />
 
       {/* Conteúdo Principal */}
-      <div className="flex-1 flex flex-col bg-background/50">
+      <div className="flex-1 flex flex-col bg-white">
         <main className="flex-1 p-2 sm:p-4 lg:p-6 max-w-7xl w-full mx-auto">
           <div
-            className={`rounded-2xl border border-border/80 bg-card shadow-xs min-h-[calc(100vh-7.5rem)] flex flex-col transition-all duration-300 ${activeLanguageTheme.card_accent}`}
+            id="main-app-content"
+            className="rounded-[25px] border border-[#171719]/10 bg-white shadow-sm min-h-[calc(100vh-7.5rem)] flex flex-col transition-all duration-300"
           >
             {activeTab === 'chat' && (
               <ChatTutor
@@ -194,23 +198,23 @@ export default function App() {
 
       {/* Modal para Alteração de Tópico de Estudos & Paleta Temática */}
       {showTopicModal && (
-        <div className="fixed inset-0 z-50 bg-background/80 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="relative bg-card border border-border rounded-2xl max-w-2xl w-full p-6 space-y-5 shadow-2xl text-foreground max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between border-b border-border pb-3">
+        <div className="fixed inset-0 z-50 bg-[#171719]/70 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="relative bg-white border border-[#171719]/15 rounded-[25px] max-w-2xl w-full p-6 sm:p-8 space-y-6 shadow-2xl text-[#171719] max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between border-b border-[#171719]/10 pb-4">
               <div className="space-y-1">
-                <div className="inline-flex items-center rounded border border-border bg-muted px-2 py-0.5 font-mono text-[10px] font-medium tracking-wider text-muted-foreground uppercase">
-                  IMMERSIVE LANGUAGE SETUP
+                <div className="inline-flex items-center rounded-full border border-[#171719]/15 bg-[#1ff98c] px-2.5 py-0.5 font-mono text-[10px] font-bold tracking-wider text-[#171719] uppercase">
+                  IMMERSIVE SETUP
                 </div>
-                <h3 className="text-base sm:text-lg font-bold tracking-tight text-foreground flex items-center gap-2">
+                <h3 className="text-lg sm:text-xl font-extrabold tracking-tight text-[#171719] flex items-center gap-2">
                   <span>Alterar Idioma & Foco Temático</span>
-                  <span className={`text-xs px-2 py-0.5 rounded border font-mono ${activeLanguageTheme.badge_class}`}>
+                  <span className="text-xs px-2.5 py-0.5 rounded-full border border-[#171719]/20 bg-[#ededed] font-bold">
                     {activeLanguageTheme.bandeira} {activeLanguageTheme.nome}
                   </span>
                 </h3>
               </div>
               <button
                 onClick={() => setShowTopicModal(false)}
-                className="text-muted-foreground hover:text-foreground text-sm font-semibold p-1.5 rounded hover:bg-muted transition cursor-pointer"
+                className="text-[#71717a] hover:text-[#171719] text-sm font-semibold p-2 rounded-[9px] hover:bg-[#ededed] transition cursor-pointer"
               >
                 ✕
               </button>
@@ -225,11 +229,11 @@ export default function App() {
             />
 
             {/* Trilhas Sugeridas de Tópicos */}
-            <div className="space-y-3 pt-3 border-t border-border">
-              <span className="text-muted-foreground font-mono text-xs uppercase tracking-wider block">
+            <div className="space-y-3 pt-3 border-t border-[#171719]/10">
+              <span className="text-[#171719] font-bold text-xs uppercase tracking-wider block">
                 Trilhas Recomendadas:
               </span>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                 {presetTopics.map((t, idx) => {
                   const isSelected = currentTopic === t;
                   return (
@@ -239,17 +243,17 @@ export default function App() {
                         handleSelectTopic(t);
                         setShowTopicModal(false);
                       }}
-                      className={`p-2.5 rounded-lg border text-left font-medium transition text-xs flex items-center justify-between cursor-pointer ${
+                      className={`p-3 rounded-[9px] border text-left font-semibold transition text-xs flex items-center justify-between cursor-pointer ${
                         isSelected
-                          ? 'bg-foreground text-background border-foreground font-semibold shadow-2xs'
-                          : 'bg-muted/40 border-border text-foreground hover:bg-muted hover:border-border/80'
+                          ? 'bg-[#171719] text-white border-[#171719] shadow-xs'
+                          : 'bg-[#ededed] border-transparent text-[#171719] hover:bg-[#e2e2e2]'
                       }`}
                     >
                       <span className="truncate">{t}</span>
                       {isSelected && (
-                        <Badge variant="secondary" className="bg-background text-foreground text-[9px] shrink-0 ml-1">
+                        <span className="px-2 py-0.5 rounded-full bg-[#1ff98c] text-[#171719] font-extrabold text-[9px] shrink-0 ml-1">
                           ATIVO
-                        </Badge>
+                        </span>
                       )}
                     </button>
                   );
@@ -257,8 +261,8 @@ export default function App() {
               </div>
 
               {/* Tópico Personalizado */}
-              <form onSubmit={handleSaveCustomTopic} className="pt-3 border-t border-border space-y-2">
-                <label className="text-muted-foreground font-mono text-xs block">
+              <form onSubmit={handleSaveCustomTopic} className="pt-4 border-t border-[#171719]/10 space-y-2">
+                <label className="text-[#171719] font-bold text-xs block">
                   Ou defina um tema de foco livre:
                 </label>
                 <div className="flex gap-2">
@@ -267,9 +271,9 @@ export default function App() {
                     value={customTopicInput}
                     onChange={(e) => setCustomTopicInput(e.target.value)}
                     placeholder="Ex: Espanhol para Negócios, Francês A2, Entrevistas em Inglês..."
-                    className="flex-1 bg-background border border-border rounded-lg px-3 py-2 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring font-mono"
+                    className="flex-1 bg-white border border-[#171719]/20 rounded-[9px] px-3.5 py-2 text-xs text-[#171719] placeholder:text-[#71717a] focus:outline-none focus:ring-2 focus:ring-[#1ff98c]"
                   />
-                  <Button type="submit" size="sm" className={activeLanguageTheme.button_class}>
+                  <Button type="submit" size="sm" variant="default">
                     Definir Foco
                   </Button>
                 </div>
@@ -278,6 +282,13 @@ export default function App() {
           </div>
         </div>
       )}
+      {/* Modal de Captura de Telas em PNG */}
+      <ScreenCaptureModal
+        isOpen={showScreenshotModal}
+        onClose={() => setShowScreenshotModal(false)}
+        activeTab={activeTab}
+        setActiveTab={setActiveTab}
+      />
     </div>
   );
 }

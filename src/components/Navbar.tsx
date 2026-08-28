@@ -13,6 +13,7 @@ import {
   Swords,
   Zap,
   Layers,
+  Camera,
 } from 'lucide-react';
 import { UserStats } from '../types';
 import { Badge } from './ui/badge';
@@ -26,6 +27,7 @@ interface NavbarProps {
   currentTopic: string;
   onTopicClick: () => void;
   onResetData: () => void;
+  onOpenScreenshotModal?: () => void;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
@@ -35,6 +37,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   currentTopic,
   onTopicClick,
   onResetData,
+  onOpenScreenshotModal,
 }) => {
   const activeTheme = getLanguageTheme(stats.idioma_ativo || currentTopic);
 
@@ -58,43 +61,41 @@ export const Navbar: React.FC<NavbarProps> = ({
   const progressPercent = Math.min(100, Math.round((xpCurrent / xpNeeded) * 100));
 
   return (
-    <header className="sticky top-0 z-30 bg-card/90 backdrop-blur-md border-b border-border/80 text-foreground transition-colors duration-300">
+    <header className="sticky top-0 z-30 bg-white/95 backdrop-blur-md border-b border-[#171719]/10 text-[#171719] transition-colors duration-300">
       <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16 gap-3">
           {/* Logo e Tópico Ativo com Indicador de Tema */}
           <div className="flex items-center space-x-3">
             <div
-              className={`w-9 h-9 text-white rounded-xl flex items-center justify-center font-bold text-sm tracking-tight shadow-sm transition-all duration-300 ${
-                activeTheme.button_class.split(' ')[0]
-              }`}
+              className="w-9 h-9 bg-[#08ba61] text-white rounded-[9px] flex items-center justify-center font-extrabold text-sm tracking-tighter shadow-sm border border-[#171719]/15"
             >
               TL
             </div>
             <div>
               <div className="flex items-center space-x-2">
-                <h1 className="text-sm sm:text-base font-bold tracking-tight text-foreground">
+                <h1 className="text-sm sm:text-base font-bold tracking-tight text-[#171719]">
                   Tutor de Línguas
                 </h1>
                 <button
                   onClick={onTopicClick}
-                  className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-[11px] font-semibold transition cursor-pointer hover:opacity-90 ${activeTheme.badge_class}`}
+                  className="inline-flex items-center gap-1.5 rounded-full border border-[#171719]/20 bg-[#1ff98c] text-[#171719] px-2.5 py-0.5 text-[11px] font-bold tracking-tight transition cursor-pointer hover:bg-[#1ae07d] shadow-xs"
                   title="Clique para trocar o idioma ou tema de estudos"
                 >
                   <span>{activeTheme.bandeira.split(' ')[0]}</span>
                   <span>{stats.idioma_ativo || activeTheme.nome}</span>
-                  <span className="opacity-40">•</span>
-                  <span className="font-mono">{stats.nivel_cefr || 'B1'}</span>
+                  <span className="opacity-30">•</span>
+                  <span className="font-mono text-[10px]">{stats.nivel_cefr || 'B1'}</span>
                 </button>
               </div>
               <button
                 onClick={onTopicClick}
-                className="text-xs text-muted-foreground hover:text-foreground flex items-center space-x-1.5 transition text-left cursor-pointer mt-0.5"
+                className="text-xs text-[#71717a] hover:text-[#171719] flex items-center space-x-1.5 transition text-left cursor-pointer mt-0.5"
                 title="Clique para alterar o tópico de estudos ou idioma"
               >
-                <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground/80">
+                <span className="text-[10px] font-extrabold uppercase tracking-wider text-[#171719]/60">
                   FOCO:
                 </span>
-                <span className="font-medium text-foreground/90 hover:text-foreground truncate max-w-[180px] sm:max-w-[320px]">
+                <span className="font-semibold text-[#171719] truncate max-w-[180px] sm:max-w-[320px]">
                   {currentTopic}
                 </span>
               </button>
@@ -106,62 +107,72 @@ export const Navbar: React.FC<NavbarProps> = ({
             {/* Botão Rápido para o Duelo de Vocabulário */}
             <button
               onClick={() => setActiveTab('duel')}
-              className={`px-3 py-1.5 rounded-xl border text-xs font-semibold transition-all flex items-center space-x-1.5 cursor-pointer shadow-xs ${
+              className={`px-3 py-1.5 rounded-[9px] border text-xs font-bold transition-all flex items-center space-x-1.5 cursor-pointer shadow-xs ${
                 activeTab === 'duel'
-                  ? 'bg-foreground text-background border-foreground shadow-sm'
-                  : 'bg-secondary/60 hover:bg-secondary border-border/80 text-foreground'
+                  ? 'bg-[#171719] text-white border-[#171719]'
+                  : 'bg-[#ededed] hover:bg-[#e2e2e2] border-[#171719]/10 text-[#171719]'
               }`}
               title="Jogar Duelo de Vocabulário rápido contra o relógio"
             >
-              <Zap className="w-3.5 h-3.5 text-amber-500 fill-amber-500" />
+              <Zap className="w-3.5 h-3.5 text-[#08ba61] fill-[#08ba61]" />
               <span>Duelo Rápido</span>
             </button>
 
             {/* Nível e Barra de XP */}
-            <div className="flex flex-col items-end px-2 py-1 rounded-xl bg-secondary/50 border border-border/60">
+            <div className="flex flex-col items-end px-2.5 py-1 rounded-[9px] bg-[#ededed] border border-[#171719]/10">
               <div className="flex items-center gap-2">
-                <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
+                <span className="text-[10px] font-extrabold text-[#171719] uppercase tracking-wider">
                   NÍVEL {stats.nivel}
                 </span>
-                <div className="w-16 h-1.5 bg-muted rounded-full overflow-hidden border border-border/40">
+                <div className="w-16 h-1.5 bg-white rounded-full overflow-hidden border border-[#171719]/15">
                   <div
-                    className={`h-full transition-all duration-500 rounded-full ${
-                      activeTheme.button_class.split(' ')[0]
-                    }`}
+                    className="h-full transition-all duration-500 rounded-full bg-[#08ba61]"
                     style={{ width: `${progressPercent}%` }}
                   />
                 </div>
               </div>
-              <span className="text-[9px] text-muted-foreground font-mono">
+              <span className="text-[9px] text-[#71717a] font-mono font-medium">
                 {stats.xp} XP ({progressPercent}%)
               </span>
             </div>
 
             {/* Sequência de Dias */}
             <div
-              className="flex items-center space-x-1.5 px-2.5 py-1.5 rounded-xl border border-border/60 bg-secondary/50 text-foreground"
+              className="flex items-center space-x-1.5 px-2.5 py-1.5 rounded-[9px] border border-[#171719]/10 bg-[#ededed] text-[#171719]"
               title={`${stats.sequencia_dias} dias de estudo consecutivos`}
             >
-              <Flame className="w-4 h-4 text-orange-500 fill-orange-500" />
-              <span className="text-xs font-bold font-mono">
+              <Flame className="w-4 h-4 text-[#08ba61] fill-[#08ba61]" />
+              <span className="text-xs font-extrabold font-mono">
                 {stats.sequencia_dias}D
               </span>
             </div>
 
             {/* Meta Diária */}
             <div
-              className="text-xs text-muted-foreground px-2.5 py-1.5 rounded-xl border border-border/60 bg-secondary/50 flex items-center space-x-1.5"
+              className="text-xs text-[#71717a] px-2.5 py-1.5 rounded-[9px] border border-[#171719]/10 bg-[#ededed] flex items-center space-x-1.5"
               title={`Meta diária: ${stats.minutos_hoje}/${stats.meta_diaria_minutos} min`}
             >
-              <Target className="w-3.5 h-3.5 text-muted-foreground" />
-              <span className="text-foreground font-bold font-mono">{stats.minutos_hoje}m</span>
-              <span className="text-muted-foreground/70 font-mono">/{stats.meta_diaria_minutos}m</span>
+              <Target className="w-3.5 h-3.5 text-[#171719]" />
+              <span className="text-[#171719] font-bold font-mono">{stats.minutos_hoje}m</span>
+              <span className="text-[#71717a] font-mono">/{stats.meta_diaria_minutos}m</span>
             </div>
+
+            {/* Botão de Captura de Telas em PNG */}
+            {onOpenScreenshotModal && (
+              <button
+                onClick={onOpenScreenshotModal}
+                className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-bold text-[#171719] bg-[#1ff98c] hover:bg-[#1ae07d] rounded-[9px] border border-[#171719]/20 transition cursor-pointer shadow-xs"
+                title="Tirar print de todas as telas em PNG HD"
+              >
+                <Camera className="w-3.5 h-3.5 text-[#171719]" />
+                <span className="hidden sm:inline">Prints PNG</span>
+              </button>
+            )}
 
             {/* Botão de Reset */}
             <button
               onClick={onResetData}
-              className="p-2 text-muted-foreground hover:text-foreground hover:bg-secondary rounded-xl border border-transparent hover:border-border/60 transition cursor-pointer"
+              className="p-2 text-[#71717a] hover:text-[#171719] hover:bg-[#ededed] rounded-[9px] border border-transparent hover:border-[#171719]/10 transition cursor-pointer"
               title="Restaurar dados padrão do MVP"
             >
               <RotateCcw className="w-3.5 h-3.5" />
@@ -170,7 +181,7 @@ export const Navbar: React.FC<NavbarProps> = ({
         </div>
 
         {/* Abas de Navegação */}
-        <nav className="flex space-x-1 overflow-x-auto pb-2 scrollbar-none border-t border-border/60 pt-2">
+        <nav className="flex space-x-1.5 overflow-x-auto pb-2 scrollbar-none border-t border-[#171719]/10 pt-2">
           {tabs.map((tab) => {
             const Icon = tab.icon;
             const isActive = activeTab === tab.id;
@@ -179,16 +190,16 @@ export const Navbar: React.FC<NavbarProps> = ({
                 key={tab.id}
                 id={`tab-btn-${tab.id}`}
                 onClick={() => setActiveTab(tab.id)}
-                className={`flex items-center space-x-2 px-3 py-1.5 rounded-xl text-xs md:text-sm font-medium whitespace-nowrap transition cursor-pointer ${
+                className={`flex items-center space-x-2 px-3 py-1.5 rounded-[9px] text-xs sm:text-sm font-semibold tracking-tight whitespace-nowrap transition-all duration-300 cursor-pointer ${
                   isActive
-                    ? 'bg-foreground text-background font-semibold shadow-xs'
-                    : 'text-muted-foreground hover:text-foreground hover:bg-secondary/80 border border-transparent'
+                    ? 'bg-[#171719] text-white shadow-xs'
+                    : 'text-[#71717a] hover:text-[#171719] hover:bg-[#ededed]'
                 }`}
               >
-                <Icon className={`w-3.5 h-3.5 ${tab.isGame ? 'text-amber-500' : ''}`} />
+                <Icon className={`w-3.5 h-3.5 ${isActive ? 'text-[#1ff98c]' : ''}`} />
                 <span>{tab.label}</span>
                 {tab.badge && (
-                  <span className="px-1.5 py-0.2 rounded-full text-[9px] font-mono bg-amber-500/20 text-amber-700 dark:text-amber-300 font-bold ml-0.5">
+                  <span className="px-1.5 py-0.2 rounded-full text-[9px] font-mono bg-[#1ff98c] text-[#171719] font-extrabold ml-0.5">
                     {tab.badge}
                   </span>
                 )}

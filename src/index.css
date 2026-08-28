@@ -2,43 +2,52 @@
 
 @layer base {
   :root {
-    --background: 220 20% 98%;
-    --foreground: 222.2 47% 11.2%;
-    --card: 0 0% 100%;
-    --card-foreground: 222.2 47% 11.2%;
+    /* BETC Fullsix Design System Tokens */
+    --background: 0 0% 100%; /* #ffffff */
+    --foreground: 240 4% 10%; /* #171719 */
+    --card: 0 0% 100%; /* #ffffff */
+    --card-foreground: 240 4% 10%; /* #171719 */
     --popover: 0 0% 100%;
-    --popover-foreground: 222.2 47% 11.2%;
-    --primary: 221.2 83.2% 53.3%;
-    --primary-foreground: 210 40% 98%;
-    --secondary: 214.3 31.8% 94%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
-    --muted: 215 25% 94.5%;
-    --muted-foreground: 215.4 16.3% 44%;
-    --accent: 214 32% 95%;
-    --accent-foreground: 222.2 47.4% 11.2%;
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 215 25% 90%;
-    --input: 215 25% 90%;
-    --ring: 221.2 83.2% 53.3%;
-    --radius: 0.75rem;
+    --popover-foreground: 240 4% 10%;
+    --primary: 150 92% 38%; /* #08ba61 */
+    --primary-foreground: 0 0% 100%; /* #ffffff */
+    --secondary: 0 0% 93%; /* #ededed */
+    --secondary-foreground: 240 4% 10%; /* #171719 */
+    --muted: 0 0% 93%; /* #ededed */
+    --muted-foreground: 240 4% 45%; /* #71717a */
+    --accent: 150 95% 55%; /* #1ff98c */
+    --accent-foreground: 240 4% 10%; /* #171719 */
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 240 4% 10%; /* #171719 at variable opacities */
+    --input: 240 4% 10%;
+    --ring: 150 95% 55%; /* #1ff98c */
+    --radius: 25px; /* 25px md radius */
+    --radius-sm: 9px; /* 9px sm radius */
+    --radius-md: 25px;
   }
 
   * {
-    border-color: hsl(var(--border));
+    border-color: rgba(23, 23, 25, 0.12);
   }
 
   body {
-    background-color: hsl(var(--background));
-    color: hsl(var(--foreground));
-    font-family: 'Plus Jakarta Sans', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background-color: #ffffff;
+    color: #171719;
+    font-family: 'Space Grotesk', 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     text-rendering: optimizeLegibility;
+    letter-spacing: -0.01em;
   }
 
-  code, kbd, samp, pre {
-    font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  h1, h2, h3, .font-display {
+    font-family: 'Syne', 'Space Grotesk', 'Plus Jakarta Sans', sans-serif;
+    letter-spacing: -0.03em;
+  }
+
+  code, kbd, samp, pre, .font-mono {
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
   }
 
   /* Custom Clean Scrollbar */
@@ -50,71 +59,60 @@
     background: transparent;
   }
   ::-webkit-scrollbar-thumb {
-    background: hsl(var(--muted-foreground) / 0.25);
+    background: #171719;
     border-radius: 9999px;
   }
   ::-webkit-scrollbar-thumb:hover {
-    background: hsl(var(--muted-foreground) / 0.4);
+    background: #08ba61;
   }
 
-  /* Paleta Dinâmica: Inglês (Azul Cobalto / Índigo / Ocean Blue) */
+  /* Paleta Dinâmica com DNA BETC Fullsix */
   [data-lang-theme="ingles"] {
-    --primary: 221.2 83.2% 53.3%;
-    --primary-foreground: 210 40% 98%;
-    --ring: 221.2 83.2% 53.3%;
-    --border: 215 28% 89%;
-    --muted: 214 32% 95.5%;
-    --accent: 214 32% 94%;
+    --primary: 150 92% 38%; /* #08ba61 */
+    --primary-foreground: 0 0% 100%;
+    --ring: 150 95% 55%; /* #1ff98c */
+    --accent: 150 95% 55%;
+    --border: 240 4% 10%;
   }
 
-  /* Paleta Dinâmica: Espanhol (Vermelho Coral / Crimson / Terracota) */
   [data-lang-theme="espanhol"] {
-    --primary: 348 83% 47%;
-    --primary-foreground: 355 100% 98%;
-    --ring: 348 83% 47%;
-    --border: 350 25% 89%;
-    --muted: 350 30% 96%;
-    --accent: 350 30% 94%;
+    --primary: 150 92% 38%;
+    --primary-foreground: 0 0% 100%;
+    --ring: 150 95% 55%;
+    --accent: 150 95% 55%;
+    --border: 240 4% 10%;
   }
 
-  /* Paleta Dinâmica: Francês (Vinho Bordeaux & Safira Real) */
   [data-lang-theme="frances"] {
-    --primary: 338 72% 44%;
-    --primary-foreground: 340 100% 98%;
-    --ring: 338 72% 44%;
-    --border: 335 22% 89%;
-    --muted: 335 25% 96%;
-    --accent: 335 25% 94%;
+    --primary: 150 92% 38%;
+    --primary-foreground: 0 0% 100%;
+    --ring: 150 95% 55%;
+    --accent: 150 95% 55%;
+    --border: 240 4% 10%;
   }
 
-  /* Paleta Dinâmica: Alemão (Ouro Âmbar & Ardósia Alpina) */
   [data-lang-theme="alemao"] {
-    --primary: 38 92% 46%;
-    --primary-foreground: 40 100% 98%;
-    --ring: 38 92% 46%;
-    --border: 40 25% 87%;
-    --muted: 42 35% 95%;
-    --accent: 42 30% 93%;
+    --primary: 150 92% 38%;
+    --primary-foreground: 0 0% 100%;
+    --ring: 150 95% 55%;
+    --accent: 150 95% 55%;
+    --border: 240 4% 10%;
   }
 
-  /* Paleta Dinâmica: Italiano (Verde Esmeralda Toscano) */
   [data-lang-theme="italiano"] {
-    --primary: 158 64% 38%;
-    --primary-foreground: 150 100% 98%;
-    --ring: 158 64% 38%;
-    --border: 155 22% 88%;
-    --muted: 155 25% 95%;
-    --accent: 155 25% 93%;
+    --primary: 150 92% 38%;
+    --primary-foreground: 0 0% 100%;
+    --ring: 150 95% 55%;
+    --accent: 150 95% 55%;
+    --border: 240 4% 10%;
   }
 
-  /* Paleta Dinâmica: Japonês (Carmim Sakura & Sumi Ink) */
   [data-lang-theme="japones"] {
-    --primary: 350 85% 55%;
-    --primary-foreground: 355 100% 98%;
-    --ring: 350 85% 55%;
-    --border: 352 24% 89%;
-    --muted: 352 30% 96%;
-    --accent: 352 25% 94%;
+    --primary: 150 92% 38%;
+    --primary-foreground: 0 0% 100%;
+    --ring: 150 95% 55%;
+    --accent: 150 95% 55%;
+    --border: 240 4% 10%;
   }
 }
 
