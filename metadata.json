@@ -1,0 +1,6 @@
+{
+  "name": "Tutor de Línguas com Memória em Grafo e Materiais",
+  "description": "Tutor conversacional inteligente de idiomas com memória em grafo, estúdio de materiais a partir de textos e vídeos do YouTube, correções de pronúncia e gramática, e prática por voz.",
+  "requestFramePermissions": ["microphone"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

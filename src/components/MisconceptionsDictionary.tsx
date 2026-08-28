@@ -1,0 +1,966 @@
+import React, { useState, useEffect, useMemo } from 'react';
+import {
+  BookOpen,
+  AlertTriangle,
+  CheckCircle2,
+  HelpCircle,
+  Volume2,
+  Sparkles,
+  Search,
+  ArrowRight,
+  Brain,
+  Zap,
+  Check,
+  RotateCcw,
+  MessageSquare,
+  ChevronRight,
+  TrendingDown,
+  Clock,
+  X,
+  Plus,
+} from 'lucide-react';
+import { GraphNode, PedagogicalCorrection } from '../types';
+import { StorageService } from '../services/storage';
+import { GraphEngine } from '../services/graphEngine';
+import { SpeechService } from '../services/speechSynthesisService';
+import { CornerPlus } from './ui/corner-plus';
+
+interface MisconceptionItem {
+  id: string;
+  nodeId?: string;
+  correctionId?: string;
+  titulo: string;
+  categoria: 'falso_amigo' | 'vocabulario' | 'gramatica' | 'pronuncia' | 'equivoco';
+  categoriaRotulo: string;
+  idioma: string;
+  usoIncorreto: string;
+  usoCorreto: string;
+  explicacaoPedagogica: string;
+  porQueConfunde: string;
+  exemplos: {
+    frase: string;
+    traducao: string;
+    ipa?: string;
+  }[];
+  dicaMnemonica?: string;
+  frequenciaErro: number;
+  dominioEstimado: number;
+  proximaRevisao: string;
+  status: 'precisa_revisar' | 'pendente' | 'compreendido';
+  gravidade: 'leve' | 'moderada' | 'critica';
+  quiz?: {
+    pergunta: string;
+    opcoes: string[];
+    respostaCorreta: string;
+    explicacao: string;
+  };
+}
+
+interface MisconceptionsDictionaryProps {
+  onPracticeTopic: (topic: string) => void;
+}
+
+export const MisconceptionsDictionary: React.FC<MisconceptionsDictionaryProps> = ({
+  onPracticeTopic,
+}) => {
+  const [items, setItems] = useState<MisconceptionItem[]>([]);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState<string>('todos');
+  const [selectedStatus, setSelectedStatus] = useState<string>('todos');
+  const [sortBy, setSortBy] = useState<'frequencia' | 'dominio' | 'alfabetica'>('frequencia');
+  const [selectedItem, setSelectedItem] = useState<MisconceptionItem | null>(null);
+
+  // Estados do Mini-Quiz Interativo
+  const [quizSelectedOption, setQuizSelectedOption] = useState<string | null>(null);
+  const [quizSubmitted, setQuizSubmitted] = useState<boolean>(false);
+  const [isSpeaking, setIsSpeaking] = useState<boolean>(false);
+  const [audioFeedback, setAudioFeedback] = useState<string | null>(null);
+
+  // Carrega e consolida nós do Grafo + Correções Pedagógicas
+  const loadDictionaryData = () => {
+    const nodes = StorageService.getNodes();
+    const corrections = StorageService.getCorrections();
+
+    const dictionaryList: MisconceptionItem[] = [];
+
+    // 1. Processa nós do Grafo de Memória
+    nodes.forEach((node) => {
+      // Identifica nós que são equívocos, falsos amigos, dificuldades ou que possuem erros registrados
+      const isMisconceptionNode =
+        node.tipo === 'falso_amigo' ||
+        node.tipo === 'equivoco' ||
+        node.tipo === 'dificuldade' ||
+        node.frequencia_erro > 0 ||
+        node.titulo.includes('vs') ||
+        node.titulo.toLowerCase().includes('collocation');
+
+      if (isMisconceptionNode) {
+        let categoria: MisconceptionItem['categoria'] = 'equivoco';
+        let categoriaRotulo = 'Equívoco Conceitual';
+
+        if (node.tipo === 'falso_amigo' || node.titulo.toLowerCase().includes('actually') || node.titulo.toLowerCase().includes('pretend') || node.titulo.toLowerCase().includes('push')) {
+          categoria = 'falso_amigo';
+          categoriaRotulo = 'Falso Cognato / Falso Amigo';
+        } else if (node.tipo === 'vocabulario' || node.titulo.toLowerCase().includes('borrow') || node.titulo.toLowerCase().includes('homework') || node.titulo.toLowerCase().includes('ask a question')) {
+          categoria = 'vocabulario';
+          categoriaRotulo = 'Collocation & Léxico';
+        } else if (node.tipo === 'gramatica' || node.titulo.toLowerCase().includes('present perfect') || node.titulo.toLowerCase().includes('in time')) {
+          categoria = 'gramatica';
+          categoriaRotulo = 'Gramática & Estrutura';
+        } else if (node.tipo === 'dificuldade' || node.titulo.toLowerCase().includes('pronúncia') || node.titulo.toLowerCase().includes('-ed')) {
+          categoria = 'pronuncia';
+          categoriaRotulo = 'Pronúncia & Connected Speech';
+        }
+
+        // Tenta associar com correções gravadas
+        const matchedCorr = corrections.find(
+          (c) =>
+            c.conceito.toLowerCase().includes(node.titulo.toLowerCase()) ||
+            node.titulo.toLowerCase().includes(c.conceito.toLowerCase()) ||
+            node.evidencias?.some((e) => e.includes(c.erro))
+        );
+
+        // Define exemplos contextuais ricos
+        let exemplos = [
+          {
+            frase: node.exemplo_uso || `Correct usage example for ${node.titulo}`,
+            traducao: node.traducao || 'Uso correto contextualizado',
+            ipa: node.pronuncia_ipa,
+          },
+        ];
+
+        let usoIncorreto = matchedCorr?.erro || 'Uso por tradução literal ou falso amigo.';
+        let usoCorreto = matchedCorr?.resposta_corrigida || node.exemplo_uso || node.traducao || 'Padrão nativo do idioma.';
+        let porQueConfunde = 'Interferência direta da estrutura do Português Brasileiro (L1) para o idioma alvo (L2).';
+        let dicaMnemonica = matchedCorr?.dica_pronuncia_ou_gramatica || 'Lembre-se do contexto de uso e da intenção da frase.';
+
+        // Customizações refinadas por nó para excelência pedagógica
+        if (node.titulo.includes('Actually vs Atualmente')) {
+          usoIncorreto = 'Dizer "Actually, I work as a developer" querendo dizer "Atualmente trabalho como desenvolvedor".';
+          usoCorreto = 'Dizer "Currently, I work as a developer" (ou "Right now"). Use "Actually" apenas para "Na verdade".';
+          porQueConfunde = 'A semelhança ortográfica com a palavra "atualmente" cria uma falsa correlação semântica imediata.';
+          dicaMnemonica = 'Actually = Na verdade (Actualize a verdade). Currently = Corrente/Atual.';
+          exemplos = [
+            {
+              frase: 'Actually, that is not what I meant.',
+              traducao: 'Na verdade, não foi isso que eu quis dizer.',
+              ipa: '/ˈæk.tʃu.ə.li/',
+            },
+            {
+              frase: 'Currently, I am living in São Paulo.',
+              traducao: 'Atualmente, estou morando em São Paulo.',
+              ipa: '/ˈkʌr.ənt.li/',
+            },
+          ];
+        } else if (node.titulo.includes('Pretend vs Intend')) {
+          usoIncorreto = 'Dizer "I pretend to travel to Canada next summer" para dizer "Pretendo viajar ao Canadá".';
+          usoCorreto = 'Dizer "I intend to travel to Canada" (ou "I plan to travel"). "Pretend" significa fingir!';
+          porQueConfunde = 'O verbo "pretend" soa exatamente como o verbo "pretender" do português, mas tem sentido oposto (fingimento).';
+          dicaMnemonica = 'Intend = Intenção (Intend tem som de Intenção). Pretend = "Pretexto / Fingimento".';
+          exemplos = [
+            {
+              frase: 'I intend to start my Master degree next year.',
+              traducao: 'Eu pretendo começar meu mestrado no ano que vem.',
+              ipa: '/ɪnˈtɛnd/',
+            },
+            {
+              frase: 'The children like to pretend they are superheroes.',
+              traducao: 'As crianças gostam de fingir que são super-heróis.',
+              ipa: '/prɪˈtɛnd/',
+            },
+          ];
+        } else if (node.titulo.includes('Push vs Puxe')) {
+          usoIncorreto = 'Puxar uma porta que tem a placa "PUSH" escrita.';
+          usoCorreto = '"PUSH" é EMPURRAR. Para puxar, a palavra em inglês é "PULL".';
+          porQueConfunde = 'A sonoridade de "Push" faz o cérebro brasileiro associar automaticamente à palavra "Puxe".';
+          dicaMnemonica = 'Push tem som de "Puxe", então faça o CONTRÁRIO (Empurre). Pull = Puxe!';
+          exemplos = [
+            {
+              frase: 'Push the green button to turn on the machine.',
+              traducao: 'Empurre/aperte o botão verde para ligar a máquina.',
+              ipa: '/pʊʃ/',
+            },
+            {
+              frase: 'Pull the door towards you to open it.',
+              traducao: 'Puxe a porta em sua direção para abri-la.',
+              ipa: '/pʊl/',
+            },
+          ];
+        } else if (node.titulo.includes('Borrow vs Lend')) {
+          usoIncorreto = 'Dizer "Can you borrow me your pen?" (Você pode me pedir emprestado sua caneta?).';
+          usoCorreto = 'Dizer "Can you lend me your pen?" OU "Can I borrow your pen?".';
+          porQueConfunde = 'Em português usamos o mesmo verbo "emprestar" para ambas as direções da ação.';
+          dicaMnemonica = 'Borrow FROM (Pegar de alguém). Lend TO (Dar a alguém). L = Levar para outro.';
+          exemplos = [
+            {
+              frase: 'May I borrow your umbrella for today?',
+              traducao: 'Posso pegar seu guarda-chuva emprestado por hoje?',
+              ipa: '/ˈbɒr.əʊ/',
+            },
+            {
+              frase: 'She lent her car to her brother.',
+              traducao: 'Ela emprestou o carro para o irmão dela.',
+              ipa: '/lɛnt/',
+            },
+          ];
+        } else if (node.titulo.includes('In time vs On time')) {
+          usoIncorreto = 'Usar "in time" para voos ou reuniões que saíram no horário exato do relógio.';
+          usoCorreto = '"On time" é pontualidade britânica (no minuto marcado). "In time" é chegar antes do portão fechar.';
+          porQueConfunde = 'Ambas as expressões são frequentemente traduzidas como "a tempo" ou "na hora" em português.';
+          dicaMnemonica = 'On time = No ponteiro do relógio. In time = Dentro do prazo com folga.';
+          exemplos = [
+            {
+              frase: 'The 8:00 train departed exactly on time.',
+              traducao: 'O trem das 8h partiu exatamente no horário certo.',
+              ipa: '/ɒn taɪm/',
+            },
+            {
+              frase: 'We arrived in time to catch the sunset.',
+              traducao: 'Chegamos a tempo de ver o pôr do sol.',
+              ipa: '/ɪn taɪm/',
+            },
+          ];
+        } else if (node.titulo.includes('Do Homework vs Make Homework')) {
+          usoIncorreto = 'Dizer "I have to make my homework before class."';
+          usoCorreto = 'Dizer "I have to do my homework." (tarefas e deveres levam "DO").';
+          porQueConfunde = 'Em português usamos "fazer" tanto para tarefas (fazer lição) quanto para criações (fazer bolo).';
+          dicaMnemonica = 'Do para deveres, tarefas e rotinas. Make para criar algo que não existia.';
+          exemplos = [
+            {
+              frase: 'Always do your exercises carefully.',
+              traducao: 'Sempre faça seus exercícios com atenção.',
+              ipa: '/duː/',
+            },
+            {
+              frase: 'She made a delicious chocolate cake.',
+              traducao: 'Ela fez um delicioso bolo de chocolate.',
+              ipa: '/meɪd/',
+            },
+          ];
+        } else if (node.titulo.includes('Pronúncia do "-ed"')) {
+          usoIncorreto = 'Pronunciar "worked" como "work-edji" ou "watched" como "watch-edji".';
+          usoCorreto = 'Pronunciar como 1 sílaba: /wɜːkt/ (som de T mudo no final).';
+          porQueConfunde = 'O português brasileiro não permite consoantes mudas em fim de sílaba sem adicionar a vogal [i].';
+          dicaMnemonica = 'O "-ed" só vira som extra de sílaba (/ɪd/) se o verbo terminar em som de T ou D (wanted, decided).';
+          exemplos = [
+            {
+              frase: 'She worked hard all night long.',
+              traducao: 'Ela trabalhou duro a noite toda.',
+              ipa: '/wɜːkt/',
+            },
+            {
+              frase: 'They decided to travel to London.',
+              traducao: 'Eles decidiram viajar para Londres.',
+              ipa: '/dɪˈsaɪ.dɪd/',
+            },
+          ];
+        } else if (node.titulo.includes('Ask a question')) {
+          usoIncorreto = 'Dizer "Can I make a question?" por tradução de "fazer uma pergunta".';
+          usoCorreto = 'Dizer "Can I ask a question?" (em inglês você pede/pergunta uma pergunta).';
+          porQueConfunde = 'Tradução direta do verbo "fazer" do português.';
+          dicaMnemonica = 'Nunca "make" a question. Sempre "ASK" a question.';
+          exemplos = [
+            {
+              frase: 'Feel free to ask questions at any time.',
+              traducao: 'Fique à vontade para fazer perguntas a qualquer momento.',
+              ipa: '/æsk ə ˈkwɛs.tʃən/',
+            },
+          ];
+        }
+
+        // Determina status e severidade baseados nas métricas do Grafo
+        let status: MisconceptionItem['status'] = 'pendente';
+        if (node.dominio_estimado >= 75 && (matchedCorr?.estado_posterior === 'compreendido' || node.frequencia_erro <= 1)) {
+          status = 'compreendido';
+        } else if (node.dominio_estimado < 60 || node.frequencia_erro >= 2 || matchedCorr?.estado_posterior === 'precisa_revisar') {
+          status = 'precisa_revisar';
+        }
+
+        let gravidade: MisconceptionItem['gravidade'] = 'moderada';
+        if (node.frequencia_erro >= 3 || node.dificuldade >= 4) {
+          gravidade = 'critica';
+        } else if (node.dominio_estimado >= 80) {
+          gravidade = 'leve';
+        }
+
+        // Configura quiz de validação pedagógica
+        let quiz = matchedCorr?.pergunta_confirmacao
+          ? {
+              pergunta: matchedCorr.pergunta_confirmacao,
+              opcoes: [
+                node.traducao?.split('|')[0]?.trim() || 'Opção Correta',
+                'Opção Incorreta Literal',
+                'Uso ambíguo',
+              ],
+              respostaCorreta: node.traducao?.split('|')[0]?.trim() || 'Opção Correta',
+              explicacao: matchedCorr.explicacao,
+            }
+          : undefined;
+
+        if (node.titulo.includes('Actually')) {
+          quiz = {
+            pergunta: 'Como você diria naturalmente: "Atualmente, estou estudando para o teste"?',
+            opcoes: [
+              'Currently, I am studying for the test.',
+              'Actually, I am studying for the test.',
+              'Nowadays, I am studying at this moment.',
+            ],
+            respostaCorreta: 'Currently, I am studying for the test.',
+            explicacao: '"Currently" refere-se a tempo presente ("atualmente"). "Actually" significa "na verdade".',
+          };
+        } else if (node.titulo.includes('Pretend')) {
+          quiz = {
+            pergunta: 'Qual a tradução correta da frase: "I intend to buy a new house"?',
+            opcoes: [
+              'Eu pretendo comprar uma casa nova.',
+              'Eu finjo que comprei uma casa nova.',
+              'Eu tentei comprar uma casa nova.',
+            ],
+            respostaCorreta: 'Eu pretendo comprar uma casa nova.',
+            explicacao: '"Intend" é ter a intenção / pretender. "Pretend" é fingir.',
+          };
+        } else if (node.titulo.includes('Borrow vs Lend')) {
+          quiz = {
+            pergunta: 'Complete corretamente: "Could you please ___ me your notebook?"',
+            opcoes: ['lend', 'borrow', 'borrowed'],
+            respostaCorreta: 'lend',
+            explicacao: 'Quando pedimos para outra pessoa dar algo emprestado a nós, usamos "lend" (dar emprestado).',
+          };
+        } else if (node.titulo.includes('Push vs Puxe')) {
+          quiz = {
+            pergunta: 'Você vê uma porta com a palavra "PUSH". O que você deve fazer?',
+            opcoes: ['Empurrar a porta para a frente', 'Puxar a porta em sua direção', 'Bater na porta'],
+            respostaCorreta: 'Empurrar a porta para a frente',
+            explicacao: '"Push" significa empurrar. "Pull" é puxar!',
+          };
+        }
+
+        dictionaryList.push({
+          id: `misc-${node.id}`,
+          nodeId: node.id,
+          correctionId: matchedCorr?.id,
+          titulo: node.titulo,
+          categoria,
+          categoriaRotulo,
+          idioma: node.idioma || 'Inglês',
+          usoIncorreto,
+          usoCorreto,
+          explicacaoPedagogica: matchedCorr?.explicacao || node.descricao,
+          porQueConfunde,
+          exemplos,
+          dicaMnemonica,
+          frequenciaErro: node.frequencia_erro || 1,
+          dominioEstimado: node.dominio_estimado || 50,
+          proximaRevisao: node.proxima_revisao || new Date().toISOString(),
+          status,
+          gravidade,
+          quiz,
+        });
+      }
+    });
+
+    setItems(dictionaryList);
+  };
+
+  useEffect(() => {
+    loadDictionaryData();
+  }, []);
+
+  // Filtros e busca reativos
+  const filteredItems = useMemo(() => {
+    return items
+      .filter((item) => {
+        // Busca textual
+        if (searchQuery.trim()) {
+          const q = searchQuery.toLowerCase();
+          const matches =
+            item.titulo.toLowerCase().includes(q) ||
+            item.usoIncorreto.toLowerCase().includes(q) ||
+            item.usoCorreto.toLowerCase().includes(q) ||
+            item.explicacaoPedagogica.toLowerCase().includes(q) ||
+            item.categoriaRotulo.toLowerCase().includes(q);
+          if (!matches) return false;
+        }
+
+        // Categoria
+        if (selectedCategory !== 'todos' && item.categoria !== selectedCategory) {
+          return false;
+        }
+
+        // Status
+        if (selectedStatus !== 'todos' && item.status !== selectedStatus) {
+          return false;
+        }
+
+        return true;
+      })
+      .sort((a, b) => {
+        if (sortBy === 'frequencia') {
+          return b.frequenciaErro - a.frequenciaErro;
+        }
+        if (sortBy === 'dominio') {
+          return a.dominioEstimado - b.dominioEstimado;
+        }
+        return a.titulo.localeCompare(b.titulo);
+      });
+  }, [items, searchQuery, selectedCategory, selectedStatus, sortBy]);
+
+  // Estatísticas calculadas dinamicamente
+  const stats = useMemo(() => {
+    const total = items.length;
+    const precisaRevisar = items.filter((i) => i.status === 'precisa_revisar').length;
+    const compreendidos = items.filter((i) => i.status === 'compreendido').length;
+    const avgDominio = total > 0 ? Math.round(items.reduce((acc, i) => acc + i.dominioEstimado, 0) / total) : 0;
+
+    return { total, precisaRevisar, compreendidos, avgDominio };
+  }, [items]);
+
+  // Síntese de voz para pronúncia correta de exemplos
+  const handleSpeakText = (text: string) => {
+    setIsSpeaking(true);
+    setAudioFeedback('Reproduzindo pronúncia nativa natural...');
+
+    const success = SpeechService.speak(text, {
+      lang: 'en-US',
+      rate: 0.88,
+      onStart: () => {
+        setIsSpeaking(true);
+        setAudioFeedback('Reproduzindo pronúncia nativa natural...');
+      },
+      onEnd: () => {
+        setIsSpeaking(false);
+        setAudioFeedback(null);
+      },
+      onError: () => {
+        setIsSpeaking(false);
+        setAudioFeedback(null);
+      },
+    });
+
+    if (!success) {
+      setIsSpeaking(false);
+      setAudioFeedback('Síntese de voz não disponível.');
+      setTimeout(() => setAudioFeedback(null), 2000);
+    }
+  };
+
+  // Marcar como Compreendido e atualizar Grafo de Memória
+  const handleMarkAsUnderstood = (item: MisconceptionItem) => {
+    if (item.nodeId) {
+      const nodes = StorageService.getNodes();
+      const node = nodes.find((n) => n.id === item.nodeId);
+      if (node) {
+        node.dominio_estimado = Math.min(100, node.dominio_estimado + 20);
+        node.frequencia_erro = Math.max(0, node.frequencia_erro - 1);
+        node.ultima_revisao = new Date().toISOString();
+        node.proxima_revisao = GraphEngine.calculateNextReview(node.dominio_estimado, node.frequencia_erro);
+        StorageService.addOrUpdateNode(node);
+      }
+    }
+
+    if (item.correctionId) {
+      StorageService.updateCorrectionStatus(item.correctionId, 'compreendido', true);
+    }
+
+    StorageService.addXP(30);
+    StorageService.recordAnswer(true);
+
+    // Recarrega
+    loadDictionaryData();
+    if (selectedItem && selectedItem.id === item.id) {
+      setSelectedItem({
+        ...selectedItem,
+        status: 'compreendido',
+        dominioEstimado: Math.min(100, selectedItem.dominioEstimado + 20),
+      });
+    }
+  };
+
+  // Submissão do Quiz Interativo
+  const handleQuizSubmit = (item: MisconceptionItem) => {
+    if (!quizSelectedOption || !item.quiz) return;
+    setQuizSubmitted(true);
+
+    const isCorrect = quizSelectedOption === item.quiz.respostaCorreta;
+    if (isCorrect) {
+      handleMarkAsUnderstood(item);
+    } else {
+      if (item.correctionId) {
+        StorageService.updateCorrectionStatus(item.correctionId, 'precisa_revisar', false);
+      }
+    }
+  };
+
+  const resetQuiz = () => {
+    setQuizSelectedOption(null);
+    setQuizSubmitted(false);
+  };
+
+  return (
+    <div className="relative border border-border bg-card rounded-lg p-5 sm:p-6 shadow-2xs space-y-6">
+      <CornerPlus />
+      {/* Cabeçalho do Dicionário com Badges de Grafo */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-border pb-5">
+          <div>
+            <div className="flex items-center space-x-3">
+              <div className="w-8 h-8 rounded-lg bg-foreground text-background flex items-center justify-center font-mono font-bold text-xs">
+                GM
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <h3 className="text-base sm:text-lg font-bold tracking-tight text-foreground">
+                    Dicionário Interativo de Equívocos Recorrentes
+                  </h3>
+                  <div className="inline-flex items-center rounded border border-border bg-muted/60 px-2 py-0.5 font-mono text-[10px] font-semibold text-muted-foreground uppercase">
+                    MEMORY GRAPH
+                  </div>
+                </div>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Mapeamento ativo de falsos cognatos, vícios de tradução literal e desvios fonéticos identificados pelo tutor.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Resumo de Métricas Rápidas */}
+          <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+            <div className="px-3 py-1.5 bg-muted/50 border border-border rounded-lg text-center font-mono">
+              <span className="text-[10px] uppercase font-bold text-rose-600 dark:text-rose-400 block">Revisões Urgentes</span>
+              <span className="text-xs font-bold text-foreground">{stats.precisaRevisar} pendentes</span>
+            </div>
+
+            <div className="px-3 py-1.5 bg-muted/50 border border-border rounded-lg text-center font-mono">
+              <span className="text-[10px] uppercase font-bold text-emerald-600 dark:text-emerald-400 block">Superados</span>
+              <span className="text-xs font-bold text-foreground">{stats.compreendidos} itens</span>
+            </div>
+
+            <div className="px-3 py-1.5 bg-muted/50 border border-border rounded-lg text-center font-mono">
+              <span className="text-[10px] uppercase font-bold text-muted-foreground block">Domínio Médio</span>
+              <span className="text-xs font-bold text-foreground">{stats.avgDominio}%</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Barra de Busca, Categorias e Filtros */}
+        <div className="space-y-3">
+          <div className="flex flex-col sm:flex-row gap-2.5">
+            {/* Campo de Busca */}
+            <div className="relative flex-1">
+              <Search className="w-4 h-4 text-muted-foreground absolute left-3.5 top-1/2 -translate-y-1/2" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Buscar por termo, falso amigo, exemplo ou erro (ex: Actually, Pretend, Borrow)..."
+                className="w-full pl-9 pr-4 py-2 bg-background border border-border rounded-lg text-xs sm:text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring transition"
+              />
+              {searchQuery && (
+                <button
+                  onClick={() => setSearchQuery('')}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground text-xs cursor-pointer"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              )}
+            </div>
+
+            {/* Ordenação */}
+            <div className="flex items-center space-x-2 shrink-0">
+              <span className="text-xs font-mono text-muted-foreground hidden md:inline">ORDENAR:</span>
+              <select
+                value={sortBy}
+                onChange={(e) => setSortBy(e.target.value as any)}
+                className="bg-background border border-border rounded-lg px-3 py-2 text-xs font-medium text-foreground focus:outline-none focus:ring-1 focus:ring-ring cursor-pointer"
+              >
+                <option value="frequencia">Mais Recorrentes (Frequência)</option>
+                <option value="dominio">Menor Domínio (Mais Urgentes)</option>
+                <option value="alfabetica">Ordem Alfabética (A-Z)</option>
+              </select>
+            </div>
+          </div>
+
+          {/* Chips de Categorias e Filtro de Status */}
+          <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
+            {/* Categorias */}
+            <div className="flex flex-wrap items-center gap-1.5">
+              {[
+                { id: 'todos', label: 'Todos os Equívocos' },
+                { id: 'falso_amigo', label: 'Falsos Cognatos' },
+                { id: 'vocabulario', label: 'Collocations & Léxico' },
+                { id: 'gramatica', label: 'Gramática & Estrutura' },
+                { id: 'pronuncia', label: 'Pronúncia & Fonética' },
+              ].map((cat) => (
+                <button
+                  key={cat.id}
+                  onClick={() => setSelectedCategory(cat.id)}
+                  className={`px-3 py-1 rounded-lg text-xs font-mono transition cursor-pointer ${
+                    selectedCategory === cat.id
+                      ? 'bg-foreground text-background font-semibold shadow-2xs'
+                      : 'bg-muted/50 text-muted-foreground hover:text-foreground hover:bg-muted border border-border'
+                  }`}
+                >
+                  {cat.label}
+                </button>
+              ))}
+            </div>
+
+            {/* Filtro de Status */}
+            <div className="flex items-center space-x-1.5 text-xs text-muted-foreground font-mono">
+              <span>STATUS:</span>
+              <select
+                value={selectedStatus}
+                onChange={(e) => setSelectedStatus(e.target.value)}
+                className="bg-background border border-border rounded-lg px-2 py-1 text-xs font-medium text-foreground focus:outline-none cursor-pointer"
+              >
+                <option value="todos">Todos os Status</option>
+                <option value="precisa_revisar">🔴 Precisa Revisar</option>
+                <option value="pendente">🟡 Em Consolidação</option>
+                <option value="compreendido">🟢 Superados</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        {/* Grid de Cards Interativos do Dicionário */}
+        {filteredItems.length === 0 ? (
+          <div className="text-center py-12 border border-dashed border-border rounded-lg space-y-2">
+            <BookOpen className="w-8 h-8 text-muted-foreground mx-auto" />
+            <p className="text-sm font-semibold text-foreground">Nenhum equívoco encontrado para este filtro.</p>
+            <p className="text-xs text-muted-foreground">
+              Conforme você conversa com o tutor na aba de Chat, novos desvios e correções serão registrados automaticamente no seu Grafo.
+            </p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5">
+            {filteredItems.map((item) => {
+              const isNeedReview = item.status === 'precisa_revisar';
+              const isMastered = item.status === 'compreendido';
+
+              return (
+                <div
+                  key={item.id}
+                  onClick={() => {
+                    setSelectedItem(item);
+                    resetQuiz();
+                  }}
+                  className={`p-4 rounded-lg border transition cursor-pointer text-left flex flex-col justify-between group relative shadow-2xs hover:border-foreground/40 ${
+                    isNeedReview
+                      ? 'bg-rose-500/5 border-rose-500/30'
+                      : isMastered
+                      ? 'bg-emerald-500/5 border-emerald-500/30'
+                      : 'bg-card border-border hover:bg-muted/30'
+                  }`}
+                >
+                  <div>
+                    {/* Topo do Card: Categoria & Badge de Status */}
+                    <div className="flex items-center justify-between gap-2 mb-2">
+                      <span className="text-[10px] font-mono font-bold uppercase tracking-wider px-2 py-0.5 rounded border border-border bg-muted/60 text-muted-foreground">
+                        {item.categoriaRotulo}
+                      </span>
+
+                    <div className="flex items-center space-x-1.5">
+                      {isNeedReview && (
+                        <span className="inline-flex items-center gap-1 text-[10px] font-bold text-rose-700 bg-rose-100/80 px-2 py-0.5 rounded-full">
+                          <AlertTriangle className="w-3 h-3 text-rose-600" />
+                          Revisar ({item.frequenciaErro}x)
+                        </span>
+                      )}
+                      {isMastered && (
+                        <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-700 bg-emerald-100/80 px-2 py-0.5 rounded-full">
+                          <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                          Superado
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Título do Equívoco */}
+                  <h4 className="text-sm font-bold text-slate-900 group-hover:text-indigo-600 transition flex items-center justify-between">
+                    <span>{item.titulo}</span>
+                    <ChevronRight className="w-4 h-4 text-slate-400 group-hover:translate-x-1 transition" />
+                  </h4>
+
+                  {/* Comparativo Rápido ❌ vs ✅ */}
+                  <div className="space-y-1.5 mt-2.5 text-xs">
+                    <div className="p-2 rounded-lg bg-rose-50/80 border border-rose-100/80 text-rose-900 flex items-start space-x-1.5">
+                      <span className="text-rose-500 font-bold shrink-0">❌</span>
+                      <p className="line-clamp-2 text-[11px] leading-tight font-medium">
+                        {item.usoIncorreto}
+                      </p>
+                    </div>
+
+                    <div className="p-2 rounded-lg bg-emerald-50/80 border border-emerald-100/80 text-emerald-900 flex items-start space-x-1.5">
+                      <span className="text-emerald-600 font-bold shrink-0">✅</span>
+                      <p className="line-clamp-2 text-[11px] leading-tight font-semibold">
+                        {item.usoCorreto}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Rodapé do Card: Barra de Domínio & Ação */}
+                <div className="mt-3.5 pt-2.5 border-t border-slate-100/80 flex items-center justify-between text-xs">
+                  <div className="flex items-center space-x-2">
+                    <span className="text-[11px] text-slate-500 font-medium">Domínio:</span>
+                    <div className="w-16 bg-slate-200 rounded-full h-1.5 overflow-hidden">
+                      <div
+                        className={`h-full rounded-full ${
+                          item.dominioEstimado >= 75
+                            ? 'bg-emerald-500'
+                            : item.dominioEstimado >= 50
+                            ? 'bg-amber-500'
+                            : 'bg-rose-500'
+                        }`}
+                        style={{ width: `${item.dominioEstimado}%` }}
+                      />
+                    </div>
+                    <span className="text-[11px] font-bold text-slate-700">{item.dominioEstimado}%</span>
+                  </div>
+
+                  <span className="text-[11px] text-indigo-600 font-bold group-hover:underline flex items-center gap-0.5">
+                    Ver Explicação ➔
+                  </span>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Modal Interativo Detalhado de Explicação Pedagógica & Exemplos de Uso */}
+      {selectedItem && (
+        <div className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
+          <div className="bg-white border border-slate-200 rounded-2xl max-w-2xl w-full p-5 sm:p-7 space-y-5 shadow-2xl text-slate-900 max-h-[90vh] overflow-y-auto">
+            {/* Topo do Modal */}
+            <div className="flex items-start justify-between border-b border-slate-100 pb-4">
+              <div>
+                <div className="flex items-center space-x-2">
+                  <span
+                    className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md ${
+                      selectedItem.categoria === 'falso_amigo'
+                        ? 'bg-amber-100 text-amber-800'
+                        : selectedItem.categoria === 'vocabulario'
+                        ? 'bg-sky-100 text-sky-800'
+                        : selectedItem.categoria === 'gramatica'
+                        ? 'bg-purple-100 text-purple-800'
+                        : 'bg-rose-100 text-rose-800'
+                    }`}
+                  >
+                    {selectedItem.categoriaRotulo}
+                  </span>
+                  <span className="text-xs text-slate-400 font-medium">
+                    Idioma: {selectedItem.idioma}
+                  </span>
+                </div>
+                <h3 className="text-lg sm:text-xl font-bold text-slate-900 mt-1">
+                  {selectedItem.titulo}
+                </h3>
+              </div>
+
+              <button
+                onClick={() => setSelectedItem(null)}
+                className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Comparativo Visual Amplo: ❌ Equívoco vs ✅ Padrão Nativo */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {/* O Equívoco */}
+              <div className="p-3.5 bg-rose-50 border border-rose-200 rounded-xl space-y-1 text-left">
+                <span className="text-[11px] uppercase font-bold text-rose-700 flex items-center gap-1">
+                  <span>❌</span> Armadilha / Uso Incorreto
+                </span>
+                <p className="text-xs sm:text-sm font-medium text-rose-950 leading-relaxed">
+                  {selectedItem.usoIncorreto}
+                </p>
+              </div>
+
+              {/* A Solução Nativa */}
+              <div className="p-3.5 bg-emerald-50 border border-emerald-200 rounded-xl space-y-1 text-left">
+                <span className="text-[11px] uppercase font-bold text-emerald-700 flex items-center gap-1">
+                  <span>✅</span> Forma Correta & Padrão Nativo
+                </span>
+                <p className="text-xs sm:text-sm font-bold text-emerald-950 leading-relaxed">
+                  {selectedItem.usoCorreto}
+                </p>
+              </div>
+            </div>
+
+            {/* Explicação Pedagógica & Por Que o Cérebro Confunde */}
+            <div className="space-y-3 text-left">
+              <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl space-y-2">
+                <h4 className="text-xs font-bold uppercase tracking-wider text-slate-700 flex items-center gap-1.5">
+                  <Sparkles className="w-3.5 h-3.5 text-indigo-600" />
+                  Explicação Pedagógica & Modelo Mental
+                </h4>
+                <p className="text-xs sm:text-sm text-slate-700 leading-relaxed">
+                  {selectedItem.explicacaoPedagogica}
+                </p>
+
+                {selectedItem.porQueConfunde && (
+                  <div className="pt-2 border-t border-slate-200 text-xs text-slate-600">
+                    <strong className="text-slate-800">Por que ocorre essa confusão? </strong>
+                    {selectedItem.porQueConfunde}
+                  </div>
+                )}
+              </div>
+
+              {/* Dica Mnemônica */}
+              {selectedItem.dicaMnemonica && (
+                <div className="p-3 bg-amber-50/70 border border-amber-200 rounded-xl flex items-start space-x-2.5 text-xs text-amber-900">
+                  <Zap className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                  <div>
+                    <strong className="font-bold text-amber-950">Macete / Dica de Ouro: </strong>
+                    <span>{selectedItem.dicaMnemonica}</span>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Exemplos Práticos de Uso no Cotidiano (com Áudio TTS) */}
+            <div className="space-y-2.5 text-left">
+              <div className="flex items-center justify-between">
+                <h4 className="text-xs font-bold uppercase tracking-wider text-slate-700 flex items-center gap-1.5">
+                  <BookOpen className="w-3.5 h-3.5 text-indigo-600" />
+                  Exemplos de Uso no Cotidiano
+                </h4>
+                {audioFeedback && (
+                  <span className="text-[11px] text-indigo-600 font-semibold animate-pulse">
+                    {audioFeedback}
+                  </span>
+                )}
+              </div>
+
+              <div className="space-y-2">
+                {selectedItem.exemplos.map((ex, idx) => (
+                  <div
+                    key={idx}
+                    className="p-3 bg-white border border-slate-200 rounded-xl flex items-center justify-between gap-3 shadow-2xs hover:border-slate-300 transition"
+                  >
+                    <div className="space-y-0.5">
+                      <div className="flex items-center space-x-2">
+                        <span className="text-xs sm:text-sm font-bold text-slate-900">
+                          {ex.frase}
+                        </span>
+                        {ex.ipa && (
+                          <span className="text-[11px] font-mono text-indigo-600 bg-indigo-50 px-1.5 py-0.5 rounded">
+                            {ex.ipa}
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-xs text-slate-500">{ex.traducao}</p>
+                    </div>
+
+                    <button
+                      onClick={() => handleSpeakText(ex.frase)}
+                      disabled={isSpeaking}
+                      className="p-2 text-indigo-600 hover:bg-indigo-50 rounded-lg transition cursor-pointer shrink-0"
+                      title="Ouvir pronúncia nativa com Web Speech TTS"
+                    >
+                      <Volume2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Mini-Quiz Interativo de Fixação Rápida */}
+            {selectedItem.quiz && (
+              <div className="p-4 bg-indigo-50/60 border border-indigo-200 rounded-xl space-y-3 text-left">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-indigo-950 flex items-center gap-1.5">
+                    <HelpCircle className="w-4 h-4 text-indigo-600" />
+                    Teste Rápido de Fixação (+30 XP)
+                  </span>
+                  {quizSubmitted && (
+                    <span className="text-xs font-bold text-indigo-700">
+                      {quizSelectedOption === selectedItem.quiz.respostaCorreta
+                        ? '🎉 Parabéns! Correto!'
+                        : '❌ Quase! Veja a explicação.'}
+                    </span>
+                  )}
+                </div>
+
+                <p className="text-xs sm:text-sm font-semibold text-slate-800">
+                  {selectedItem.quiz.pergunta}
+                </p>
+
+                <div className="space-y-1.5">
+                  {selectedItem.quiz.opcoes.map((opcao, idx) => {
+                    const isSelected = quizSelectedOption === opcao;
+                    const isCorrect = opcao === selectedItem.quiz?.respostaCorreta;
+                    let optionStyle = 'bg-white border-slate-200 hover:bg-slate-50 text-slate-800';
+
+                    if (quizSubmitted) {
+                      if (isCorrect) {
+                        optionStyle = 'bg-emerald-100 border-emerald-300 text-emerald-900 font-bold';
+                      } else if (isSelected && !isCorrect) {
+                        optionStyle = 'bg-rose-100 border-rose-300 text-rose-900 line-through';
+                      }
+                    } else if (isSelected) {
+                      optionStyle = 'bg-indigo-100 border-indigo-400 text-indigo-900 font-semibold';
+                    }
+
+                    return (
+                      <button
+                        key={idx}
+                        disabled={quizSubmitted}
+                        onClick={() => setQuizSelectedOption(opcao)}
+                        className={`w-full p-2.5 rounded-lg border text-left text-xs sm:text-sm transition flex items-center justify-between cursor-pointer ${optionStyle}`}
+                      >
+                        <span>{opcao}</span>
+                        {quizSubmitted && isCorrect && <Check className="w-4 h-4 text-emerald-600 shrink-0" />}
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {!quizSubmitted ? (
+                  <button
+                    onClick={() => handleQuizSubmit(selectedItem)}
+                    disabled={!quizSelectedOption}
+                    className="w-full py-2 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white rounded-lg text-xs font-semibold transition cursor-pointer shadow-2xs"
+                  >
+                    Confirmar Resposta
+                  </button>
+                ) : (
+                  <p className="text-xs text-slate-600 bg-white/80 p-2.5 rounded-lg border border-indigo-100">
+                    <strong>Explicação: </strong>
+                    {selectedItem.quiz.explicacao}
+                  </p>
+                )}
+              </div>
+            )}
+
+            {/* Rodapé de Ações do Modal */}
+            <div className="flex flex-wrap items-center justify-between gap-3 pt-3 border-t border-slate-100">
+              <button
+                onClick={() => {
+                  handleMarkAsUnderstood(selectedItem);
+                  setSelectedItem(null);
+                }}
+                className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-semibold transition flex items-center space-x-1.5 cursor-pointer shadow-2xs"
+              >
+                <CheckCircle2 className="w-4 h-4" />
+                <span>Marcar como Superado no Grafo</span>
+              </button>
+
+              <button
+                onClick={() => {
+                  onPracticeTopic(selectedItem.titulo);
+                  setSelectedItem(null);
+                }}
+                className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-semibold transition flex items-center space-x-1.5 cursor-pointer shadow-2xs"
+              >
+                <MessageSquare className="w-4 h-4" />
+                <span>Praticar no Chat com Tutor ➔</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
