@@ -6,23 +6,19 @@ import {
   RelationType,
 } from '../types';
 import { BorderTrail } from './ui/border-trail';
-import { CornerPlus } from './ui/corner-plus';
-import { Button } from './ui/button';
 import {
   Sparkles,
   Zap,
-  Maximize2,
   ZoomIn,
   ZoomOut,
   RotateCcw,
   ArrowRight,
-  Eye,
-  Info,
   Clock,
   Layers,
   Activity,
-  CheckCircle2,
-  AlertTriangle,
+  MessageSquare,
+  Repeat,
+  Info,
 } from 'lucide-react';
 
 interface NodePosition {
@@ -40,6 +36,7 @@ interface GraphTopologyCanvasProps {
   onUpdateMastery?: (node: GraphNode, delta: number) => void;
   getTypeBadge: (type: NodeType) => { label: string; bg: string };
   onSimulateNewNode?: () => void;
+  onNavigateToChat?: (topic: string) => void;
 }
 
 export const GraphTopologyCanvas: React.FC<GraphTopologyCanvasProps> = ({
@@ -52,6 +49,7 @@ export const GraphTopologyCanvas: React.FC<GraphTopologyCanvasProps> = ({
   onUpdateMastery,
   getTypeBadge,
   onSimulateNewNode,
+  onNavigateToChat,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const [zoom, setZoom] = useState<number>(1);
@@ -68,7 +66,7 @@ export const GraphTopologyCanvas: React.FC<GraphTopologyCanvasProps> = ({
   const CANVAS_WIDTH = 1100;
   const CANVAS_HEIGHT = 700;
 
-  // Inicializa posições calculadas matematicamente para organizar em topologia circular/orgânica
+  // Organiza os nós harmonicamente pelo canvas
   useEffect(() => {
     if (nodes.length === 0) return;
 
@@ -76,55 +74,42 @@ export const GraphTopologyCanvas: React.FC<GraphTopologyCanvasProps> = ({
     const centerX = CANVAS_WIDTH / 2;
     const centerY = CANVAS_HEIGHT / 2;
 
-    // Encontra hubs principais (tipo 'topico' ou nós com maior número de relações)
     const topicNodes = nodes.filter((n) => n.tipo === 'topico');
     const otherNodes = nodes.filter((n) => n.tipo !== 'topico');
 
     if (topicNodes.length > 0) {
-      // Posiciona tópicos no centro / anel interno
       topicNodes.forEach((t, i) => {
         const angle = (i / topicNodes.length) * 2 * Math.PI - Math.PI / 2;
-        const radius = topicNodes.length === 1 ? 0 : 90;
+        const radius = topicNodes.length === 1 ? 0 : 100;
         positions[t.id] = {
           x: centerX + Math.cos(angle) * radius,
           y: centerY + Math.sin(angle) * radius,
         };
       });
 
-      // Posiciona outros nós em anéis concêntricos agrupados por tipo
-      const groupedByType: Record<string, GraphNode[]> = {};
-      otherNodes.forEach((n) => {
-        if (!groupedByType[n.tipo]) groupedByType[n.tipo] = [];
-        groupedByType[n.tipo].push(n);
-      });
-
-      let currentAngle = 0;
       const totalOthers = otherNodes.length;
       otherNodes.forEach((n, idx) => {
         const angle = (idx / totalOthers) * 2 * Math.PI;
-        // Distância baseada no tipo para criar agrupamentos semânticos
-        let radius = 260;
+        let radius = 250;
         if (n.tipo === 'dificuldade' || n.tipo === 'equivoco' || n.tipo === 'falso_amigo') {
-          radius = 330;
+          radius = 320;
         } else if (n.tipo === 'vocabulario' || n.tipo === 'conceito') {
-          radius = 230;
+          radius = 220;
         } else if (n.tipo === 'gramatica') {
-          radius = 290;
+          radius = 280;
         }
 
-        // Adiciona variação senoidal suave para evitar sobreposição
-        const wobble = ((idx % 3) - 1) * 35;
+        const wobble = ((idx % 3) - 1) * 30;
 
         positions[n.id] = {
-          x: Math.max(90, Math.min(CANVAS_WIDTH - 90, centerX + Math.cos(angle) * (radius + wobble))),
-          y: Math.max(70, Math.min(CANVAS_HEIGHT - 70, centerY + Math.sin(angle) * (radius + wobble))),
+          x: Math.max(120, Math.min(CANVAS_WIDTH - 120, centerX + Math.cos(angle) * (radius + wobble))),
+          y: Math.max(90, Math.min(CANVAS_HEIGHT - 90, centerY + Math.sin(angle) * (radius + wobble))),
         };
       });
     } else {
-      // Distribuição circular padrão
       nodes.forEach((n, idx) => {
         const angle = (idx / nodes.length) * 2 * Math.PI;
-        const radius = 250;
+        const radius = 240;
         positions[n.id] = {
           x: centerX + Math.cos(angle) * radius,
           y: centerY + Math.sin(angle) * radius,
@@ -135,7 +120,7 @@ export const GraphTopologyCanvas: React.FC<GraphTopologyCanvasProps> = ({
     setNodePositions(positions);
   }, [nodes]);
 
-  // Manipulação de Arraste do Canvas (Pan)
+  // Manipulação de Pan
   const handleMouseDownCanvas = (e: React.MouseEvent) => {
     if (draggingNodeId) return;
     setIsPanning(true);
@@ -200,7 +185,6 @@ export const GraphTopologyCanvas: React.FC<GraphTopologyCanvasProps> = ({
 
   const visibleNodeIds = useMemo(() => new Set(visibleNodes.map((n) => n.id)), [visibleNodes]);
 
-  // Relações ativas conectadas entre nós visíveis
   const activeRelations = useMemo(() => {
     return relations.filter(
       (r) => visibleNodeIds.has(r.origem_id) && visibleNodeIds.has(r.destino_id)
@@ -208,67 +192,64 @@ export const GraphTopologyCanvas: React.FC<GraphTopologyCanvasProps> = ({
   }, [relations, visibleNodeIds]);
 
   const sessionNewCount = sessionNewNodeIds.size;
-  const sessionRelCount = sessionNewRelationIds.size;
 
   return (
     <div className="space-y-4">
-      {/* Barra Superior da Topologia */}
-      <div className="flex flex-wrap items-center justify-between gap-3 bg-card border border-border rounded-lg p-3 shadow-2xs font-mono">
-        <div className="flex items-center space-x-2">
-          <div className="p-1.5 rounded bg-muted text-foreground border border-border">
+      {/* Controles Superiores de Topologia */}
+      <div className="flex flex-wrap items-center justify-between gap-3 bg-[var(--surface)] border border-[var(--border)] rounded-[var(--r)] p-3.5 shadow-[var(--shadow-sm)]">
+        <div className="flex items-center gap-3">
+          <div className="w-8 h-8 rounded-xl bg-[var(--accent)] flex items-center justify-center text-[var(--fg)] shrink-0 shadow-xs">
             <Activity className="w-4 h-4" />
           </div>
           <div>
-            <div className="flex items-center space-x-2">
-              <span className="text-xs font-bold text-foreground tracking-tight">
-                TOPOLOGIA INTERATIVA DA MEMÓRIA
+            <div className="flex items-center gap-2">
+              <span className="text-xs sm:text-sm font-display font-bold text-[var(--fg)]">
+                Topologia Interativa da Memória
               </span>
               {sessionNewCount > 0 && (
-                <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded bg-foreground text-background animate-pulse">
-                  <Sparkles className="w-3 h-3" />
-                  {sessionNewCount} NOVO{sessionNewCount > 1 ? 'S' : ''} NA SESSÃO
+                <span className="inline-flex items-center gap-1 text-[11px] font-extrabold px-2.5 py-0.5 rounded-full bg-[var(--sunny)] text-[var(--fg)]">
+                  <Sparkles className="w-3 h-3 text-amber-700" />
+                  {sessionNewCount} novo{sessionNewCount > 1 ? 's' : ''} na sessão
                 </span>
               )}
             </div>
-            <p className="text-[11px] text-muted-foreground">
-              Nós e conexões descobertos nesta sessão são destacados com o efeito dinâmico BorderTrail.
+            <p className="text-xs text-[var(--muted)]">
+              Arraste nós, dê zoom e clique para inspecionar relações semânticas e nível de retenção.
             </p>
           </div>
         </div>
 
-        {/* Controles de Zoom, Filtro e Ações */}
-        <div className="flex items-center space-x-2">
+        {/* Zoom e Ações Rápidas */}
+        <div className="flex items-center gap-2">
           {onSimulateNewNode && (
-            <Button
-              variant="outline"
-              size="sm"
+            <button
               onClick={onSimulateNewNode}
-              className="gap-1.5 text-xs font-mono cursor-pointer"
-              title="Registrar um novo conceito no grafo para visualizar o efeito BorderTrail em tempo real"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-[var(--border)] bg-[var(--surface)] hover:border-[var(--fg)] text-xs font-extrabold text-[var(--fg)] transition cursor-pointer shadow-xs"
+              title="Registrar um novo conceito no grafo para visualização em tempo real"
             >
-              <Zap className="w-3.5 h-3.5 text-amber-500" />
-              <span>Simular Descoberta</span>
-            </Button>
+              <Zap className="w-3.5 h-3.5 text-amber-600" />
+              <span>Simular Conceito</span>
+            </button>
           )}
 
-          {/* Filtros de Tipo */}
-          <div className="flex items-center bg-muted/60 border border-border rounded-md p-0.5 text-xs">
+          {/* Filtro Todos / Novos */}
+          <div className="flex items-center bg-[oklch(0.96_0.01_84)] border border-[var(--border)] rounded-full p-0.5 text-xs">
             <button
               onClick={() => setFilterType('todos')}
-              className={`px-2.5 py-1 rounded text-[11px] font-medium transition cursor-pointer ${
+              className={`px-3 py-1 rounded-full text-xs font-bold transition cursor-pointer ${
                 filterType === 'todos'
-                  ? 'bg-background text-foreground shadow-2xs font-bold'
-                  : 'text-muted-foreground hover:text-foreground'
+                  ? 'bg-[var(--fg)] text-white shadow-xs'
+                  : 'text-[var(--muted)] hover:text-[var(--fg)]'
               }`}
             >
               Todos ({nodes.length})
             </button>
             <button
               onClick={() => setFilterType('novos_sessao')}
-              className={`px-2.5 py-1 rounded text-[11px] font-medium transition cursor-pointer flex items-center space-x-1 ${
+              className={`px-3 py-1 rounded-full text-xs font-bold transition cursor-pointer flex items-center gap-1 ${
                 filterType === 'novos_sessao'
-                  ? 'bg-foreground text-background shadow-2xs font-bold'
-                  : 'text-muted-foreground hover:text-foreground'
+                  ? 'bg-[var(--fg)] text-white shadow-xs'
+                  : 'text-[var(--muted)] hover:text-[var(--fg)]'
               }`}
             >
               <Sparkles className="w-3 h-3 text-amber-400" />
@@ -277,28 +258,28 @@ export const GraphTopologyCanvas: React.FC<GraphTopologyCanvasProps> = ({
           </div>
 
           {/* Zoom controls */}
-          <div className="flex items-center bg-muted border border-border rounded-md">
+          <div className="flex items-center bg-[oklch(0.96_0.01_84)] border border-[var(--border)] rounded-full px-1 py-0.5">
             <button
               onClick={() => setZoom((z) => Math.min(2, z + 0.15))}
-              className="p-1.5 text-muted-foreground hover:text-foreground hover:bg-muted-foreground/10 rounded-l transition cursor-pointer"
+              className="p-1 text-[var(--muted)] hover:text-[var(--fg)] rounded-full transition cursor-pointer"
               title="Aumentar Zoom"
             >
               <ZoomIn className="w-3.5 h-3.5" />
             </button>
-            <span className="text-[10px] font-bold px-1.5 text-muted-foreground">
+            <span className="text-[11px] font-mono font-bold px-1 text-[var(--fg)]">
               {Math.round(zoom * 100)}%
             </span>
             <button
               onClick={() => setZoom((z) => Math.max(0.4, z - 0.15))}
-              className="p-1.5 text-muted-foreground hover:text-foreground hover:bg-muted-foreground/10 transition cursor-pointer"
+              className="p-1 text-[var(--muted)] hover:text-[var(--fg)] rounded-full transition cursor-pointer"
               title="Diminuir Zoom"
             >
               <ZoomOut className="w-3.5 h-3.5" />
             </button>
             <button
               onClick={resetView}
-              className="p-1.5 text-muted-foreground hover:text-foreground hover:bg-muted-foreground/10 rounded-r transition cursor-pointer"
-              title="Centralizar Visualização"
+              className="p-1 text-[var(--muted)] hover:text-[var(--fg)] rounded-full transition cursor-pointer"
+              title="Centralizar"
             >
               <RotateCcw className="w-3.5 h-3.5" />
             </button>
@@ -306,44 +287,42 @@ export const GraphTopologyCanvas: React.FC<GraphTopologyCanvasProps> = ({
         </div>
       </div>
 
-      {/* Área Principal de Renderização do Grafo */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
+      {/* Grid Principal: Canvas + Inspetor Lateral */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
         {/* Canvas de Grafo Interativo */}
         <div
           ref={containerRef}
           onMouseDown={handleMouseDownCanvas}
           onMouseMove={handleMouseMove}
           onMouseUp={handleMouseUp}
-          className={`relative lg:col-span-8 h-[600px] bg-card/60 backdrop-blur-xs border border-border rounded-lg overflow-hidden shadow-2xs select-none cursor-grab active:cursor-grabbing ${
+          className={`relative lg:col-span-8 h-[620px] bg-[oklch(0.985_0.008_84)] border border-[var(--border)] rounded-[var(--r-lg)] overflow-hidden shadow-[var(--shadow-sm)] select-none cursor-grab active:cursor-grabbing ${
             isPanning ? 'cursor-grabbing' : ''
           }`}
         >
-          <CornerPlus />
-
-          {/* Grade de fundo técnica estilo Blueprint */}
+          {/* Subtle Canvas Dot Grid */}
           <div
-            className="absolute inset-0 pointer-events-none opacity-20 dark:opacity-15"
+            className="absolute inset-0 pointer-events-none opacity-25"
             style={{
               backgroundImage:
-                'radial-gradient(circle, currentColor 1px, transparent 1px), linear-gradient(to right, currentColor 1px, transparent 1px), linear-gradient(to bottom, currentColor 1px, transparent 1px)',
-              backgroundSize: '32px 32px, 160px 160px, 160px 160px',
+                'radial-gradient(circle, oklch(0.4_0.05_285) 1px, transparent 1px)',
+              backgroundSize: '24px 24px',
             }}
           />
 
           {/* Legenda Flutuante */}
-          <div className="absolute top-3 left-3 z-20 flex flex-wrap gap-2 pointer-events-auto bg-card/90 backdrop-blur-md border border-border rounded-md px-2.5 py-1.5 text-[10px] font-mono shadow-2xs text-muted-foreground">
-            <span className="flex items-center gap-1">
-              <span className="w-2 h-2 rounded-full bg-emerald-500" /> Domínio ≥80%
+          <div className="absolute top-3.5 left-3.5 z-20 flex flex-wrap gap-2.5 pointer-events-auto bg-[oklch(1_0_0_/_0.92)] backdrop-blur-md border border-[var(--border)] rounded-full px-3.5 py-1.5 text-xs font-bold shadow-xs text-[var(--muted)]">
+            <span className="flex items-center gap-1.5">
+              <span className="w-2.5 h-2.5 rounded-full bg-[var(--ok)]" /> Domínio ≥80%
             </span>
-            <span className="flex items-center gap-1">
-              <span className="w-2 h-2 rounded-full bg-foreground" /> 55-79%
+            <span className="flex items-center gap-1.5">
+              <span className="w-2.5 h-2.5 rounded-full bg-[var(--fg)]" /> 55-79%
             </span>
-            <span className="flex items-center gap-1">
-              <span className="w-2 h-2 rounded-full bg-amber-500" /> &lt;55% (Dificuldade)
+            <span className="flex items-center gap-1.5">
+              <span className="w-2.5 h-2.5 rounded-full bg-[var(--bad)]" /> &lt;55%
             </span>
-            <span className="flex items-center gap-1 text-foreground font-bold">
-              <span className="w-2 h-2 rounded-full bg-gradient-to-r from-amber-400 to-rose-400 animate-ping" />
-              BorderTrail: Criado nesta sessão
+            <span className="flex items-center gap-1.5 text-[var(--fg)]">
+              <span className="w-2.5 h-2.5 rounded-full bg-[var(--accent)] animate-pulse" />
+              Sessão ativa
             </span>
           </div>
 
@@ -359,7 +338,7 @@ export const GraphTopologyCanvas: React.FC<GraphTopologyCanvasProps> = ({
               left: 0,
             }}
           >
-            {/* SVG de Linhas e Arestas de Relação */}
+            {/* SVG de Relações */}
             <svg
               className="absolute inset-0 w-full h-full pointer-events-none"
               style={{ overflow: 'visible' }}
@@ -374,7 +353,7 @@ export const GraphTopologyCanvas: React.FC<GraphTopologyCanvasProps> = ({
                   markerHeight="6"
                   orient="auto-start-reverse"
                 >
-                  <path d="M 0 1 L 10 5 L 0 9 z" fill="currentColor" className="text-muted-foreground/60" />
+                  <path d="M 0 1 L 10 5 L 0 9 z" fill="oklch(0.65 0.03 285)" />
                 </marker>
                 <marker
                   id="arrow-session-new"
@@ -385,7 +364,7 @@ export const GraphTopologyCanvas: React.FC<GraphTopologyCanvasProps> = ({
                   markerHeight="8"
                   orient="auto-start-reverse"
                 >
-                  <path d="M 0 0 L 10 5 L 0 10 z" fill="currentColor" className="text-foreground" />
+                  <path d="M 0 0 L 10 5 L 0 10 z" fill="oklch(0.24 0.03 285)" />
                 </marker>
               </defs>
 
@@ -399,13 +378,12 @@ export const GraphTopologyCanvas: React.FC<GraphTopologyCanvasProps> = ({
                   selectedNode &&
                   (selectedNode.id === rel.origem_id || selectedNode.id === rel.destino_id);
 
-                // Cálculo de curva suave Bezier
                 const midX = (sourcePos.x + targetPos.x) / 2;
                 const midY = (sourcePos.y + targetPos.y) / 2;
                 const dx = targetPos.x - sourcePos.x;
                 const dy = targetPos.y - sourcePos.y;
                 const dist = Math.sqrt(dx * dx + dy * dy);
-                const curveOffset = Math.min(40, dist * 0.15);
+                const curveOffset = Math.min(36, dist * 0.14);
 
                 const controlX = midX - (dy / (dist || 1)) * curveOffset;
                 const controlY = midY + (dx / (dist || 1)) * curveOffset;
@@ -414,35 +392,22 @@ export const GraphTopologyCanvas: React.FC<GraphTopologyCanvasProps> = ({
 
                 return (
                   <g key={rel.id} className="transition-opacity duration-200">
-                    {/* Linha de brilho base se for novo na sessão */}
-                    {isSessionNewRel && (
-                      <path
-                        d={pathData}
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth={4}
-                        className="text-foreground/30 blur-[2px]"
-                      />
-                    )}
-
-                    {/* Linha principal */}
                     <path
                       d={pathData}
                       fill="none"
-                      stroke="currentColor"
-                      strokeWidth={isSessionNewRel ? 2.5 : isConnectedToSelected ? 2 : 1.2}
-                      strokeDasharray={isSessionNewRel ? '5 3' : 'none'}
-                      markerEnd={isSessionNewRel ? 'url(#arrow-session-new)' : 'url(#arrow-default)'}
-                      className={`${
+                      stroke={
                         isSessionNewRel
-                          ? 'text-foreground animate-pulse'
+                          ? 'var(--accent-deep)'
                           : isConnectedToSelected
-                          ? 'text-foreground/80'
-                          : 'text-border'
-                      }`}
+                          ? 'var(--fg)'
+                          : 'oklch(0.82 0.02 84)'
+                      }
+                      strokeWidth={isSessionNewRel ? 2.5 : isConnectedToSelected ? 2 : 1.5}
+                      strokeDasharray={isSessionNewRel ? '4 3' : 'none'}
+                      markerEnd={isSessionNewRel ? 'url(#arrow-session-new)' : 'url(#arrow-default)'}
                     />
 
-                    {/* Tag de tipo de relação no centro */}
+                    {/* Tag de tipo de relação */}
                     <foreignObject
                       x={controlX - 60}
                       y={controlY - 12}
@@ -452,23 +417,13 @@ export const GraphTopologyCanvas: React.FC<GraphTopologyCanvasProps> = ({
                     >
                       <div className="flex items-center justify-center">
                         <div
-                          className={`relative px-1.5 py-0.5 rounded text-[9px] font-mono font-semibold uppercase tracking-tighter border shadow-2xs whitespace-nowrap overflow-hidden ${
+                          className={`px-2 py-0.5 rounded-full text-[10px] font-extrabold uppercase border shadow-xs whitespace-nowrap ${
                             isSessionNewRel
-                              ? 'bg-card border-foreground text-foreground font-bold'
-                              : 'bg-card/90 border-border text-muted-foreground'
+                              ? 'bg-[var(--accent)] text-[var(--fg)] border-[var(--accent-deep)]'
+                              : 'bg-[var(--surface)] text-[var(--muted)] border-[var(--border)]'
                           }`}
                         >
-                          {isSessionNewRel && (
-                            <BorderTrail
-                              size={30}
-                              transition={{ repeat: Infinity, duration: 4, ease: 'linear' }}
-                              style={{
-                                boxShadow:
-                                  '0px 0px 20px 10px rgb(255 255 255 / 40%), 0 0 40px 20px rgb(0 0 0 / 30%)',
-                              }}
-                            />
-                          )}
-                          <span>{rel.tipo.replace(/_/g, ' ')}</span>
+                          {rel.tipo.replace(/_/g, ' ')}
                         </div>
                       </div>
                     </foreignObject>
@@ -477,14 +432,13 @@ export const GraphTopologyCanvas: React.FC<GraphTopologyCanvasProps> = ({
               })}
             </svg>
 
-            {/* Renderização dos Nós do Grafo */}
+            {/* Nós Interativos */}
             {visibleNodes.map((node) => {
               const pos = nodePositions[node.id];
               if (!pos) return null;
 
               const isNew = sessionNewNodeIds.has(node.id);
               const isSelected = selectedNode?.id === node.id;
-              const isHovered = hoveredNodeId === node.id;
               const badge = getTypeBadge(node.tipo);
               const isPendingReview = new Date(node.proxima_revisao) <= new Date();
 
@@ -503,68 +457,54 @@ export const GraphTopologyCanvas: React.FC<GraphTopologyCanvasProps> = ({
                     top: `${pos.y}px`,
                     transform: 'translate(-50%, -50%)',
                   }}
-                  className={`absolute z-10 w-52 rounded-lg border bg-card p-3 shadow-sm transition-shadow duration-150 cursor-pointer select-none font-mono ${
+                  className={`absolute z-10 w-54 rounded-[var(--r)] border bg-[var(--surface)] p-3.5 shadow-[var(--shadow-sm)] transition-all duration-150 cursor-pointer select-none text-left ${
                     isSelected
-                      ? 'border-foreground ring-2 ring-foreground/30 shadow-md'
+                      ? 'border-2 border-[var(--fg)] ring-3 ring-[var(--accent)]/40 shadow-[var(--shadow)] scale-105'
                       : isNew
-                      ? 'border-foreground/80 shadow-md ring-1 ring-foreground/20'
-                      : 'border-border hover:border-foreground/50'
-                  } ${isNew ? 'overflow-hidden' : ''}`}
+                      ? 'border-2 border-[var(--accent-deep)] shadow-md'
+                      : 'border-[var(--border)] hover:border-[var(--fg)] hover:shadow-[var(--shadow)]'
+                  }`}
                 >
-                  <CornerPlus size="size-2.5" />
-
-                  {/* BORDERTRAIL EFFECT PARA NÓS NOVOS NESTA SESSÃO */}
-                  {isNew && (
-                    <BorderTrail
-                      size={75}
-                      transition={{ repeat: Infinity, duration: 5, ease: 'linear' }}
-                      style={{
-                        boxShadow:
-                          '0px 0px 50px 25px rgb(255 255 255 / 40%), 0 0 80px 45px rgb(0 0 0 / 30%)',
-                      }}
-                    />
-                  )}
-
-                  {/* Cabeçalho do Nó */}
+                  {/* Top Badge */}
                   <div className="flex items-center justify-between gap-1 mb-1.5">
-                    <span className={`text-[9px] font-bold px-1.5 py-0.2 rounded border ${badge.bg}`}>
+                    <span className={`text-[10px] font-extrabold px-2 py-0.5 rounded-full border ${badge.bg}`}>
                       {badge.label}
                     </span>
 
                     {isNew ? (
-                      <span className="flex items-center space-x-0.5 text-[9px] font-bold px-1.5 py-0.2 rounded bg-foreground text-background shadow-2xs">
-                        <Sparkles className="w-2.5 h-2.5" />
-                        <span>SESSÃO</span>
+                      <span className="flex items-center gap-0.5 text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-[var(--sunny)] text-[var(--fg)]">
+                        <Sparkles className="w-2.5 h-2.5 text-amber-700" />
+                        <span>NOVO</span>
                       </span>
                     ) : isPendingReview ? (
-                      <span className="flex items-center space-x-0.5 text-[9px] font-bold px-1 py-0.2 rounded bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/30">
+                      <span className="flex items-center gap-0.5 text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 border border-amber-300">
                         <Clock className="w-2.5 h-2.5" />
                         <span>REV</span>
                       </span>
                     ) : null}
                   </div>
 
-                  {/* Título e Breve Descrição */}
-                  <h4 className="text-xs font-bold text-foreground line-clamp-1 tracking-tight">
+                  {/* Title & Desc */}
+                  <h4 className="text-xs font-display font-bold text-[var(--fg)] line-clamp-1 leading-snug">
                     {node.titulo}
                   </h4>
-                  <p className="text-[10px] text-muted-foreground mt-0.5 line-clamp-2 leading-tight">
+                  <p className="text-[11px] text-[var(--muted)] mt-0.5 line-clamp-2 leading-tight">
                     {node.descricao}
                   </p>
 
-                  {/* Barra de Domínio */}
-                  <div className="mt-2 pt-1.5 border-t border-border flex items-center justify-between text-[10px]">
-                    <span className="text-muted-foreground">Domínio:</span>
-                    <span className="font-bold text-foreground">{node.dominio_estimado}%</span>
+                  {/* Domain Bar */}
+                  <div className="mt-2.5 pt-2 border-t border-[var(--border)] flex items-center justify-between text-[11px]">
+                    <span className="text-[var(--muted)] font-medium">Domínio:</span>
+                    <span className="font-bold text-[var(--fg)]">{node.dominio_estimado}%</span>
                   </div>
-                  <div className="w-full bg-muted rounded-full h-1 overflow-hidden mt-1">
+                  <div className="w-full bg-[oklch(0.93_0.02_84)] rounded-full h-1.5 overflow-hidden mt-1">
                     <div
                       className={`h-full rounded-full transition-all ${
                         node.dominio_estimado >= 80
-                          ? 'bg-emerald-500'
+                          ? 'bg-[var(--ok)]'
                           : node.dominio_estimado >= 55
-                          ? 'bg-foreground'
-                          : 'bg-amber-500'
+                          ? 'bg-[var(--fg)]'
+                          : 'bg-[var(--bad)]'
                       }`}
                       style={{ width: `${node.dominio_estimado}%` }}
                     />
@@ -575,48 +515,34 @@ export const GraphTopologyCanvas: React.FC<GraphTopologyCanvasProps> = ({
           </div>
         </div>
 
-        {/* Painel Lateral: Inspetor de Detalhes e Relações do Nó Selecionado */}
-        <div className="lg:col-span-4 space-y-3 font-mono">
+        {/* Painel Lateral: Inspetor de Detalhes com Histórico de Retenção */}
+        <div className="lg:col-span-4 space-y-3">
           {selectedNode ? (
-            <div className="relative bg-card border border-border rounded-lg p-5 shadow-2xs space-y-4">
-              <CornerPlus />
-
-              {/* Se o nó selecionado for novo, aplica o BorderTrail no inspetor também */}
-              {sessionNewNodeIds.has(selectedNode.id) && (
-                <BorderTrail
-                  size={90}
-                  transition={{ repeat: Infinity, duration: 6, ease: 'linear' }}
-                  style={{
-                    boxShadow:
-                      '0px 0px 50px 25px rgb(255 255 255 / 35%), 0 0 80px 45px rgb(0 0 0 / 25%)',
-                  }}
-                />
-              )}
-
-              <div className="flex items-start justify-between gap-2 border-b border-border pb-3">
+            <div className="bg-[var(--surface)] border border-[var(--border)] rounded-[var(--r-lg)] p-5.5 shadow-[var(--shadow-sm)] space-y-4 text-left">
+              <div className="flex items-start justify-between gap-2 border-b border-[var(--border)] pb-3">
                 <div>
-                  <div className="flex items-center space-x-2 mb-1">
+                  <div className="flex items-center gap-2 mb-1.5">
                     <span
-                      className={`text-[10px] font-bold px-2 py-0.5 rounded border ${
+                      className={`text-xs font-extrabold px-2.5 py-0.5 rounded-full border ${
                         getTypeBadge(selectedNode.tipo).bg
                       }`}
                     >
                       {getTypeBadge(selectedNode.tipo).label}
                     </span>
                     {sessionNewNodeIds.has(selectedNode.id) && (
-                      <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-foreground text-background flex items-center space-x-1">
-                        <Sparkles className="w-3 h-3" />
-                        <span>Adicionado na Sessão</span>
+                      <span className="text-xs font-extrabold px-2.5 py-0.5 rounded-full bg-[var(--sunny)] text-[var(--fg)] flex items-center gap-1">
+                        <Sparkles className="w-3 h-3 text-amber-700" />
+                        <span>Sessão Ativa</span>
                       </span>
                     )}
                   </div>
-                  <h3 className="text-sm font-bold text-foreground tracking-tight">
+                  <h3 className="text-base font-display font-bold text-[var(--fg)] leading-tight">
                     {selectedNode.titulo}
                   </h3>
                 </div>
                 <button
                   onClick={() => onSelectNode(null)}
-                  className="text-muted-foreground hover:text-foreground text-xs p-1 cursor-pointer"
+                  className="text-[var(--muted)] hover:text-[var(--fg)] text-sm font-bold p-1 rounded-full hover:bg-[oklch(0.95_0.01_84)] transition cursor-pointer"
                 >
                   ✕
                 </button>
@@ -624,30 +550,30 @@ export const GraphTopologyCanvas: React.FC<GraphTopologyCanvasProps> = ({
 
               {/* Descrição */}
               <div>
-                <span className="text-[10px] text-muted-foreground uppercase font-bold">
+                <span className="text-xs text-[var(--muted)] uppercase font-bold block mb-1">
                   Definição Pedagógica:
                 </span>
-                <p className="text-xs text-foreground mt-1 bg-muted/30 p-2.5 rounded border border-border leading-relaxed">
+                <p className="text-xs sm:text-sm text-[var(--fg)] bg-[oklch(0.97_0.01_84)] p-3 rounded-xl border border-[var(--border)] leading-relaxed">
                   {selectedNode.descricao}
                 </p>
               </div>
 
               {/* Ajuste Rápido de Domínio */}
               {onUpdateMastery && (
-                <div className="bg-muted/20 p-3 rounded-lg border border-border space-y-2">
+                <div className="bg-[oklch(0.97_0.01_84)] p-3.5 rounded-xl border border-[var(--border)] space-y-2">
                   <div className="flex items-center justify-between text-xs">
-                    <span className="text-muted-foreground font-semibold">Nível de Domínio:</span>
-                    <span className="font-bold text-foreground">{selectedNode.dominio_estimado}%</span>
+                    <span className="text-[var(--muted)] font-bold">Nível de Domínio:</span>
+                    <span className="font-extrabold text-[var(--fg)] font-mono text-sm">
+                      {selectedNode.dominio_estimado}%
+                    </span>
                   </div>
-                  <div className="flex items-center space-x-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
+                  <div className="flex items-center gap-2">
+                    <button
                       onClick={() => onUpdateMastery(selectedNode, -10)}
-                      className="text-xs h-7 px-2 cursor-pointer"
+                      className="px-2.5 py-1 rounded-full border border-[var(--border)] bg-[var(--surface)] text-xs font-bold text-[var(--fg)] hover:border-[var(--fg)] transition cursor-pointer"
                     >
                       -10%
-                    </Button>
+                    </button>
                     <input
                       type="range"
                       min={0}
@@ -656,26 +582,43 @@ export const GraphTopologyCanvas: React.FC<GraphTopologyCanvasProps> = ({
                       onChange={(e) =>
                         onUpdateMastery(selectedNode, Number(e.target.value) - selectedNode.dominio_estimado)
                       }
-                      className="flex-1 accent-foreground h-1.5"
+                      className="flex-1 accent-[var(--accent-deep)] h-2"
                     />
-                    <Button
-                      variant="outline"
-                      size="sm"
+                    <button
                       onClick={() => onUpdateMastery(selectedNode, 10)}
-                      className="text-xs h-7 px-2 cursor-pointer"
+                      className="px-2.5 py-1 rounded-full border border-[var(--border)] bg-[var(--surface)] text-xs font-bold text-[var(--fg)] hover:border-[var(--fg)] transition cursor-pointer"
                     >
                       +10%
-                    </Button>
+                    </button>
                   </div>
                 </div>
               )}
 
-              {/* Conexões Diretas no Grafo */}
+              {/* Mini Histórico de Retenção (6 pontos) */}
+              <div className="space-y-1.5">
+                <span className="text-xs text-[var(--muted)] uppercase font-bold block">
+                  Histórico de Retenção SRS:
+                </span>
+                <div className="grid grid-cols-6 gap-1.5 items-end h-16 bg-[oklch(0.97_0.01_84)] p-2 rounded-xl border border-[var(--border)]">
+                  {[45, 52, 60, 68, 75, selectedNode.dominio_estimado].map((val, idx) => (
+                    <div key={idx} className="flex flex-col items-center gap-1 h-full justify-end">
+                      <div
+                        className="w-full rounded-t-md bg-[var(--accent)] transition-all"
+                        style={{ height: `${Math.max(15, (val / 100) * 100)}%` }}
+                        title={`Sessão ${idx + 1}: ${val}%`}
+                      />
+                      <span className="text-[9px] font-mono text-[var(--muted)]">S{idx + 1}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Conexões Diretas */}
               <div>
-                <span className="text-[10px] text-muted-foreground uppercase font-bold">
+                <span className="text-xs text-[var(--muted)] uppercase font-bold block mb-1.5">
                   Conexões no Grafo ({relations.filter(r => r.origem_id === selectedNode.id || r.destino_id === selectedNode.id).length}):
                 </span>
-                <div className="mt-1.5 space-y-1.5 max-h-48 overflow-y-auto pr-1">
+                <div className="space-y-1.5 max-h-40 overflow-y-auto pr-1">
                   {relations
                     .filter((r) => r.origem_id === selectedNode.id || r.destino_id === selectedNode.id)
                     .map((r) => {
@@ -688,39 +631,46 @@ export const GraphTopologyCanvas: React.FC<GraphTopologyCanvasProps> = ({
                         <div
                           key={r.id}
                           onClick={() => otherNode && onSelectNode(otherNode)}
-                          className={`flex items-center justify-between p-2 rounded border text-xs cursor-pointer transition ${
+                          className={`flex items-center justify-between p-2.5 rounded-xl border text-xs cursor-pointer transition ${
                             isSessionNewRel
-                              ? 'bg-muted/60 border-foreground text-foreground'
-                              : 'bg-muted/20 border-border text-foreground hover:bg-muted/40'
+                              ? 'bg-[var(--accent-soft)] border-[var(--accent)] text-[var(--fg)] font-bold'
+                              : 'bg-[oklch(0.97_0.01_84)] border-[var(--border)] text-[var(--fg)] hover:border-[var(--fg)]'
                           }`}
                         >
-                          <div className="flex items-center space-x-1.5">
-                            <span className="font-bold text-[10px] text-foreground">
+                          <div className="flex items-center gap-1.5">
+                            <span className="font-extrabold text-[10px] text-[var(--accent-deep)]">
                               {isOrigin ? `[${r.tipo}]` : `[← ${r.tipo}]`}
                             </span>
-                            <ArrowRight className="w-3 h-3 text-muted-foreground" />
-                            <span className="font-medium line-clamp-1">
+                            <ArrowRight className="w-3.5 h-3.5 text-[var(--muted)]" />
+                            <span className="font-semibold line-clamp-1">
                               {otherNode?.titulo || 'Outro Nó'}
                             </span>
                           </div>
-                          {isSessionNewRel && (
-                            <span className="text-[9px] px-1 py-0.2 rounded bg-foreground text-background font-bold">
-                              NOVO
-                            </span>
-                          )}
                         </div>
                       );
                     })}
                 </div>
               </div>
+
+              {/* Ações Rápidas */}
+              {onNavigateToChat && (
+                <button
+                  onClick={() => onNavigateToChat(selectedNode.titulo)}
+                  className="w-full inline-flex items-center justify-center gap-2 rounded-full px-4 py-2.5 font-extrabold text-xs bg-[var(--accent)] text-[var(--fg)] hover:bg-[var(--accent-deep)] transition shadow-xs cursor-pointer"
+                >
+                  <MessageSquare className="w-4 h-4" />
+                  <span>Revisar Conceito no Chat</span>
+                </button>
+              )}
             </div>
           ) : (
-            <div className="relative bg-card border border-border rounded-lg p-6 text-center space-y-3 shadow-2xs text-muted-foreground">
-              <CornerPlus />
-              <Layers className="w-8 h-8 mx-auto text-muted-foreground opacity-60" />
-              <h4 className="text-xs font-bold text-foreground">Selecione um Nó para Inspecionar</h4>
-              <p className="text-[11px] leading-relaxed">
-                Clique em qualquer nó ou linha de conexão para visualizar o histórico de retenção, ajustar o domínio ou navegar pelas relações.
+            <div className="bg-[var(--surface)] border border-[var(--border)] rounded-[var(--r-lg)] p-8 text-center space-y-3 shadow-[var(--shadow-sm)] text-[var(--muted)]">
+              <Layers className="w-10 h-10 mx-auto text-[var(--muted)] opacity-60" />
+              <h4 className="text-sm font-display font-bold text-[var(--fg)]">
+                Selecione um Nó para Inspecionar
+              </h4>
+              <p className="text-xs leading-relaxed max-w-xs mx-auto">
+                Clique em qualquer nó ou conexão do mapa para ver evidências de uso, relações conceituais e curva de retenção.
               </p>
             </div>
           )}

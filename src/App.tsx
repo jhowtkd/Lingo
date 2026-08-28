@@ -1,32 +1,22 @@
-/**
- * @license
- * SPDX-License-Identifier: Apache-2.0
- */
-
 import React, { useState, useEffect } from 'react';
 import { Navbar } from './components/Navbar';
+import { HomeOverview } from './components/HomeOverview';
 import { ChatTutor } from './components/ChatTutor';
 import { FlashcardsView } from './components/FlashcardsView';
 import { VocabularyDuelView } from './components/VocabularyDuelView';
 import { GraphMemoryView } from './components/GraphMemoryView';
-import { CalendarPlanning } from './components/CalendarPlanning';
 import { MaterialsView } from './components/MaterialsView';
+import { MisconceptionsDictionary } from './components/MisconceptionsDictionary';
 import { WeeklyDashboard } from './components/WeeklyDashboard';
 import { AchievementsView } from './components/AchievementsView';
 import { LanguageThemeSelector } from './components/LanguageThemeSelector';
 import { ScreenCaptureModal } from './components/ScreenCaptureModal';
-import { Pricing } from './components/ui/single-pricing-card-1';
-import { GridBackground } from './components/ui/grid-background';
-import { CornerPlus } from './components/ui/corner-plus';
-import { BorderTrailWrapper } from './components/ui/border-trail-card';
-import { Button } from './components/ui/button';
-import { Badge } from './components/ui/badge';
 import { UserStats, LanguageThemeId } from './types';
 import { StorageService } from './services/storage';
 import { getLanguageTheme, detectLanguageTheme } from './services/languageThemes';
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState<string>('chat');
+  const [activeTab, setActiveTab] = useState<string>('home');
   const [currentTopic, setCurrentTopic] = useState<string>('Inglês: Connected Speech & Pronúncia Natural');
   const [stats, setStats] = useState<UserStats>(StorageService.getStats());
   const [showTopicModal, setShowTopicModal] = useState(false);
@@ -59,7 +49,6 @@ export default function App() {
 
   const handleSelectTopic = (topic: string) => {
     setCurrentTopic(topic);
-    const themeId = detectLanguageTheme(topic);
     const langConfig = getLanguageTheme(topic);
     const updatedStats = { ...stats, idioma_ativo: langConfig.nome };
     StorageService.saveStats(updatedStats);
@@ -106,9 +95,16 @@ export default function App() {
   return (
     <div
       data-lang-theme={activeLanguageTheme.id}
-      className="min-h-screen bg-background text-foreground flex flex-col font-sans selection:bg-foreground selection:text-background transition-colors duration-500"
+      className="min-h-screen flex flex-col font-sans transition-colors duration-500 relative"
     >
-      {/* Barra de Navegação Superior */}
+      {/* Background Animated Blobs */}
+      <div className="blobs" aria-hidden="true">
+        <div className="blob blob-1" />
+        <div className="blob blob-2" />
+        <div className="blob blob-3" />
+      </div>
+
+      {/* Floating Pill Navigation */}
       <Navbar
         activeTab={activeTab}
         setActiveTab={setActiveTab}
@@ -119,13 +115,18 @@ export default function App() {
         onOpenScreenshotModal={() => setShowScreenshotModal(true)}
       />
 
-      {/* Conteúdo Principal */}
-      <div className="flex-1 flex flex-col bg-white">
-        <main className="flex-1 p-2 sm:p-4 lg:p-6 max-w-7xl w-full mx-auto">
-          <div
-            id="main-app-content"
-            className="rounded-[25px] border border-[#171719]/10 bg-white shadow-sm min-h-[calc(100vh-7.5rem)] flex flex-col transition-all duration-300"
-          >
+      {/* Main View Container */}
+      <div className="flex-1 flex flex-col max-w-6xl w-full mx-auto px-4 sm:px-6 py-6">
+        <main className="flex-1 flex flex-col">
+          <div id="main-app-content" className="w-full flex-1 flex flex-col">
+            {activeTab === 'home' && (
+              <HomeOverview
+                stats={stats}
+                currentTopic={currentTopic}
+                onNavigate={(tab) => setActiveTab(tab)}
+              />
+            )}
+
             {activeTab === 'chat' && (
               <ChatTutor
                 currentTopic={currentTopic}
@@ -170,9 +171,16 @@ export default function App() {
               />
             )}
 
-            {activeTab === 'graph' && <GraphMemoryView />}
+            {activeTab === 'misconceptions' && (
+              <MisconceptionsDictionary
+                onPracticeTopic={(topic) => {
+                  setCurrentTopic(topic);
+                  setActiveTab('chat');
+                }}
+              />
+            )}
 
-            {activeTab === 'calendar' && <CalendarPlanning />}
+            {activeTab === 'graph' && <GraphMemoryView />}
 
             {activeTab === 'dashboard' && (
               <WeeklyDashboard
@@ -190,37 +198,48 @@ export default function App() {
                 onResetData={handleResetData}
               />
             )}
-
-            {activeTab === 'pricing' && <Pricing />}
           </div>
         </main>
       </div>
 
-      {/* Modal para Alteração de Tópico de Estudos & Paleta Temática */}
+      {/* Footer */}
+      <footer className="max-w-6xl mx-auto w-full px-6 py-6 text-xs sm:text-sm text-[var(--muted)] flex items-center justify-between gap-4 flex-wrap border-t border-[var(--border)] mt-auto">
+        <span>
+          <strong className="font-display text-[var(--fg)]">Lingo</strong> · tutor de idiomas com memória relacional em grafo
+        </span>
+        <button
+          onClick={handleResetData}
+          className="text-[var(--accent-deep)] hover:underline font-extrabold cursor-pointer"
+        >
+          Restaurar dados padrão
+        </button>
+      </footer>
+
+      {/* Modal para Alteração de Tópico & Idioma */}
       {showTopicModal && (
-        <div className="fixed inset-0 z-50 bg-[#171719]/70 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="relative bg-white border border-[#171719]/15 rounded-[25px] max-w-2xl w-full p-6 sm:p-8 space-y-6 shadow-2xl text-[#171719] max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between border-b border-[#171719]/10 pb-4">
+        <div className="fixed inset-0 z-50 bg-[oklch(0.32_0.07_285_/_0.42)] backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="relative bg-[var(--surface)] border border-[var(--border)] rounded-[var(--r-lg)] max-w-2xl w-full p-6 sm:p-8 space-y-6 shadow-[var(--shadow)] text-[var(--fg)] max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between border-b border-[var(--border)] pb-4">
               <div className="space-y-1">
-                <div className="inline-flex items-center rounded-full border border-[#171719]/15 bg-[#1ff98c] px-2.5 py-0.5 font-mono text-[10px] font-bold tracking-wider text-[#171719] uppercase">
-                  IMMERSIVE SETUP
+                <div className="inline-flex items-center rounded-full bg-[var(--sunny)] px-2.5 py-0.5 text-[11px] font-extrabold text-[var(--fg)]">
+                  IDIOMA & FOCO
                 </div>
-                <h3 className="text-lg sm:text-xl font-extrabold tracking-tight text-[#171719] flex items-center gap-2">
-                  <span>Alterar Idioma & Foco Temático</span>
-                  <span className="text-xs px-2.5 py-0.5 rounded-full border border-[#171719]/20 bg-[#ededed] font-bold">
+                <h3 className="text-xl font-bold font-display text-[var(--fg)] flex items-center gap-2">
+                  <span>Alterar Idioma & Tópico</span>
+                  <span className="text-xs px-2.5 py-0.5 rounded-full border border-[var(--border)] bg-[oklch(0.965_0.01_84)] font-bold">
                     {activeLanguageTheme.bandeira} {activeLanguageTheme.nome}
                   </span>
                 </h3>
               </div>
               <button
                 onClick={() => setShowTopicModal(false)}
-                className="text-[#71717a] hover:text-[#171719] text-sm font-semibold p-2 rounded-[9px] hover:bg-[#ededed] transition cursor-pointer"
+                className="text-[var(--muted)] hover:text-[var(--fg)] p-2 rounded-full hover:bg-[oklch(0.955_0.012_84)] transition cursor-pointer"
               >
                 ✕
               </button>
             </div>
 
-            {/* Seletor Visual de Idioma e Tema Dinâmico */}
+            {/* Seletor Visual de Idioma */}
             <LanguageThemeSelector
               currentLanguage={stats.idioma_ativo || currentTopic}
               onSelectLanguage={(langName, themeId) => {
@@ -229,8 +248,8 @@ export default function App() {
             />
 
             {/* Trilhas Sugeridas de Tópicos */}
-            <div className="space-y-3 pt-3 border-t border-[#171719]/10">
-              <span className="text-[#171719] font-bold text-xs uppercase tracking-wider block">
+            <div className="space-y-3 pt-3 border-t border-[var(--border)] text-left">
+              <span className="text-[var(--fg)] font-bold text-xs uppercase tracking-wider block">
                 Trilhas Recomendadas:
               </span>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
@@ -243,15 +262,15 @@ export default function App() {
                         handleSelectTopic(t);
                         setShowTopicModal(false);
                       }}
-                      className={`p-3 rounded-[9px] border text-left font-semibold transition text-xs flex items-center justify-between cursor-pointer ${
+                      className={`p-3 rounded-xl border text-left font-bold transition text-xs flex items-center justify-between cursor-pointer ${
                         isSelected
-                          ? 'bg-[#171719] text-white border-[#171719] shadow-xs'
-                          : 'bg-[#ededed] border-transparent text-[#171719] hover:bg-[#e2e2e2]'
+                          ? 'bg-[var(--fg)] text-[oklch(0.97_0.01_84)] border-[var(--fg)] shadow-xs'
+                          : 'bg-[oklch(0.965_0.01_84)] border-transparent text-[var(--fg)] hover:bg-[oklch(0.94_0.02_84)]'
                       }`}
                     >
                       <span className="truncate">{t}</span>
                       {isSelected && (
-                        <span className="px-2 py-0.5 rounded-full bg-[#1ff98c] text-[#171719] font-extrabold text-[9px] shrink-0 ml-1">
+                        <span className="px-2 py-0.5 rounded-full bg-[var(--accent)] text-[var(--fg)] font-extrabold text-[9px] shrink-0 ml-1">
                           ATIVO
                         </span>
                       )}
@@ -261,8 +280,8 @@ export default function App() {
               </div>
 
               {/* Tópico Personalizado */}
-              <form onSubmit={handleSaveCustomTopic} className="pt-4 border-t border-[#171719]/10 space-y-2">
-                <label className="text-[#171719] font-bold text-xs block">
+              <form onSubmit={handleSaveCustomTopic} className="pt-4 border-t border-[var(--border)] space-y-2">
+                <label className="text-[var(--fg)] font-bold text-xs block">
                   Ou defina um tema de foco livre:
                 </label>
                 <div className="flex gap-2">
@@ -270,18 +289,22 @@ export default function App() {
                     type="text"
                     value={customTopicInput}
                     onChange={(e) => setCustomTopicInput(e.target.value)}
-                    placeholder="Ex: Espanhol para Negócios, Francês A2, Entrevistas em Inglês..."
-                    className="flex-1 bg-white border border-[#171719]/20 rounded-[9px] px-3.5 py-2 text-xs text-[#171719] placeholder:text-[#71717a] focus:outline-none focus:ring-2 focus:ring-[#1ff98c]"
+                    placeholder="Ex: Espanhol para Negócios, Francês para Viagens, Entrevistas em Inglês..."
+                    className="flex-1 bg-[var(--surface)] border-2 border-[var(--border)] rounded-full px-4 py-2 text-xs sm:text-sm text-[var(--fg)] placeholder:text-[var(--muted)] focus:outline-none focus:border-[var(--accent)]"
                   />
-                  <Button type="submit" size="sm" variant="default">
+                  <button
+                    type="submit"
+                    className="px-5 py-2 rounded-full font-extrabold text-xs bg-[var(--accent)] text-[var(--fg)] hover:bg-[var(--accent-deep)] transition shadow-xs cursor-pointer"
+                  >
                     Definir Foco
-                  </Button>
+                  </button>
                 </div>
               </form>
             </div>
           </div>
         </div>
       )}
+
       {/* Modal de Captura de Telas em PNG */}
       <ScreenCaptureModal
         isOpen={showScreenshotModal}
@@ -292,6 +315,3 @@ export default function App() {
     </div>
   );
 }
-
-
-
