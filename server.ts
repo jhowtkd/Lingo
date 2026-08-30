@@ -31,7 +31,13 @@ function getGeminiClient(): GoogleGenAI | null {
 }
 
 /**
- * Executa chamadas ao Gemini com retry exponencial e fallback de modelos para 503 (High Demand/UNAVAILABLE) e 429
+ * Gerenciador de cooldown de modelos para evitar chamadas repetidas a endpoints em 503
+ */
+const modelCooldownMap = new Map<string, number>();
+
+/**
+ * Executa chamadas ao Gemini com retry inteligente, cooldown ativo e fallback automático de modelos
+ * para 503 (High Demand/UNAVAILABLE), 429 e erros transitórios.
  */
 async function generateContentWithRetryAndFallback(
   client: GoogleGenAI,
@@ -40,45 +46,62 @@ async function generateContentWithRetryAndFallback(
     contents: any;
     config?: any;
   },
-  fallbackModels: string[] = ['gemini-3.7-flash', 'gemini-3.1-flash-lite', 'gemini-flash-latest']
+  fallbackModels: string[] = ['gemini-3.1-flash-lite', 'gemini-flash-latest', 'gemini-3.7-flash']
 ) {
   const preferredModel = params.model || 'gemini-3.7-flash';
-  const modelsToTry = [preferredModel, ...fallbackModels.filter((m) => m !== preferredModel)];
+  const now = Date.now();
+
+  // Lista base de modelos a tentar
+  const allCandidates = Array.from(new Set([preferredModel, ...fallbackModels]));
+
+  // Ordena modelos colocando na frente aqueles que NÃO estão em cooldown de 503
+  const modelsToTry = allCandidates.sort((a, b) => {
+    const aCool = (modelCooldownMap.get(a) || 0) > now ? 1 : 0;
+    const bCool = (modelCooldownMap.get(b) || 0) > now ? 1 : 0;
+    return aCool - bCool;
+  });
 
   let lastError: any = null;
 
   for (const modelName of modelsToTry) {
-    for (let attempt = 0; attempt < 2; attempt++) {
-      try {
-        const response = await client.models.generateContent({
-          ...params,
-          model: modelName,
-        });
-        return response;
-      } catch (err: any) {
-        lastError = err;
-        const errMsg = (err?.message || String(err)).toLowerCase();
-        const isTransient =
-          errMsg.includes('503') ||
-          errMsg.includes('unavailable') ||
-          errMsg.includes('high demand') ||
-          errMsg.includes('429') ||
-          errMsg.includes('resource has been exhausted') ||
-          errMsg.includes('overloaded') ||
-          errMsg.includes('rate limit');
+    const isCoolingDown = (modelCooldownMap.get(modelName) || 0) > now;
+    if (isCoolingDown && modelsToTry.length > 1) {
+      // Se há alternativas disponíveis, pula modelos em cooldown recente de 503
+      continue;
+    }
 
-        console.warn(
-          `[Gemini Resiliente] Modelo ${modelName} (tentativa ${attempt + 1}) retornou: ${err?.message || err}`
+    try {
+      const response = await client.models.generateContent({
+        ...params,
+        model: modelName,
+      });
+      // Sucesso: remove do cooldown se estiver lá
+      modelCooldownMap.delete(modelName);
+      return response;
+    } catch (err: any) {
+      lastError = err;
+      const errMsg = (err?.message || String(err)).toLowerCase();
+      const is503HighDemand =
+        errMsg.includes('503') ||
+        errMsg.includes('unavailable') ||
+        errMsg.includes('high demand') ||
+        errMsg.includes('spikes in demand');
+      const isRateLimit =
+        errMsg.includes('429') ||
+        errMsg.includes('resource has been exhausted') ||
+        errMsg.includes('rate limit');
+
+      if (is503HighDemand || isRateLimit) {
+        // Registra cooldown de 30 segundos para não insistir no modelo com sobrecarga
+        modelCooldownMap.set(modelName, Date.now() + 30000);
+        console.info(
+          `[Gemini Auto-Fallback] Modelo ${modelName} em alta demanda (503/429). Chaveando para próximo modelo saudável da lista.`
         );
-
-        if (isTransient) {
-          // Pequena pausa com backoff antes da próxima tentativa
-          await new Promise((resolve) => setTimeout(resolve, 300 * (attempt + 1)));
-        } else {
-          // Erro não transitório (ex: schema de formato), pula para próximo modelo
-          break;
-        }
+        // Não tenta de novo o mesmo modelo saturado; passa direto para o fallback (ex: gemini-3.1-flash-lite)
+        continue;
       }
+
+      console.warn(`[Gemini Resiliente] Modelo ${modelName} retornou erro:`, errMsg.slice(0, 120));
     }
   }
 
@@ -111,6 +134,9 @@ async function startServer() {
         idioma_alvo = 'Inglês',
         nivel_estudante = 'Intermediário (B1)',
         modo_conversa = 'bilingue', // 'bilingue', 'imersao', 'roleplay'
+        plano_estudo = null,
+        motivo_estudo = '',
+        interesses = [],
         contexto_grafo = [],
         correcoes_recentes = [],
         preferencia_adaptacao,
@@ -124,7 +150,16 @@ async function startServer() {
 
       if (!client) {
         // Fallback robusto para testes e modo local caso API key não esteja disponível
-        return res.json(generateLocalLanguageTutorResponse(mensagem, topico_atual, idioma_alvo, contexto_grafo, preferencia_adaptacao));
+        return res.json(
+          generateLocalLanguageTutorResponse(
+            mensagem,
+            topico_atual,
+            idioma_alvo,
+            contexto_grafo,
+            preferencia_adaptacao,
+            plano_estudo
+          )
+        );
       }
 
       const promptContext = `
@@ -134,6 +169,12 @@ Idioma Alvo de Estudo: "${idioma_alvo}".
 Nível Geral Estimado (CEFR): "${nivel_estudante}".
 Modo de Conversação Selecionado: "${modo_conversa}" (bilingue = respostas explicativas com foco prático; imersao = maior parte no idioma-alvo com suporte; roleplay = simulação interativa de diálogo real).
 Preferência de adaptação explícita do usuário: ${preferencia_adaptacao || 'Nenhuma (calibrar automaticamente com base no grafo de idiomas)'}.
+
+PLANO DE ESTUDOS DO ALUNO ATIVO:
+- Objetivo / Motivo Principal: "${motivo_estudo || (plano_estudo?.motivo_principal) || 'Conversação e Fluência'}"
+- Interesses Principais: ${JSON.stringify(interesses.length > 0 ? interesses : (plano_estudo?.interesses_principais || []))}
+- Título do Plano: "${plano_estudo?.titulo_plano || 'Trilha Personalizada'}"
+- Estratégia Pedagógica do Plano: "${plano_estudo?.estrategia_pedagogica || 'Imersão conversacional adaptativa'}"
 
 Memórias do Grafo de Conhecimento de Idiomas relevantes (vocabulários conhecidos, dificuldades gramaticais, falsos cognatos):
 ${JSON.stringify(contexto_grafo, null, 2)}
@@ -148,21 +189,25 @@ Nova mensagem do estudante:
 "${mensagem}"
 
 DIRETRIZES DO TUTOR DE LÍNGUAS:
-1. Adaptação Dinâmica de Nível (CEFR):
-   - Domínio baixo (< 55% / A1-A2): use explicações claras, forneça traduções de suporte, analogias fonéticas com o português e divida as estruturas gramaticais em pedaços simples.
-   - Domínio intermediário (55-79% / B1-B2): estimule o uso de tempos verbais variados, conectivos (linkers), collocations e expressões naturais, apontando nuances sutis.
-   - Domínio alto (>= 80% / C1-C2): foque em precisão estilística, idioms, connected speech, phrasal verbs avançados e vocabulário sofisticado.
-2. Identificação de Erros Linguísticos:
+1. ALINHAMENTO COM O PLANO DE ESTUDOS E IDIOMA ALVO:
+   - Responda SEMPRE com foco no idioma alvo (${idioma_alvo}) e no tópico da conversa ("${topico_atual}").
+   - Conecte o diálogo com o objetivo do aluno ("${motivo_estudo || 'Conversação'}") e seus interesses.
+   - Forneça suporte acolhedor em Português conforme o nível CEFR (${nivel_estudante}).
+2. Adaptação Dinâmica de Nível (CEFR):
+   - Domínio baixo (< 55% / A1-A2): use frases curtas e claras em ${idioma_alvo}, forneça traduções de suporte, analogias fonéticas com o português e divida as estruturas gramaticais em pedaços simples.
+   - Domínio intermediário (55-79% / B1-B2): estimule o uso de tempos verbais variados, conectivos (linkers), collocations e expressões naturais em ${idioma_alvo}, apontando nuances sutis.
+   - Domínio alto (>= 80% / C1-C2): converse predominantemente em ${idioma_alvo}, foque em precisão estilística, idioms, connected speech e vocabulário sofisticado.
+3. Identificação de Erros Linguísticos:
    - Detecte desvios gramaticais, preposições incorretas, conjugação errada, falsos cognatos (false friends) ou frases traduzidas literalmente do português que soem artificiais.
-3. Se houver erro ou oportunidade de melhoria:
+4. Se houver erro ou oportunidade de melhoria:
    - Seja extremamente acolhedor e encorajador.
    - Mostre como um falante nativo diria de forma natural ("Em ${idioma_alvo}, é mais natural dizer...").
    - Explique o motivo (ex: regra gramatical ou padrão de uso) e dê uma dica prática de memorização / pronúncia.
    - Faça uma pergunta de confirmação ou convite para o aluno tentar usar a expressão correta na próxima frase.
-4. Se a frase estiver correta:
-   - Valide positivamente e apresente uma variação de vocabulário mais rica ou faça uma pergunta que dê continuidade ao diálogo em ${idioma_alvo}.
-5. Extraia novos nós de vocabulário, regras gramaticais ou pontos de atenção para o Grafo de Memória.
-6. Atribua XP justo por esforço comunicativo (ex: 15-40 XP).
+5. Se a frase estiver correta:
+   - Valide positivamente e apresente uma variação de vocabulário mais rica ou faça uma pergunta que dê continuidade ao diálogo em ${idioma_alvo} explorando o tópico.
+6. Extraia novos nós de vocabulário, regras gramaticais ou pontos de atenção para o Grafo de Memória em ${idioma_alvo}.
+7. Atribua XP justo por esforço comunicativo (ex: 15-40 XP).
 `;
 
       const response = await generateContentWithRetryAndFallback(client, {
@@ -547,6 +592,128 @@ GERE UM MATERIAL COMPLETO COM:
     }
   });
 
+  // NOVO: Caixa de Contexto de Palavra com Sinônimos, IPA, Tradução e Exemplos
+  app.post('/api/word-context', async (req, res) => {
+    try {
+      const {
+        palavra = '',
+        frase_contexto = '',
+        idioma = 'Inglês',
+        topico = 'Conversação Geral',
+      } = req.body;
+
+      const cleanWord = (palavra || '').replace(/^[^\wÀ-ÿ]+|[^\wÀ-ÿ]+$/g, '').trim();
+
+      if (!cleanWord) {
+        return res.status(400).json({ error: 'Palavra inválida' });
+      }
+
+      const client = getGeminiClient();
+
+      if (!client) {
+        return res.json({
+          contexto: generateLocalWordContext(cleanWord, frase_contexto, idioma),
+        });
+      }
+
+      const prompt = `
+Você é um Lexicógrafo e Especialista em Linguística Aplicada ao ensino de ${idioma} para falantes de Português.
+Analise a palavra "${cleanWord}" exatamente no contexto da frase abaixo:
+
+Frase de Contexto: "${frase_contexto || cleanWord}"
+Tópico da Aula: "${topico}"
+Idioma: "${idioma}"
+
+Forneça um objeto JSON estruturado com:
+1. "palavra": A palavra exata consultada.
+2. "lemma_raiz": A forma base/dicionário (ex: "running" -> "run", "better" -> "good", "houses" -> "house").
+3. "classe_gramatical": Ex: "Substantivo", "Verbo transitivo", "Adjetivo", "Phrasal Verb", "Advérbio", "Conjunção", "Expressão".
+4. "idioma": "${idioma}"
+5. "nivel_cefr": Nível estimado ('A1', 'A2', 'B1', 'B2', 'C1', 'C2').
+6. "pronuncia_ipa": Transcrição fonética IPA padrão com tonicidade (ex: "/ˈfæs.ə.neɪ.tɪŋ/").
+7. "traducao_principal": Tradução precisa em Português no contexto desta frase.
+8. "definicao_contextual": Breve explicação de 1 a 2 frases do significado desta palavra nesta situação.
+9. "sinonimos": Lista de 3 a 5 sinônimos ou termos equivalentes no idioma alvo.
+10. "antonimos": Lista de 2 a 3 antônimos (se aplicável).
+11. "exemplos_uso": Lista de 2 a 3 pares com {"frase_original": "...", "traducao_portugues": "..."} mostrando o uso natural em contextos reais e cotidianos.
+12. "falso_amigo_alerta": Se for um falso cognato ou confundido frequentemente por brasileiros, explique claramente; caso contrário, omita ou deixe vazio.
+13. "dica_uso_ou_collocation": Dica prática de preposição que a acompanha, colocação comum ou padrão de fala.
+14. "origem_etimologia": Curiosidade etimológica curta e memorável (opcional).
+`;
+
+      const response = await generateContentWithRetryAndFallback(client, {
+        model: 'gemini-3.7-flash',
+        contents: prompt,
+        config: {
+          responseMimeType: 'application/json',
+          responseSchema: {
+            type: Type.OBJECT,
+            properties: {
+              palavra: { type: Type.STRING },
+              lemma_raiz: { type: Type.STRING },
+              classe_gramatical: { type: Type.STRING },
+              idioma: { type: Type.STRING },
+              nivel_cefr: {
+                type: Type.STRING,
+                enum: ['A1', 'A2', 'B1', 'B2', 'C1', 'C2'],
+              },
+              pronuncia_ipa: { type: Type.STRING },
+              traducao_principal: { type: Type.STRING },
+              definicao_contextual: { type: Type.STRING },
+              sinonimos: {
+                type: Type.ARRAY,
+                items: { type: Type.STRING },
+              },
+              antonimos: {
+                type: Type.ARRAY,
+                items: { type: Type.STRING },
+              },
+              exemplos_uso: {
+                type: Type.ARRAY,
+                items: {
+                  type: Type.OBJECT,
+                  properties: {
+                    frase_original: { type: Type.STRING },
+                    traducao_portugues: { type: Type.STRING },
+                  },
+                  required: ['frase_original', 'traducao_portugues'],
+                },
+              },
+              falso_amigo_alerta: { type: Type.STRING },
+              dica_uso_ou_collocation: { type: Type.STRING },
+              origem_etimologia: { type: Type.STRING },
+            },
+            required: [
+              'palavra',
+              'lemma_raiz',
+              'classe_gramatical',
+              'idioma',
+              'nivel_cefr',
+              'pronuncia_ipa',
+              'traducao_principal',
+              'definicao_contextual',
+              'sinonimos',
+              'exemplos_uso',
+            ],
+          },
+        },
+      });
+
+      const parsed = JSON.parse(response.text || '{}');
+      return res.json({ contexto: parsed });
+    } catch (err: any) {
+      console.warn('Erro ao gerar contexto de palavra com IA, usando fallback:', err?.message || err);
+      const cleanWord = (req.body?.palavra || '').replace(/^[^\wÀ-ÿ]+|[^\wÀ-ÿ]+$/g, '').trim();
+      return res.json({
+        contexto: generateLocalWordContext(
+          cleanWord,
+          req.body?.frase_contexto || '',
+          req.body?.idioma || 'Inglês'
+        ),
+      });
+    }
+  });
+
   // NOVO: Avaliação Detalhada de Pronúncia e Score Fonético com Análise IPA e Decomposição de Palavras
   app.post('/api/pronunciation-assessment', async (req, res) => {
     try {
@@ -835,27 +1002,45 @@ Diretrizes de Avaliação:
       const validVoices = ['Kore', 'Puck', 'Zephyr', 'Charon', 'Fenrir', 'Aoede'];
       const chosenVoice = validVoices.includes(voice) ? voice : 'Kore';
 
-      // Executa geração de fala com o modelo gemini-3.1-flash-tts-preview
-      const response = await client.models.generateContent({
-        model: 'gemini-3.1-flash-tts-preview',
-        contents: [
-          {
-            parts: [
+      // Executa geração de fala com o modelo gemini-3.1-flash-tts-preview com retry para erros transitórios
+      let response: any = null;
+      let lastTtsError: any = null;
+
+      for (let attempt = 0; attempt < 2; attempt++) {
+        try {
+          response = await client.models.generateContent({
+            model: 'gemini-3.1-flash-tts-preview',
+            contents: [
               {
-                text: cleanText,
+                parts: [
+                  {
+                    text: cleanText,
+                  },
+                ],
               },
             ],
-          },
-        ],
-        config: {
-          responseModalities: [Modality.AUDIO],
-          speechConfig: {
-            voiceConfig: {
-              prebuiltVoiceConfig: { voiceName: chosenVoice },
+            config: {
+              responseModalities: [Modality.AUDIO],
+              speechConfig: {
+                voiceConfig: {
+                  prebuiltVoiceConfig: { voiceName: chosenVoice },
+                },
+              },
             },
-          },
-        },
-      });
+          });
+          break;
+        } catch (ttsErr: any) {
+          lastTtsError = ttsErr;
+          console.warn(`[Gemini TTS] Tentativa ${attempt + 1} falhou:`, ttsErr?.message || ttsErr);
+          if (attempt === 0) {
+            await new Promise((resolve) => setTimeout(resolve, 300));
+          }
+        }
+      }
+
+      if (!response && lastTtsError) {
+        throw lastTtsError;
+      }
 
       const audioPart = response.candidates?.[0]?.content?.parts?.find(
         (p: any) => p.inlineData && p.inlineData.data
@@ -1139,6 +1324,305 @@ Retorne as sugestões estruturadas e altamente motivadoras com estratégias peda
     }
   });
 
+  // NOVO: Assistente de Configuração Inicial (Onboarding) - Gera Plano Personalizado e Primeiros Conteúdos
+  app.post('/api/onboarding/generate-plan', async (req, res) => {
+    try {
+      const {
+        idioma_alvo = 'Inglês',
+        nivel_atual = 'B1',
+        motivo_principal = 'Trabalho & Carreira',
+        motivo_detalhado = '',
+        interesses = ['Tecnologia & IA', 'Conversação Cotidiana'],
+        tempo_diario_minutos = 30,
+        estilo_aprendizado = 'conversacao_voz',
+        horario_preferido = '19:00',
+      } = req.body;
+
+      const client = getGeminiClient();
+
+      if (!client) {
+        return res.json({
+          plano: generateLocalOnboardingPlan(
+            idioma_alvo,
+            nivel_atual,
+            motivo_principal,
+            motivo_detalhado,
+            interesses,
+            tempo_diario_minutos,
+            estilo_aprendizado
+          ),
+        });
+      }
+
+      const prompt = `
+Você é o Arquiteto Pedagógico Chefe e Tutor de Línguas de Inteligência Artificial para estudantes que aprendem ${idioma_alvo}.
+Sua missão é criar o PRIMEIRO PLANO DE ESTUDOS ULTRA PERSONALIZADO e GERAR OS PRIMEIROS CONTEÚDOS DE ALTO VALOR IMEDIATO com base no perfil do estudante.
+
+Perfil do Estudante:
+- Idioma Alvo de Estudo: "${idioma_alvo}"
+- Nível Atual Autodeclarado (CEFR): "${nivel_atual}"
+- Motivo Principal / Objetivo: "${motivo_principal}"
+- Detalhes Específicos do Aluno: "${motivo_detalhado || 'Foco em destravar conversação e vocabulário relevante'}"
+- Interesses & Afinidades: ${JSON.stringify(interesses)}
+- Tempo Disponível Diário: ${tempo_diario_minutos} minutos/dia
+- Estilo Preferido de Aprendizado: "${estilo_aprendizado}"
+
+Gere uma resposta JSON estruturada estritamente de acordo com o schema com:
+1. "titulo_plano": Nome empolgante, profissional e focado do plano (ex: "Trilha Imersiva: Inglês para Tecnologia & Reuniões Globais").
+2. "descricao_plano": Breve resumo explicando a proposta pedagógica e como o aluno atingirá o objetivo no tempo estipulado.
+3. "topico_inicial_recomendado": Nome do primeiro tópico de conversação que o Tutor de Chat deve ativar (ex: "${idioma_alvo}: Daily Standups & Negociações de TI" ou "${idioma_alvo}: Situações em Restaurantes e Viagens").
+4. "mensagem_boas_vindas_tutor": Uma mensagem calorosa de boas-vindas do tutor, iniciando no idioma alvo (${idioma_alvo}) e conectando o plano aos objetivos do aluno, já propondo a primeira pergunta de abertura prática no idioma alvo (${idioma_alvo}) para começar a conversa imediatamente.
+5. "estrategia_pedagogica": Explicação da abordagem (ex: repetição espaçada, foco em collocations e connected speech sem fixação excessiva em decoreba gramatical).
+6. "cronograma_semanal": Array com 7 dias da semana (Segunda a Domingo), especificando:
+   - "dia_semana": Nome do dia
+   - "foco": Tópico do dia
+   - "duracao_minutos": ${tempo_diario_minutos}
+   - "tipo_atividade": "chat" | "flashcards" | "duel" | "materials"
+   - "descricao_pratica": Instrução clara de 1 frase do que fazer
+7. "nos_iniciais_grafo": Array com 4 a 6 nós essenciais para inicializar o Grafo de Memória do aluno:
+   - "tipo": "vocabulario" | "expressao_idiomatica" | "falso_amigo" | "gramatica"
+   - "titulo": Termo ou estrutura
+   - "descricao": Explicação prática em Português
+   - "dominio_estimado": 35 a 55
+   - "dificuldade": 1 a 4
+   - "pronuncia_ipa": Transcrição fonética IPA precisa
+   - "traducao": Tradução para o Português
+   - "exemplo_uso": Frase de exemplo autêntica no idioma alvo
+8. "primeiro_material_estudo": Kit de estudos de aula inicial com:
+   - "titulo": Título do kit
+   - "resumo": Resumo didático
+   - "vocabulario": 4 a 6 termos essenciais com termo, pronuncia_ipa, traducao, classe_gramatical, exemplo e traducao_exemplo
+   - "gramatica": 1 a 2 padrões gramaticais ou dicas de colocação com dica_para_brasileiros
+   - "dialogo_pratica": Diálogo de 4 a 6 falas entre personagens aplicando os termos
+   - "questoes_compreensao": 2 questões interativas com opções, resposta_correta e explicação
+   - "flashcards": 3 a 5 flashcards com frente, verso e dica
+   - "dicas_culturais_e_pronuncia": 2 dicas práticas
+   - "conteudo_markdown": Guia completo formatado em Markdown
+9. "dicas_personalizadas": 2 a 3 dicas pontuais de produtividade linguística ajustadas ao perfil.
+`;
+
+      const response = await generateContentWithRetryAndFallback(client, {
+        model: 'gemini-3.7-flash',
+        contents: prompt,
+        config: {
+          responseMimeType: 'application/json',
+          responseSchema: {
+            type: Type.OBJECT,
+            properties: {
+              titulo_plano: { type: Type.STRING },
+              descricao_plano: { type: Type.STRING },
+              topico_inicial_recomendado: { type: Type.STRING },
+              mensagem_boas_vindas_tutor: { type: Type.STRING },
+              estrategia_pedagogica: { type: Type.STRING },
+              cronograma_semanal: {
+                type: Type.ARRAY,
+                items: {
+                  type: Type.OBJECT,
+                  properties: {
+                    dia_semana: { type: Type.STRING },
+                    foco: { type: Type.STRING },
+                    duracao_minutos: { type: Type.NUMBER },
+                    tipo_atividade: {
+                      type: Type.STRING,
+                      enum: ['chat', 'flashcards', 'duel', 'materials'],
+                    },
+                    descricao_pratica: { type: Type.STRING },
+                  },
+                  required: ['dia_semana', 'foco', 'duracao_minutos', 'tipo_atividade', 'descricao_pratica'],
+                },
+              },
+              nos_iniciais_grafo: {
+                type: Type.ARRAY,
+                items: {
+                  type: Type.OBJECT,
+                  properties: {
+                    tipo: {
+                      type: Type.STRING,
+                      enum: ['vocabulario', 'expressao_idiomatica', 'falso_amigo', 'gramatica'],
+                    },
+                    titulo: { type: Type.STRING },
+                    descricao: { type: Type.STRING },
+                    dominio_estimado: { type: Type.NUMBER },
+                    dificuldade: { type: Type.NUMBER },
+                    pronuncia_ipa: { type: Type.STRING },
+                    traducao: { type: Type.STRING },
+                    exemplo_uso: { type: Type.STRING },
+                  },
+                  required: ['tipo', 'titulo', 'descricao', 'traducao', 'exemplo_uso'],
+                },
+              },
+              primeiro_material_estudo: {
+                type: Type.OBJECT,
+                properties: {
+                  titulo: { type: Type.STRING },
+                  resumo: { type: Type.STRING },
+                  vocabulario: {
+                    type: Type.ARRAY,
+                    items: {
+                      type: Type.OBJECT,
+                      properties: {
+                        termo: { type: Type.STRING },
+                        pronuncia_ipa: { type: Type.STRING },
+                        traducao: { type: Type.STRING },
+                        classe_gramatical: { type: Type.STRING },
+                        exemplo: { type: Type.STRING },
+                        traducao_exemplo: { type: Type.STRING },
+                      },
+                      required: ['termo', 'traducao', 'exemplo'],
+                    },
+                  },
+                  gramatica: {
+                    type: Type.ARRAY,
+                    items: {
+                      type: Type.OBJECT,
+                      properties: {
+                        topico: { type: Type.STRING },
+                        explicacao: { type: Type.STRING },
+                        exemplos: {
+                          type: Type.ARRAY,
+                          items: { type: Type.STRING },
+                        },
+                        dica_para_brasileiros: { type: Type.STRING },
+                      },
+                      required: ['topico', 'explicacao', 'exemplos'],
+                    },
+                  },
+                  dialogo_pratica: {
+                    type: Type.ARRAY,
+                    items: {
+                      type: Type.OBJECT,
+                      properties: {
+                        personagem: { type: Type.STRING },
+                        fala: { type: Type.STRING },
+                        traducao: { type: Type.STRING },
+                      },
+                      required: ['personagem', 'fala'],
+                    },
+                  },
+                  questoes_compreensao: {
+                    type: Type.ARRAY,
+                    items: {
+                      type: Type.OBJECT,
+                      properties: {
+                        pergunta: { type: Type.STRING },
+                        opcoes: {
+                          type: Type.ARRAY,
+                          items: { type: Type.STRING },
+                        },
+                        resposta_correta: { type: Type.STRING },
+                        explicacao: { type: Type.STRING },
+                      },
+                      required: ['pergunta', 'resposta_correta', 'explicacao'],
+                    },
+                  },
+                  flashcards: {
+                    type: Type.ARRAY,
+                    items: {
+                      type: Type.OBJECT,
+                      properties: {
+                        frente: { type: Type.STRING },
+                        verso: { type: Type.STRING },
+                        dica: { type: Type.STRING },
+                      },
+                      required: ['frente', 'verso'],
+                    },
+                  },
+                  dicas_culturais_e_pronuncia: {
+                    type: Type.ARRAY,
+                    items: { type: Type.STRING },
+                  },
+                  conteudo_markdown: { type: Type.STRING },
+                },
+                required: ['titulo', 'resumo', 'vocabulario', 'gramatica', 'dialogo_pratica', 'conteudo_markdown'],
+              },
+              dicas_personalizadas: {
+                type: Type.ARRAY,
+                items: { type: Type.STRING },
+              },
+            },
+            required: [
+              'titulo_plano',
+              'descricao_plano',
+              'topico_inicial_recomendado',
+              'mensagem_boas_vindas_tutor',
+              'estrategia_pedagogica',
+              'cronograma_semanal',
+              'nos_iniciais_grafo',
+              'primeiro_material_estudo',
+              'dicas_personalizadas',
+            ],
+          },
+        },
+      });
+
+      const parsed = JSON.parse(response.text || '{}');
+      const planId = `plan-${Date.now()}`;
+
+      const generatedPlan = {
+        id: planId,
+        titulo_plano: parsed.titulo_plano || `Plano de ${idioma_alvo} Personalizado`,
+        descricao_plano: parsed.descricao_plano || 'Plano customizado calibrado pelo assistente de configuração com inteligência artificial.',
+        idioma: idioma_alvo,
+        nivel_cefr: nivel_atual,
+        meta_diaria_minutos: tempo_diario_minutos,
+        motivo_principal: motivo_principal,
+        interesses_principais: interesses,
+        topico_inicial_recomendado: parsed.topico_inicial_recomendado || `${idioma_alvo}: ${interesses[0] || 'Conversação Essencial'}`,
+        mensagem_boas_vindas_tutor: parsed.mensagem_boas_vindas_tutor || `Olá! Seu plano para ${idioma_alvo} está pronto. Vamos começar?`,
+        estrategia_pedagogica: parsed.estrategia_pedagogica || 'Imersão conversacional adaptativa combinada com repetição espaçada no grafo.',
+        cronograma_semanal: parsed.cronograma_semanal || [],
+        nos_iniciais_grafo: (parsed.nos_iniciais_grafo || []).map((node: any, idx: number) => ({
+          ...node,
+          id: `node-onboarding-${Date.now()}-${idx}`,
+          idioma: idioma_alvo,
+          dominio_estimado: node.dominio_estimado || 40,
+          dificuldade: node.dificuldade || 2,
+          frequencia_erro: 0,
+          ultima_revisao: new Date().toISOString(),
+          proxima_revisao: new Date(Date.now() + 86400000).toISOString(),
+          criado_em: new Date().toISOString(),
+          atualizado_em: new Date().toISOString(),
+          evidencias: ['Configuração de Perfil Inicial'],
+        })),
+        primeiro_material_estudo: {
+          id: `mat-onboarding-${Date.now()}`,
+          titulo: parsed.primeiro_material_estudo?.titulo || `Kit Inicial: ${idioma_alvo} Prático`,
+          tipo_fonte: 'texto' as const,
+          fonte_original: 'Assistente de Configuração Personalizado',
+          idioma_alvo: idioma_alvo,
+          nivel_cefr: nivel_atual,
+          resumo: parsed.primeiro_material_estudo?.resumo || 'Material introdutório focado nos seus interesses e objetivos.',
+          vocabulario: parsed.primeiro_material_estudo?.vocabulario || [],
+          gramatica: parsed.primeiro_material_estudo?.gramatica || [],
+          dialogo_pratica: parsed.primeiro_material_estudo?.dialogo_pratica || [],
+          questoes_compreensao: parsed.primeiro_material_estudo?.questoes_compreensao || [],
+          flashcards: parsed.primeiro_material_estudo?.flashcards || [],
+          dicas_culturais_e_pronuncia: parsed.primeiro_material_estudo?.dicas_culturais_e_pronuncia || [],
+          conteudo_markdown: parsed.primeiro_material_estudo?.conteudo_markdown || `# ${parsed.titulo_plano}\n\nMaterial preparado para você.`,
+          criado_em: new Date().toISOString(),
+          adicionado_ao_grafo: true,
+        },
+        dicas_personalizadas: parsed.dicas_personalizadas || [],
+        criado_em: new Date().toISOString(),
+      };
+
+      return res.json({ plano: generatedPlan });
+    } catch (err: any) {
+      console.warn('Erro ao gerar plano no onboarding via Gemini:', err?.message || err);
+      const fallback = generateLocalOnboardingPlan(
+        req.body?.idioma_alvo || 'Inglês',
+        req.body?.nivel_atual || 'B1',
+        req.body?.motivo_principal || 'Trabalho & Carreira',
+        req.body?.motivo_detalhado || '',
+        req.body?.interesses || ['Tecnologia & IA', 'Conversação'],
+        req.body?.tempo_diario_minutos || 30,
+        req.body?.estilo_aprendizado || 'conversacao_voz'
+      );
+      return res.json({ plano: fallback });
+    }
+  });
+
+
   // ==========================================
   // WEBSOCKET BRIDGE: GEMINI LIVE VOICE API (LANGUAGE TUTOR)
   // ==========================================
@@ -1331,7 +1815,8 @@ function generateLocalLanguageTutorResponse(
   topico: string,
   idiomaAlvo: string,
   contextoGrafo: any[],
-  preferenciaAdaptacao?: string
+  preferenciaAdaptacao?: string,
+  planoEstudo?: any
 ) {
   const lower = mensagem.toLowerCase();
   const hasCommonPortugueseTransfer =
@@ -1347,7 +1832,7 @@ function generateLocalLanguageTutorResponse(
 
   if (hasCommonPortugueseTransfer) {
     return {
-      resposta_tutor: `Muito bom você tentar formular a frase em **${idiomaAlvo}**! Notei um detalhe sutil de interferência do português: em inglês, dizemos *"ask a question"* (e não "make a question") ou *"I am 20 years old"* (usando o verbo to be para idade). Vamos tentar reformular?`,
+      resposta_tutor: `Muito bom você tentar formular a frase em **${idiomaAlvo}**! Notei um detalhe sutil de interferência do português: em ${idiomaAlvo === 'Francês' ? 'francês, dizemos *"poser une question"*' : idiomaAlvo === 'Espanhol' ? 'espanhol, dizemos *"hacer una pregunta"* ou *"tengo 20 años"*' : 'inglês, dizemos *"ask a question"* (e não "make a question") ou *"I am 20 years old"*'}. Vamos tentar reformular?`,
       possui_erro: true,
       adaptacao: {
         nivel: 'fundamental_analogico' as const,
@@ -1361,25 +1846,25 @@ function generateLocalLanguageTutorResponse(
         conceito: 'Collocation e Padrão Idiomático',
         erro: 'Tradução literal direta da estrutura do português',
         explicacao:
-          'Em línguas estrangeiras, certas combinações de palavras (collocations) são fixas. Por exemplo, usa-se "ask" com "question", e o verbo "to be" para expressar idade.',
-        resposta_corrigida: `I would like to ask a question regarding ${topico}.`,
+          `Em ${idiomaAlvo}, certas combinações de palavras (collocations) são fixas. Por exemplo, em ${idiomaAlvo}, usamos estruturas próprias para perguntas e descrições.`,
+        resposta_corrigida: idiomaAlvo === 'Francês' ? `Je voudrais poser une question sur ${topico}.` : idiomaAlvo === 'Espanhol' ? `Me gustaría hacer una pregunta sobre ${topico}.` : `I would like to ask a question regarding ${topico}.`,
         gravidade: 'leve' as const,
         evidencia: mensagem,
-        pergunta_confirmacao: `Como você diria agora "Posso fazer uma pergunta sobre isso?" usando "ask"?`,
-        dica_pronuncia_ou_gramatica: 'Dica: pratique a ligação sonora /æsk ə ˈkwɛstʃən/ (ask-a question).',
+        pergunta_confirmacao: `Como você diria agora "Posso fazer uma pergunta sobre isso?" em ${idiomaAlvo}?`,
+        dica_pronuncia_ou_gramatica: `Dica de ritmo: mantenha a entonação natural da frase em ${idiomaAlvo}.`,
       },
       novos_nos_grafo: [
         {
           tipo: 'falso_amigo' as const,
-          titulo: `Collocation: Ask a question (vs Make a question)`,
+          titulo: `Padrão de Uso em ${idiomaAlvo}`,
           descricao: `Ajuste de uso natural identificado na prática: "${mensagem.slice(0, 50)}"`,
           dominio_estimado: 55,
           dificuldade: 2,
           evidencia: mensagem,
           relacionado_com: topico,
           tipo_relacao: 'dificuldade_em' as const,
-          traducao: 'Fazer uma pergunta (literalmente: pedir/perguntar uma pergunta)',
-          exemplo_uso: 'Can I ask you a quick question?',
+          traducao: `Expressão natural em ${idiomaAlvo}`,
+          exemplo_uso: idiomaAlvo === 'Francês' ? 'Puis-je vous poser une question ?' : idiomaAlvo === 'Espanhol' ? '¿Puedo hacerte una pregunta?' : 'Can I ask you a quick question?',
         },
       ],
       xp_ganho: 25,
@@ -1389,10 +1874,28 @@ function generateLocalLanguageTutorResponse(
 
   const isAdvanced = avgDominio >= 80 || preferenciaAdaptacao === 'avancado_analitico';
 
+  const responsesByLang: Record<string, { advanced: string; standard: string }> = {
+    'Francês': {
+      advanced: `Très bien formulé ! Votre phrase en **Français** est claire et naturelle. Pour aller encore plus loin dans notre thème **${topico}**, comment exprimeriez-vous cette idée dans une conversation fluide ?`,
+      standard: `C'est une excellente phrase en **Français** ! Vous avez bien communiqué votre intention sur le thème **${topico}**. Que diriez-vous si nous continuions avec une question pratique ?`,
+    },
+    'Espanhol': {
+      advanced: `¡Excelente formulación! Tu estructura en **Español** es muy natural y fluida. Para avanzar en **${topico}**, ¿cómo expresarías esto en un contexto formal o cotidiano?`,
+      standard: `¡Muy bien! Tu frase en **Español** se entiende perfectamente para practicar **${topico}**. ¿Qué te gustaría añadir o preguntar a continuación?`,
+    },
+    'Inglês': {
+      advanced: `That was spot on! Your sentence structure in **English** is very natural and articulate. To elevate it further in **${topico}**, how would you express this in a professional or spontaneous context?`,
+      standard: `Great sentence in **English**! You communicated your idea clearly regarding **${topico}**. To practice even more, how would you describe a personal experience or ask me a follow-up question about this?`,
+    },
+  };
+
+  const langResponses = responsesByLang[idiomaAlvo] || {
+    advanced: `Ótima formulação em **${idiomaAlvo}**! A estrutura foi muito bem empregada no tópico **${topico}**. Como você continuaria desenvolvendo essa ideia?`,
+    standard: `Muito bem em **${idiomaAlvo}**! Você se expressou com clareza no tema **${topico}**. Vamos dar o próximo passo prático?`,
+  };
+
   return {
-    resposta_tutor: isAdvanced
-      ? `That was spot on! Your sentence structure in **${idiomaAlvo}** is very natural and articulate. To elevate it further, you could incorporate nuanced discourse markers like *"furthermore"* or idiomatic phrasing. How would you express this in a professional business meeting?`
-      : `Great sentence in **${idiomaAlvo}**! You communicated your idea clearly regarding **${topico}**. To practice even more, how would you describe a personal experience or ask me a follow-up question about this?`,
+    resposta_tutor: isAdvanced ? langResponses.advanced : langResponses.standard,
     possui_erro: false,
     adaptacao: {
       nivel: isAdvanced ? ('avancado_analitico' as const) : ('intermediario_aplicado' as const),
@@ -1410,13 +1913,13 @@ function generateLocalLanguageTutorResponse(
       {
         tipo: 'vocabulario' as const,
         titulo: `Expressão em ${topico}`,
-        descricao: `Compreensão demonstrada com sucesso na conversa.`,
+        descricao: `Compreensão demonstrada com sucesso na conversa em ${idiomaAlvo}.`,
         dominio_estimado: Math.min(100, avgDominio + 6),
         dificuldade: 2,
         evidencia: mensagem,
         relacionado_com: topico,
         tipo_relacao: 'relacionado_a' as const,
-        traducao: 'Vocabulário chave de conversação',
+        traducao: `Vocabulário chave de ${idiomaAlvo}`,
       },
     ],
     xp_ganho: 30,
@@ -1577,6 +2080,150 @@ function generateLocalStudyMaterial(
   };
 }
 
+function generateLocalWordContext(palavra: string, fraseContexto: string, idioma: string) {
+  const lower = palavra.toLowerCase().trim();
+
+  // Dicionário rico de palavras e expressões comuns
+  const dictionary: Record<string, any> = {
+    actually: {
+      palavra: 'actually',
+      lemma_raiz: 'actual',
+      classe_gramatical: 'Advérbio',
+      idioma: 'Inglês',
+      nivel_cefr: 'B1',
+      pronuncia_ipa: '/ˈæk.tʃu.ə.li/',
+      traducao_principal: 'Na verdade, realmente',
+      definicao_contextual: 'Usado para esclarecer ou corrigir uma informação, enfatizando a verdade de uma situação.',
+      sinonimos: ['in fact', 'really', 'truly', 'as a matter of fact'],
+      antonimos: ['supposedly', 'theoretically'],
+      exemplos_uso: [
+        {
+          frase_original: 'I actually enjoyed the meeting today.',
+          traducao_portugues: 'Na verdade, eu gostei da reunião hoje.',
+        },
+        {
+          frase_original: "It's not that difficult, actually.",
+          traducao_portugues: 'Não é tão difícil, na verdade.',
+        },
+      ],
+      falso_amigo_alerta: '⚠️ CUIDADO: "Actually" NÃO significa "atualmente". Para "atualmente", use "currently" ou "nowadays".',
+      dica_uso_ou_collocation: 'Muito usado no início ou fim de frases para dar tom cordial a uma correção.',
+      origem_etimologia: 'Do latim *actualis* (ativo, em ato).',
+    },
+    pretend: {
+      palavra: 'pretend',
+      lemma_raiz: 'pretend',
+      classe_gramatical: 'Verbo',
+      idioma: 'Inglês',
+      nivel_cefr: 'B1',
+      pronuncia_ipa: '/prɪˈtend/',
+      traducao_principal: 'Fingir, simular',
+      definicao_contextual: 'Comportar-se como se algo fosse verdadeiro quando não é.',
+      sinonimos: ['fake', 'simulate', 'feign', 'make believe'],
+      antonimos: ['be genuine', 'reveal'],
+      exemplos_uso: [
+        {
+          frase_original: "Let's pretend we are already fluent in English.",
+          traducao_portugues: 'Vamos fingir que já somos fluentes em inglês.',
+        },
+        {
+          frase_original: "Don't pretend you didn't hear me.",
+          traducao_portugues: 'Não finja que você não me ouviu.',
+        },
+      ],
+      falso_amigo_alerta: '⚠️ FALSO COGNATO: "Pretend" significa FINGIR. Se você quer dizer "pretender/ter intenção", use "intend" ou "plan to".',
+      dica_uso_ou_collocation: 'Estrutura comum: pretend to + verbo infinitivo (ex: pretend to know).',
+    },
+    intend: {
+      palavra: 'intend',
+      lemma_raiz: 'intend',
+      classe_gramatical: 'Verbo transitivo',
+      idioma: 'Inglês',
+      nivel_cefr: 'B2',
+      pronuncia_ipa: '/ɪnˈtend/',
+      traducao_principal: 'Pretender, ter a intenção de',
+      definicao_contextual: 'Ter em mente como propósito ou objetivo futuro.',
+      sinonimos: ['plan', 'aim', 'purpose', 'mean'],
+      antonimos: ['neglect', 'disregard'],
+      exemplos_uso: [
+        {
+          frase_original: 'I intend to practice conversation every morning.',
+          traducao_portugues: 'Eu pretendo praticar conversação todas as manhãs.',
+        },
+      ],
+      dica_uso_ou_collocation: 'Comum com infinitivo: intend to do something.',
+    },
+    fluent: {
+      palavra: 'fluent',
+      lemma_raiz: 'fluent',
+      classe_gramatical: 'Adjetivo',
+      idioma: 'Inglês',
+      nivel_cefr: 'B2',
+      pronuncia_ipa: '/ˈfluː.ənt/',
+      traducao_principal: 'Fluente, desenvolto',
+      definicao_contextual: 'Capaz de falar ou escrever uma língua de forma fácil, contínua e precisa.',
+      sinonimos: ['articulate', 'eloquent', 'natural', 'smooth'],
+      antonimos: ['hesitant', 'struggling'],
+      exemplos_uso: [
+        {
+          frase_original: 'She is fluent in three languages.',
+          traducao_portugues: 'Ela é fluente em três idiomas.',
+        },
+      ],
+      dica_uso_ou_collocation: 'Collocation: fluent in + idioma (fluent in English/Spanish).',
+    },
+    collocation: {
+      palavra: 'collocation',
+      lemma_raiz: 'collocate',
+      classe_gramatical: 'Substantivo',
+      idioma: 'Inglês',
+      nivel_cefr: 'B2',
+      pronuncia_ipa: '/ˌkɑː.ləˈkeɪ.ʃən/',
+      traducao_principal: 'Combinação natural de palavras (colocação)',
+      definicao_contextual: 'O hábito de certas palavras ocorrerem juntas frequentemente na língua natural (ex: make a decision, take a break).',
+      sinonimos: ['word partnership', 'natural phrasing', 'idiomatic pairing'],
+      exemplos_uso: [
+        {
+          frase_original: 'Learning collocations will make you sound more natural.',
+          traducao_portugues: 'Aprender colocações fará você soar mais natural.',
+        },
+      ],
+      dica_uso_ou_collocation: 'Exemplo: "fast food" e não "quick food".',
+    },
+  };
+
+  if (dictionary[lower]) {
+    return dictionary[lower];
+  }
+
+  // Fallback inteligente baseado em morfologia e idioma
+  return {
+    palavra,
+    lemma_raiz: palavra.toLowerCase().replace(/(ing|ed|ly|s|es)$/, ''),
+    classe_gramatical: palavra.endsWith('ly')
+      ? 'Advérbio'
+      : palavra.endsWith('ing')
+      ? 'Verbo / Gerúndio'
+      : palavra.endsWith('ed')
+      ? 'Verbo / Particípio'
+      : 'Vocabulário Ativo',
+    idioma,
+    nivel_cefr: 'B1' as const,
+    pronuncia_ipa: `/${palavra.toLowerCase()}/`,
+    traducao_principal: `Tradução e conceito de "${palavra}"`,
+    definicao_contextual: `Termo utilizado no contexto da frase "${fraseContexto || palavra}".`,
+    sinonimos: ['termo similar', 'expressão equivalente', 'sinônimo natural'],
+    antonimos: [],
+    exemplos_uso: [
+      {
+        frase_original: fraseContexto || `Practice using "${palavra}" in daily conversations.`,
+        traducao_portugues: `Pratique o uso de "${palavra}" nas suas conversas diárias.`,
+      },
+    ],
+    dica_uso_ou_collocation: `Observe a preposição e o contexto em que "${palavra}" aparece nesta frase.`,
+  };
+}
+
 function generateDefaultCalendarProposals(
   duracao: number,
   horario: string,
@@ -1638,5 +2285,253 @@ function generateDefaultCalendarProposals(
   return propostas;
 }
 
+function generateLocalOnboardingPlan(
+  idioma: string,
+  nivel: string,
+  motivo: string,
+  motivoDetalhado: string,
+  interesses: string[],
+  tempoDiario: number,
+  estilo: string
+) {
+  const planId = `plan-local-${Date.now()}`;
+  const firstInterest = interesses[0] || 'Conversação Prática';
+  const secondInterest = interesses[1] || 'Vocabulário Ativo';
+
+  const vocabMap: Record<string, any[]> = {
+    'Inglês': [
+      {
+        termo: 'Touch base',
+        pronuncia_ipa: '/tʌtʃ beɪs/',
+        traducao: 'Fazer um contato rápido / Alinhar pontos',
+        classe_gramatical: 'Expressão idiomática',
+        exemplo: "Let's touch base tomorrow morning before the sprint planning.",
+        traducao_exemplo: 'Vamos nos alinhar amanhã de manhã antes do planejamento da sprint.',
+      },
+      {
+        termo: 'Actually',
+        pronuncia_ipa: '/ˈæk.tʃu.ə.li/',
+        traducao: 'Na verdade, realmente',
+        classe_gramatical: 'Advérbio (Atenção a Falso Cognato)',
+        exemplo: 'Actually, the requirements changed yesterday.',
+        traducao_exemplo: 'Na verdade, os requisitos mudaram ontem.',
+      },
+      {
+        termo: 'Wrap up',
+        pronuncia_ipa: '/ræp ʌp/',
+        traducao: 'Finalizar / Concluir',
+        classe_gramatical: 'Phrasal Verb',
+        exemplo: 'We need to wrap up this discussion in five minutes.',
+        traducao_exemplo: 'Precisamos concluir esta discussão em cinco minutos.',
+      },
+      {
+        termo: 'Insights',
+        pronuncia_ipa: '/ˈɪn.saɪts/',
+        traducao: 'Percepções valiosas / Ideias esclarecedoras',
+        classe_gramatical: 'Substantivo plural',
+        exemplo: 'Thank you for sharing your valuable insights on the project.',
+        traducao_exemplo: 'Obrigado por compartilhar suas valiosas percepções sobre o projeto.',
+      },
+    ],
+    'Espanhol': [
+      {
+        termo: 'Ponerse al día',
+        pronuncia_ipa: '/poˈneɾ.se al ˈdi.a/',
+        traducao: 'Colocar o papo em dia / Atualizar-se',
+        classe_gramatical: 'Expressão idiomática',
+        exemplo: 'Vamos a tomar un café para ponernos al día sobre el trabajo.',
+        traducao_exemplo: 'Vamos tomar um café para nos atualizarmos sobre o trabalho.',
+      },
+      {
+        termo: 'Actualmente',
+        pronuncia_ipa: '/ak.twa.lˈmen.te/',
+        traducao: 'Atualmente, hoje em dia',
+        classe_gramatical: 'Advérbio',
+        exemplo: 'Actualmente estoy liderando un nuevo proyecto de tecnología.',
+        traducao_exemplo: 'Atualmente estou liderando um novo projeto de tecnologia.',
+      },
+      {
+        termo: 'Tener en cuenta',
+        pronuncia_ipa: '/teˈneɾ en ˈkwen.ta/',
+        traducao: 'Levar em consideração / Ter em mente',
+        classe_gramatical: 'Expressão idiomática',
+        exemplo: 'Hay que tener en cuenta los plazos de entrega.',
+        traducao_exemplo: 'É preciso levar em consideração os prazos de entrega.',
+      },
+    ],
+    'Francês': [
+      {
+        termo: 'Faire le point',
+        pronuncia_ipa: '/fɛʁ lə pwɛ̃/',
+        traducao: 'Fazer um balanço / Alinhar a situação',
+        classe_gramatical: 'Expressão idiomática',
+        exemplo: 'Faisons le point sur les priorités de la semaine.',
+        traducao_exemplo: 'Vamos fazer um balanço sobre as prioridades da semana.',
+      },
+      {
+        termo: 'En fait',
+        pronuncia_ipa: '/ɑ̃ fɛt/',
+        traducao: 'Na verdade, de fato',
+        classe_gramatical: 'Expressão / Advérbio',
+        exemplo: 'En fait, je suis tout à fait d’accord avec cette approche.',
+        traducao_exemplo: 'Na verdade, concordo plenamente com essa abordagem.',
+      },
+    ],
+  };
+
+  const vocabList = vocabMap[idioma] || vocabMap['Inglês'];
+
+  const initialNodes = vocabList.map((v, idx) => ({
+    id: `node-onb-${Date.now()}-${idx}`,
+    tipo: (v.classe_gramatical.includes('Falso') ? 'falso_amigo' : 'vocabulario') as any,
+    titulo: v.termo,
+    descricao: v.traducao,
+    dominio_estimado: 45,
+    dificuldade: 2,
+    frequencia_erro: 0,
+    ultima_revisao: new Date().toISOString(),
+    proxima_revisao: new Date(Date.now() + 86400000).toISOString(),
+    idioma,
+    pronuncia_ipa: v.pronuncia_ipa,
+    traducao: v.traducao,
+    exemplo_uso: v.exemplo,
+    evidencias: ['Plano Inicial do Assistente'],
+    criado_em: new Date().toISOString(),
+    atualizado_em: new Date().toISOString(),
+  }));
+
+  const recommendedTopic = `${idioma}: ${motivo} & ${firstInterest}`;
+
+  return {
+    id: planId,
+    titulo_plano: `Trilha Sob Medida: ${idioma} para ${motivo}`,
+    descricao_plano: `Plano estruturado de ${tempoDiario} minutos diários focado em ${firstInterest} e ${secondInterest}, calibrado para o nível ${nivel}.`,
+    idioma,
+    nivel_cefr: nivel,
+    meta_diaria_minutos: tempoDiario,
+    motivo_principal: motivo,
+    interesses_principais: interesses,
+    topico_inicial_recomendado: recommendedTopic,
+    mensagem_boas_vindas_tutor: `Olá! Seu plano de ${idioma} foi montado especialmente para seus objetivos de "${motivo}". Preparei um ambiente focado nos seus interesses em ${firstInterest}. Vamos começar com um bate-papo leve e prático?`,
+    estrategia_pedagogica: 'Imersão contextual com foco em vocabulário ativo, repetição espaçada no grafo relacional e conversação sem medo de errar.',
+    cronograma_semanal: [
+      {
+        dia_semana: 'Segunda-feira',
+        foco: `Vocabulário Essencial de ${firstInterest}`,
+        duracao_minutos: tempoDiario,
+        tipo_atividade: 'chat' as const,
+        descricao_pratica: `Praticar termos e expressões chave de ${firstInterest} no chat conversacional.`,
+      },
+      {
+        dia_semana: 'Terça-feira',
+        foco: 'Repetição Espaçada & Flashcards SM-2',
+        duracao_minutos: tempoDiario,
+        tipo_atividade: 'flashcards' as const,
+        descricao_pratica: 'Revisar os novos cartões gerados e consolidar a retenção.',
+      },
+      {
+        dia_semana: 'Quarta-feira',
+        foco: `Diálogo Situacional: ${secondInterest}`,
+        duracao_minutos: tempoDiario,
+        tipo_atividade: 'chat' as const,
+        descricao_pratica: 'Simular uma situação real de conversação e foco em pronúncia natural.',
+      },
+      {
+        dia_semana: 'Quinta-feira',
+        foco: 'Duelo de Vocabulário Rápido',
+        duracao_minutos: tempoDiario,
+        tipo_atividade: 'duel' as const,
+        descricao_pratica: 'Treinar reflexo rápido e precisão de termos sob pressão.',
+      },
+      {
+        dia_semana: 'Sexta-feira',
+        foco: 'Kit de Estudos & Leitura Guiada',
+        duracao_minutos: tempoDiario,
+        tipo_atividade: 'materials' as const,
+        descricao_pratica: 'Explorar o kit de estudos gerado com áudio IPA e questões.',
+      },
+      {
+        dia_semana: 'Sábado',
+        foco: 'Conversação Livre & Feedback de Pronúncia',
+        duracao_minutos: tempoDiario,
+        tipo_atividade: 'chat' as const,
+        descricao_pratica: 'Bate-papo por voz em tempo real para consolidar a semana.',
+      },
+      {
+        dia_semana: 'Domingo',
+        foco: 'Revisão do Grafo de Memória & Descanso Ativo',
+        duracao_minutos: Math.max(10, Math.round(tempoDiario * 0.5)),
+        tipo_atividade: 'flashcards' as const,
+        descricao_pratica: 'Revisão leve de 10 minutos para manter o streak ativo.',
+      },
+    ],
+    nos_iniciais_grafo: initialNodes,
+    primeiro_material_estudo: {
+      id: `mat-onboarding-${Date.now()}`,
+      titulo: `${idioma}: Guia Prático para ${motivo}`,
+      tipo_fonte: 'texto' as const,
+      fonte_original: 'Assistente de Configuração Personalizado',
+      idioma_alvo: idioma,
+      nivel_cefr: nivel,
+      resumo: `Kit fundamental com vocabulário prioritário, padrão de diálogo e flashcards calibrados para quem estuda para ${motivo}.`,
+      vocabulario: vocabList,
+      gramatica: [
+        {
+          topico: 'Conectivos e Fluência Conversacional',
+          explicacao: 'Use conectivos naturais para estruturar suas ideias sem parecer engessado.',
+          exemplos: [
+            'On the other hand, we should consider alternative options.',
+            'As far as I know, the team is already working on it.',
+          ],
+          dica_para_brasileiros: 'Evite pausas longas com "ééé...", use fillers naturais como "Well...", "You see...", "Actually..."',
+        },
+      ],
+      dialogo_pratica: [
+        {
+          personagem: 'Alex',
+          fala: 'Hi there! Have you had a chance to look at the project updates?',
+          traducao: 'Olá! Você teve chance de olhar as atualizações do projeto?',
+        },
+        {
+          personagem: 'Você',
+          fala: 'Actually, yes! I reviewed them this morning and have some good insights.',
+          traducao: 'Na verdade, sim! Eu revisei hoje de manhã e tenho algumas boas percepções.',
+        },
+      ],
+      questoes_compreensao: [
+        {
+          pergunta: `Qual a melhor forma de usar "Actually" em uma reunião?`,
+          opcoes: [
+            'Como tradução de atualmente para indicar o presente momento',
+            'Para esclarecer um ponto com cordialidade ("na verdade / de fato")',
+            'Como substituto de "never"',
+          ],
+          resposta_correta: 'Para esclarecer um ponto com cordialidade ("na verdade / de fato")',
+          explicacao: 'Actually é um falso cognato para brasileiros; significa "na verdade" e não "atualmente".',
+        },
+      ],
+      flashcards: vocabList.map((v) => ({
+        frente: v.termo,
+        verso: `${v.traducao}\nEx: ${v.exemplo}`,
+        dica: v.pronuncia_ipa || 'Pratique em voz alta',
+      })),
+      dicas_culturais_e_pronuncia: [
+        'Pratique os termos novos em frases completas em vez de listas isoladas.',
+        'Grave sua voz e compare a entonação no espectro de áudio do chat.',
+      ],
+      conteudo_markdown: `# ${idioma}: Guia Prático para ${motivo}\n\nBem-vindo ao seu plano de estudos! Explore este material para acelerar sua fluência.`,
+      criado_em: new Date().toISOString(),
+      adicionado_ao_grafo: true,
+    },
+    dicas_personalizadas: [
+      `Ajuste sua rotina para estudar ${tempoDiario} min no mesmo horário todo dia.`,
+      'Intercale momentos de fala por voz com momentos de revisão de flashcards no app.',
+      'Sempre que o tutor apontar uma correção, repita a frase corrigida em voz alta.',
+    ],
+    criado_em: new Date().toISOString(),
+  };
+}
+
 startServer();
+
 

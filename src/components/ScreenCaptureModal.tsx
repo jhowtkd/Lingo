@@ -112,37 +112,37 @@ export const ScreenCaptureModal: React.FC<ScreenCaptureModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-background/80 backdrop-blur-sm">
-      <div className="bg-card border border-border/80 rounded-3xl max-w-4xl w-full p-6 shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-background/80 backdrop-blur-xs">
+      <div className="bg-card border border-border rounded-[var(--r-lg)] max-w-4xl w-full p-6 shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
         {/* Header */}
-        <div className="flex items-center justify-between pb-4 border-b border-border/60">
+        <div className="flex items-center justify-between pb-4 border-b border-border">
           <div className="flex items-center space-x-3">
-            <div className="w-10 h-10 rounded-2xl bg-primary text-primary-foreground flex items-center justify-center shadow-xs">
+            <div className="w-10 h-10 rounded-[var(--r-md)] bg-foreground text-background flex items-center justify-center shadow-xs font-mono font-bold text-xs">
               <Camera className="w-5 h-5" />
             </div>
             <div>
               <h2 className="text-lg font-bold text-foreground">
                 Gerador de Prints em Alta Resolução (PNG)
               </h2>
-              <p className="text-xs text-muted-foreground">
+              <p className="text-xs text-muted-foreground font-mono">
                 Tire screenshots em PNG com 1 clique de qualquer tela ou de todas automaticamente.
               </p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="p-2 rounded-xl text-muted-foreground hover:text-foreground hover:bg-secondary transition"
+            className="p-2 rounded-full text-muted-foreground hover:text-foreground hover:bg-muted transition cursor-pointer font-bold"
           >
             ✕
           </button>
         </div>
 
         {/* Ações de Captura */}
-        <div className="py-4 flex flex-wrap items-center gap-3 bg-secondary/30 p-4 rounded-2xl my-4 border border-border/60">
+        <div className="py-4 flex flex-wrap items-center gap-3 bg-muted/40 p-4 rounded-[var(--r-md)] my-4 border border-border font-mono text-xs">
           <Button
             onClick={handleCaptureAllScreens}
             disabled={isCapturing}
-            className="gap-2 rounded-xl font-semibold shadow-xs"
+            className="gap-2 rounded-full font-semibold shadow-xs cursor-pointer"
           >
             {isCapturing ? (
               <>
@@ -161,7 +161,7 @@ export const ScreenCaptureModal: React.FC<ScreenCaptureModalProps> = ({
             variant="outline"
             onClick={handleCaptureActiveOnly}
             disabled={isCapturing}
-            className="gap-2 rounded-xl font-semibold border-border/80 hover:bg-secondary"
+            className="gap-2 rounded-full font-semibold border-border hover:bg-muted cursor-pointer"
           >
             <Camera className="w-4 h-4 text-muted-foreground" />
             <span>Tirar Print Apenas da Tela Atual</span>
@@ -172,7 +172,7 @@ export const ScreenCaptureModal: React.FC<ScreenCaptureModalProps> = ({
               variant="secondary"
               onClick={handleDownloadAll}
               disabled={isCapturing}
-              className="gap-2 rounded-xl font-semibold ml-auto"
+              className="gap-2 rounded-full font-semibold ml-auto cursor-pointer"
             >
               <Download className="w-4 h-4 text-foreground" />
               <span>Baixar Todos os {capturedImages.length} PNGs</span>
@@ -181,11 +181,11 @@ export const ScreenCaptureModal: React.FC<ScreenCaptureModalProps> = ({
         </div>
 
         {/* Galeria de Prints Gerados */}
-        <div className="flex-1 overflow-y-auto pr-1 space-y-4">
+        <div className="flex-1 overflow-y-auto pr-1 space-y-4 font-mono">
           {capturedImages.length === 0 ? (
             <div className="text-center py-12 text-muted-foreground space-y-3">
               <Camera className="w-12 h-12 mx-auto stroke-1 text-muted-foreground/50" />
-              <p className="text-sm font-medium">
+              <p className="text-sm font-medium text-foreground">
                 Nenhum print gerado ainda. Clique no botão acima para capturar todas as telas!
               </p>
             </div>
@@ -194,16 +194,16 @@ export const ScreenCaptureModal: React.FC<ScreenCaptureModalProps> = ({
               {capturedImages.map((img) => (
                 <div
                   key={img.id}
-                  className="bg-card border border-border/80 rounded-2xl p-3 shadow-xs space-y-2 hover:border-primary/50 transition-all flex flex-col justify-between"
+                  className="bg-card border border-border rounded-[var(--r-md)] p-3 shadow-xs space-y-2 hover:border-foreground/40 transition-all flex flex-col justify-between"
                 >
                   <div className="flex items-center justify-between">
                     <span className="text-xs font-bold text-foreground truncate">{img.title}</span>
-                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 font-semibold border border-emerald-500/20">
+                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-[var(--mint)] text-[var(--ok)] font-semibold border border-[var(--ok)]/30">
                       PNG HD
                     </span>
                   </div>
 
-                  <div className="relative rounded-xl overflow-hidden border border-border/60 bg-muted/40 aspect-video flex items-center justify-center">
+                  <div className="relative rounded-[var(--r-sm)] overflow-hidden border border-border bg-muted/40 aspect-video flex items-center justify-center">
                     <img
                       src={img.dataUrl}
                       alt={img.title}
@@ -216,7 +216,7 @@ export const ScreenCaptureModal: React.FC<ScreenCaptureModalProps> = ({
                       size="sm"
                       variant="outline"
                       onClick={() => handleDownload(img)}
-                      className="gap-1.5 text-xs rounded-xl font-semibold border-border/80 hover:bg-secondary w-full"
+                      className="gap-1.5 text-xs rounded-full font-semibold border-border hover:bg-muted w-full cursor-pointer"
                     >
                       <Download className="w-3.5 h-3.5" />
                       <span>Baixar Imagem PNG</span>
@@ -229,9 +229,9 @@ export const ScreenCaptureModal: React.FC<ScreenCaptureModalProps> = ({
         </div>
 
         {/* Footer */}
-        <div className="pt-4 border-t border-border/60 flex items-center justify-between text-xs text-muted-foreground">
+        <div className="pt-4 border-t border-border flex items-center justify-between text-xs text-muted-foreground font-mono">
           <span>Formato: PNG 2x Retina Quality sem perda de nitidez</span>
-          <Button variant="ghost" size="sm" onClick={onClose} className="rounded-xl">
+          <Button variant="ghost" size="sm" onClick={onClose} className="rounded-full cursor-pointer">
             Fechar
           </Button>
         </div>

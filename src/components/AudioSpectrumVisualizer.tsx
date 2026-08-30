@@ -303,31 +303,31 @@ export const AudioSpectrumVisualizer: React.FC<AudioSpectrumVisualizerProps> = (
   };
 
   return (
-    <div className="w-full bg-slate-950 border border-slate-800 rounded-xl overflow-hidden shadow-inner flex flex-col">
+    <div className="w-full bg-[oklch(0.18_0.02_260)] border border-[var(--border)] rounded-[var(--r-md)] overflow-hidden shadow-inner flex flex-col font-mono">
       {/* Header com Modos e Métricas */}
-      <div className="px-3 py-2 bg-slate-900 border-b border-slate-800/80 flex items-center justify-between gap-2 text-xs">
+      <div className="px-3 py-2 bg-[oklch(0.14_0.02_260)] border-b border-white/10 flex items-center justify-between gap-2 text-xs">
         <div className="flex items-center space-x-2">
           <span className="relative flex h-2 w-2">
             {stream && isActive ? (
               <>
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[var(--accent)] opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-[var(--accent)]"></span>
               </>
             ) : (
               <span className="relative inline-flex rounded-full h-2 w-2 bg-slate-500"></span>
             )}
           </span>
-          <span className="font-bold text-slate-200 text-[11px]">
+          <span className="font-bold text-white text-[11px]">
             Espectro de Áudio & Pronúncia
           </span>
           {showMetrics && stream && isActive && (
             <span
-              className={`px-1.5 py-0.2 rounded text-[10px] font-bold ${
+              className={`px-1.5 py-0.2 rounded-full text-[10px] font-bold ${
                 voiceClarity === 'Voz Clara'
-                  ? 'bg-emerald-950 text-emerald-300 border border-emerald-800'
+                  ? 'bg-[var(--accent)]/20 text-[var(--accent)] border border-[var(--accent)]/40'
                   : voiceClarity === 'Voz Forte'
-                  ? 'bg-amber-950 text-amber-300 border border-amber-800'
-                  : 'bg-slate-800 text-slate-400'
+                  ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40'
+                  : 'bg-white/10 text-white/60'
               }`}
             >
               {voiceClarity}
@@ -341,10 +341,10 @@ export const AudioSpectrumVisualizer: React.FC<AudioSpectrumVisualizerProps> = (
               type="button"
               onClick={() => setVisualMode('bars')}
               title="Espectro de Barras de Frequência"
-              className={`p-1 rounded transition ${
+              className={`p-1 rounded-md transition cursor-pointer ${
                 visualMode === 'bars'
-                  ? 'bg-indigo-600 text-white'
-                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800'
+                  ? 'bg-[var(--accent)] text-black font-bold'
+                  : 'text-white/60 hover:text-white hover:bg-white/10'
               }`}
             >
               <BarChart2 className="w-3.5 h-3.5" />
@@ -353,10 +353,10 @@ export const AudioSpectrumVisualizer: React.FC<AudioSpectrumVisualizerProps> = (
               type="button"
               onClick={() => setVisualMode('waveform')}
               title="Onda Sonora (Osciloscópio)"
-              className={`p-1 rounded transition ${
+              className={`p-1 rounded-md transition cursor-pointer ${
                 visualMode === 'waveform'
-                  ? 'bg-indigo-600 text-white'
-                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800'
+                  ? 'bg-[var(--accent)] text-black font-bold'
+                  : 'text-white/60 hover:text-white hover:bg-white/10'
               }`}
             >
               <Activity className="w-3.5 h-3.5" />
@@ -365,10 +365,10 @@ export const AudioSpectrumVisualizer: React.FC<AudioSpectrumVisualizerProps> = (
               type="button"
               onClick={() => setVisualMode('circular')}
               title="Ressonância Radial Polar"
-              className={`p-1 rounded transition ${
+              className={`p-1 rounded-md transition cursor-pointer ${
                 visualMode === 'circular'
-                  ? 'bg-indigo-600 text-white'
-                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800'
+                  ? 'bg-[var(--accent)] text-black font-bold'
+                  : 'text-white/60 hover:text-white hover:bg-white/10'
               }`}
             >
               <Radio className="w-3.5 h-3.5" />
@@ -387,9 +387,9 @@ export const AudioSpectrumVisualizer: React.FC<AudioSpectrumVisualizerProps> = (
         />
 
         {(!stream || !isActive) && (
-          <div className="absolute inset-0 flex items-center justify-center bg-slate-950/60 backdrop-blur-2xs text-slate-400 text-xs">
+          <div className="absolute inset-0 flex items-center justify-center bg-black/60 backdrop-blur-2xs text-white/60 text-xs">
             <span className="flex items-center space-x-1.5">
-              <Zap className="w-3.5 h-3.5 text-indigo-400" />
+              <Zap className="w-3.5 h-3.5 text-[var(--accent)]" />
               <span>Microfone aguardando fala para capturar frequências...</span>
             </span>
           </div>
@@ -398,17 +398,17 @@ export const AudioSpectrumVisualizer: React.FC<AudioSpectrumVisualizerProps> = (
 
       {/* Medidor de Intensidade / Volume Inferior */}
       {showMetrics && (
-        <div className="px-3 py-1.5 bg-slate-900/90 border-t border-slate-800 flex items-center justify-between text-[10px] text-slate-400">
+        <div className="px-3 py-1.5 bg-[oklch(0.14_0.02_260)] border-t border-white/10 flex items-center justify-between text-[10px] text-white/60">
           <div className="flex items-center space-x-2 flex-1 max-w-xs">
             <span>Intensidade:</span>
-            <div className="flex-1 bg-slate-800 rounded-full h-1.5 overflow-hidden">
+            <div className="flex-1 bg-white/10 rounded-full h-1.5 overflow-hidden">
               <div
                 className={`h-full transition-all duration-75 ${
                   currentVolume > 85
                     ? 'bg-rose-500'
                     : currentVolume > 60
-                    ? 'bg-amber-500'
-                    : 'bg-emerald-500'
+                    ? 'bg-amber-400'
+                    : 'bg-[var(--accent)]'
                 }`}
                 style={{ width: `${currentVolume}%` }}
               />
@@ -418,8 +418,8 @@ export const AudioSpectrumVisualizer: React.FC<AudioSpectrumVisualizerProps> = (
 
           <div className="flex items-center space-x-3">
             {peakFreq > 0 && (
-              <span className="font-mono text-slate-300">
-                Pico: <strong className="text-indigo-300">{peakFreq} Hz</strong>
+              <span className="font-mono text-white/80">
+                Pico: <strong className="text-[var(--accent)]">{peakFreq} Hz</strong>
               </span>
             )}
             <span>80Hz - 4kHz (Faixa Vocal)</span>

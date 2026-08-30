@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   BookOpen,
   MessageSquare,
@@ -13,18 +13,28 @@ import {
   RotateCcw,
   Sparkles,
   Camera,
+  Volume2,
+  VolumeX,
+  Crown,
+  Share2,
 } from 'lucide-react';
-import { UserStats } from '../types';
+import { UserStats, UserProfile } from '../types';
 import { getLanguageTheme } from '../services/languageThemes';
+import { playSfx, sfx } from '../services/soundEffects';
+import { UserProfileMenu } from './UserProfileMenu';
 
 interface NavbarProps {
   activeTab: string;
   setActiveTab: (tab: string) => void;
   stats: UserStats;
   currentTopic: string;
+  currentUser: UserProfile | null;
   onTopicClick: () => void;
   onResetData: () => void;
   onOpenScreenshotModal?: () => void;
+  onOpenAuthModal: () => void;
+  onOpenSharedPacksModal: () => void;
+  onLogout: () => void;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
@@ -32,11 +42,26 @@ export const Navbar: React.FC<NavbarProps> = ({
   setActiveTab,
   stats,
   currentTopic,
+  currentUser,
   onTopicClick,
   onResetData,
   onOpenScreenshotModal,
+  onOpenAuthModal,
+  onOpenSharedPacksModal,
+  onLogout,
 }) => {
   const activeTheme = getLanguageTheme(stats.idioma_ativo || currentTopic);
+  const [isSfxMuted, setIsSfxMuted] = useState(sfx.getIsMuted());
+
+  const handleTabClick = (tabId: string) => {
+    playSfx('click');
+    setActiveTab(tabId);
+  };
+
+  const handleToggleSfx = () => {
+    const muted = sfx.toggleMute();
+    setIsSfxMuted(muted);
+  };
 
   const navLinks = [
     { id: 'home', label: 'Início', icon: Sparkles },
@@ -50,6 +75,11 @@ export const Navbar: React.FC<NavbarProps> = ({
     { id: 'dashboard', label: 'Painel', icon: BarChart3 },
   ];
 
+  // Adiciona a aba ADM na barra quando o usuário é administrador
+  if (currentUser?.role === 'admin') {
+    navLinks.push({ id: 'admin', label: '👑 ADM', icon: Crown });
+  }
+
   return (
     <div className="sticky top-3.5 z-50 px-4 sm:px-6 max-w-6xl mx-auto w-full">
       <nav
@@ -58,7 +88,10 @@ export const Navbar: React.FC<NavbarProps> = ({
       >
         {/* Brand Logo */}
         <button
-          onClick={() => setActiveTab('home')}
+          onClick={() => {
+            playSfx('pop');
+            setActiveTab('home');
+          }}
           className="flex items-center gap-2.5 font-display font-bold text-lg text-[var(--fg)] hover:opacity-90 transition cursor-pointer shrink-0"
         >
           <span className="w-8 h-8 rounded-xl bg-[var(--accent)] flex items-center justify-center text-[var(--fg)] shadow-[inset_0_-3px_0_oklch(0.55_0.15_48)] shrink-0">
@@ -80,7 +113,10 @@ export const Navbar: React.FC<NavbarProps> = ({
 
         {/* Language & Topic Pill */}
         <button
-          onClick={onTopicClick}
+          onClick={() => {
+            playSfx('click');
+            onTopicClick();
+          }}
           className="hidden md:inline-flex items-center gap-1.5 rounded-full border border-[var(--border)] bg-[var(--surface)] hover:border-[var(--fg)] px-3 py-1 text-xs font-bold text-[var(--fg)] transition cursor-pointer shadow-xs ml-1"
           title="Trocar idioma ou tópico de estudo"
         >
@@ -100,7 +136,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               <button
                 key={link.id}
                 id={`nav-link-${link.id}`}
-                onClick={() => setActiveTab(link.id)}
+                onClick={() => handleTabClick(link.id)}
                 className={`px-3 sm:px-3.5 py-1.5 sm:py-2 rounded-full font-bold text-xs sm:text-sm whitespace-nowrap transition-all duration-180 cursor-pointer ${
                   isActive
                     ? 'bg-[var(--fg)] text-[oklch(0.97_0.01_84)] shadow-xs'
@@ -124,10 +160,40 @@ export const Navbar: React.FC<NavbarProps> = ({
             <span>{stats.sequencia_dias}d</span>
           </div>
 
+          {/* Sound Effects Toggle */}
+          <button
+            onClick={handleToggleSfx}
+            className={`p-2 rounded-full transition cursor-pointer ${
+              isSfxMuted
+                ? 'text-[var(--muted)]/60 hover:text-[var(--fg)] hover:bg-[oklch(0.955_0.012_84)]'
+                : 'text-[var(--fg)] bg-[oklch(0.955_0.012_84)] hover:bg-[oklch(0.94_0.015_84)]'
+            }`}
+            title={isSfxMuted ? 'Efeitos sonoros desativados (clique para ativar)' : 'Efeitos sonoros ativos (clique para silenciar)'}
+            aria-label="Controle de efeitos sonoros"
+          >
+            {isSfxMuted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4 text-[var(--accent-deep)]" />}
+          </button>
+
+          {/* Shared Knowledge Base Explorer Button */}
+          <button
+            onClick={() => {
+              playSfx('click');
+              onOpenSharedPacksModal();
+            }}
+            className="p-2 text-[var(--muted)] hover:text-[var(--fg)] hover:bg-[oklch(0.955_0.012_84)] rounded-full transition cursor-pointer"
+            title="Bases de Conhecimento Compartilhadas"
+            aria-label="Bases de Conhecimento"
+          >
+            <Share2 className="w-4 h-4 text-[var(--accent-deep)]" />
+          </button>
+
           {/* Screenshot capture trigger */}
           {onOpenScreenshotModal && (
             <button
-              onClick={onOpenScreenshotModal}
+              onClick={() => {
+                playSfx('click');
+                onOpenScreenshotModal();
+              }}
               className="p-2 text-[var(--muted)] hover:text-[var(--fg)] hover:bg-[oklch(0.955_0.012_84)] rounded-full transition cursor-pointer"
               title="Captura de telas em PNG"
             >
@@ -135,15 +201,15 @@ export const Navbar: React.FC<NavbarProps> = ({
             </button>
           )}
 
-          {/* User Avatar Button */}
-          <button
-            onClick={() => setActiveTab('achievements')}
-            className="w-8.5 h-8.5 rounded-full bg-[var(--sky)] border-2 border-[var(--fg)] flex items-center justify-center font-extrabold text-xs text-[var(--fg)] shadow-[2px_2px_0_var(--fg)] hover:scale-105 transition cursor-pointer"
-            title={`Nível ${stats.nivel} · ${stats.xp} XP`}
-            aria-label="Seu perfil e conquistas"
-          >
-            JM
-          </button>
+          {/* User Profile & Authentication Trigger */}
+          <UserProfileMenu
+            currentUser={currentUser}
+            onOpenAuthModal={onOpenAuthModal}
+            onOpenSharedPacksModal={onOpenSharedPacksModal}
+            onOpenAdminPanel={() => setActiveTab('admin')}
+            onLogout={onLogout}
+            onResetData={onResetData}
+          />
         </div>
       </nav>
     </div>

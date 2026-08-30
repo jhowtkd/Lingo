@@ -495,6 +495,28 @@ export interface SRSReviewResult {
   timestamp: string;
 }
 
+export interface WordContextExample {
+  frase_original: string;
+  traducao_portugues: string;
+}
+
+export interface WordContextInfo {
+  palavra: string;
+  lemma_raiz: string;
+  classe_gramatical: string; // Ex: "Substantivo", "Verbo", "Adjetivo", "Phrasal Verb", "Advérbio", "Expressão"
+  idioma: string;
+  nivel_cefr: CEFRLevel;
+  pronuncia_ipa: string;
+  traducao_principal: string;
+  definicao_contextual: string;
+  sinonimos: string[];
+  antonimos?: string[];
+  exemplos_uso: WordContextExample[];
+  falso_amigo_alerta?: string;
+  dica_uso_ou_collocation?: string;
+  origem_etimologia?: string;
+}
+
 export interface FlashcardSessionSummary {
   totalCards: number;
   revisados: number;
@@ -506,5 +528,106 @@ export interface FlashcardSessionSummary {
   dominioMedioFinal: number;
   cartasDominadasHoje: number;
 }
+
+// Tipos de Autenticação e Perfis Multiusuário
+export type UserRole = 'admin' | 'user';
+
+export interface UserProfile {
+  uid: string;
+  email: string;
+  displayName: string;
+  photoURL?: string;
+  role: UserRole;
+  createdAt: string;
+  lastLoginAt: string;
+  isAnonymous?: boolean;
+  statsSummary?: {
+    level: number;
+    xp: number;
+    streak: number;
+    nodesCount: number;
+    materialsCount: number;
+  };
+}
+
+export interface SharedKnowledgePack {
+  id: string;
+  titulo: string;
+  descricao: string;
+  idioma: string;
+  nivel_cefr: CEFRLevel;
+  autor_nome: string;
+  autor_id: string;
+  publicado_em: string;
+  total_termos: number;
+  total_materiais: number;
+  clones_count?: number;
+  tags?: string[];
+  dados_pack: {
+    nodes: GraphNode[];
+    relations?: GraphRelation[];
+    materials?: StudyMaterialItem[];
+  };
+}
+
+export interface FrequentErrorItem {
+  id: string;
+  userId: string;
+  userEmail?: string;
+  userName?: string;
+  conceito: string;
+  erro: string;
+  explicacao: string;
+  resposta_corrigida: string;
+  gravidade: CorrectionSeverity | string;
+  evidencia: string;
+  topico?: string;
+  categoria?: 'gramatica' | 'vocabulario' | 'pronuncia' | 'falso_amigo' | 'outro';
+  ocorrencias?: number;
+  data: string;
+  criado_em?: string;
+  atualizado_em?: string;
+}
+
+// Tipos para o Assistente de Configuração Inicial (Onboarding Wizard) e Primeiro Plano de Estudos
+export interface OnboardingAnswers {
+  idioma_alvo: string;
+  nivel_atual: CEFRLevel;
+  motivo_principal: string;
+  motivo_detalhado?: string;
+  interesses: string[];
+  tempo_diario_minutos: number;
+  estilo_aprendizado: 'conversacao_voz' | 'vocabulario_flashcards' | 'gramatica_pratica' | 'equilibrio_completo';
+  horario_preferido?: string;
+}
+
+export interface WeeklyPlanDay {
+  dia_semana: string; // Ex: 'Segunda-feira', 'Terça-feira', etc.
+  foco: string; // Ex: 'Vocabulário Chave & Collocations', 'Conversação em Voz', etc.
+  duracao_minutos: number;
+  tipo_atividade: 'chat' | 'flashcards' | 'duel' | 'materials';
+  descricao_pratica: string;
+}
+
+export interface GeneratedStudyPlan {
+  id: string;
+  titulo_plano: string;
+  descricao_plano: string;
+  idioma: string;
+  nivel_cefr: CEFRLevel;
+  meta_diaria_minutos: number;
+  motivo_principal: string;
+  interesses_principais: string[];
+  topico_inicial_recomendado: string;
+  mensagem_boas_vindas_tutor: string;
+  estrategia_pedagogica: string;
+  cronograma_semanal: WeeklyPlanDay[];
+  nos_iniciais_grafo: Partial<GraphNode>[];
+  primeiro_material_estudo: StudyMaterialItem;
+  dicas_personalizadas: string[];
+  criado_em: string;
+}
+
+
 
 

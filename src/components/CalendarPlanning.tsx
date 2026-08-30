@@ -279,36 +279,36 @@ export const CalendarPlanning: React.FC = () => {
             initial={{ opacity: 0, y: -20, scale: 0.95 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -20 }}
-            className="p-4 bg-gradient-to-r from-indigo-900 to-indigo-950 border border-indigo-500/50 rounded-2xl shadow-xl text-white flex items-center justify-between gap-4"
+            className="p-4 bg-[var(--surface)] border-2 border-[var(--sunny)] rounded-[var(--r-lg)] shadow-xl text-[var(--fg)] flex items-center justify-between gap-4"
           >
             <div className="flex items-center space-x-3">
-              <div className="w-10 h-10 rounded-xl bg-indigo-500/30 border border-indigo-400/40 flex items-center justify-center text-amber-300 animate-bounce">
+              <div className="w-10 h-10 rounded-[var(--r-md)] bg-[var(--sunny)] flex items-center justify-center text-[var(--fg)] animate-bounce font-bold">
                 <BellRing className="w-5 h-5" />
               </div>
               <div>
                 <div className="flex items-center space-x-2">
-                  <span className="text-xs font-extrabold uppercase tracking-wider text-amber-300">
+                  <span className="text-xs font-mono font-extrabold uppercase tracking-wider text-[var(--fg)]">
                     ⏰ Lembrete de Estudo Agendado
                   </span>
-                  <span className="px-1.5 py-0.5 rounded text-[10px] bg-indigo-500/30 text-indigo-200 font-mono font-bold">
+                  <span className="px-1.5 py-0.5 rounded text-[10px] bg-[var(--surface-sunken)] text-[var(--fg)] font-mono font-bold">
                     {activeAlertReminder.horario}
                   </span>
                 </div>
-                <h4 className="text-sm sm:text-base font-bold text-white">
+                <h4 className="text-sm sm:text-base font-bold text-[var(--fg)]">
                   {activeAlertReminder.titulo}
                 </h4>
                 {activeAlertReminder.topico && (
-                  <p className="text-xs text-indigo-200">
-                    Foco pedagógico: <span className="font-semibold text-white">{activeAlertReminder.topico}</span>
+                  <p className="text-xs text-[var(--muted)] font-mono">
+                    Foco pedagógico: <span className="font-semibold text-[var(--fg)]">{activeAlertReminder.topico}</span>
                   </p>
                 )}
               </div>
             </div>
 
-            <div className="flex items-center space-x-2">
+            <div className="flex items-center space-x-2 font-mono">
               <button
                 onClick={() => setActiveAlertReminder(null)}
-                className="px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-lg transition shadow-xs cursor-pointer"
+                className="px-3.5 py-1.5 bg-[var(--fg)] hover:bg-[var(--fg)]/90 text-[var(--bg)] text-xs font-bold rounded-full transition shadow-xs cursor-pointer font-sans"
               >
                 Dispensar
               </button>
@@ -318,21 +318,21 @@ export const CalendarPlanning: React.FC = () => {
       </AnimatePresence>
 
       {/* Cabeçalho */}
-      <div className="bg-white border border-slate-200 rounded-xl p-6 shadow-sm flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+      <div className="bg-[var(--surface)] border border-[var(--border)] rounded-[var(--r-lg)] p-6 shadow-[var(--shadow-sm)] flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
         <div>
           <div className="flex items-center space-x-2">
-            <Calendar className="w-5 h-5 text-indigo-600" />
-            <h2 className="text-xl font-bold text-slate-900">Planejamento & Lembretes de Estudos</h2>
+            <Calendar className="w-5 h-5 text-[var(--fg)]" />
+            <h2 className="text-xl font-display font-bold text-[var(--fg)]">Planejamento & Lembretes de Estudos</h2>
           </div>
-          <p className="text-xs sm:text-sm text-slate-500 mt-1">
+          <p className="text-xs sm:text-sm text-[var(--muted)] mt-1 font-mono">
             Gere um cronograma diário adaptado às suas dificuldades, agende lembretes locais e sincronize com o Google Calendar.
           </p>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2 w-full md:w-auto">
+        <div className="flex flex-wrap items-center gap-2 w-full md:w-auto font-mono">
           <button
             onClick={handleExportICS}
-            className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 rounded-lg text-xs sm:text-sm font-semibold transition flex items-center space-x-1.5 shadow-2xs cursor-pointer"
+            className="px-4 py-2 bg-[oklch(0.96_0.01_84)] hover:bg-[oklch(0.92_0.01_84)] text-[var(--fg)] border border-[var(--border)] rounded-full text-xs font-semibold transition flex items-center space-x-1.5 shadow-xs cursor-pointer"
             title="Download de arquivo padrão .ics compatível com todos os calendários"
           >
             <Download className="w-4 h-4" />
@@ -341,7 +341,7 @@ export const CalendarPlanning: React.FC = () => {
 
           <button
             onClick={() => handleOpenSyncModal()}
-            className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs sm:text-sm font-semibold transition flex items-center space-x-1.5 shadow-2xs cursor-pointer"
+            className="px-4 py-2 bg-[var(--fg)] hover:bg-[var(--fg)]/90 text-[var(--bg)] rounded-full text-xs font-semibold transition flex items-center space-x-1.5 shadow-xs cursor-pointer"
           >
             <CalendarCheck className="w-4 h-4" />
             <span>Sincronizar Google Calendar</span>
@@ -350,39 +350,39 @@ export const CalendarPlanning: React.FC = () => {
       </div>
 
       {/* NOVO: Sistema de Lembretes & Notificações de Prática (Persistido Localmente) */}
-      <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-sm space-y-4">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-3">
+      <div className="bg-[var(--surface)] border border-[var(--border)] rounded-[var(--r-lg)] p-5 shadow-[var(--shadow-sm)] space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-[var(--border)] pb-3">
           <div className="flex items-center space-x-3">
-            <div className="w-9 h-9 rounded-xl bg-amber-50 text-amber-700 border border-amber-200 flex items-center justify-center">
+            <div className="w-9 h-9 rounded-[var(--r-md)] bg-[var(--sunny)] text-[var(--fg)] flex items-center justify-center font-bold">
               <Bell className="w-5 h-5" />
             </div>
             <div>
               <div className="flex items-center space-x-2">
-                <h3 className="text-base font-bold text-slate-900">
+                <h3 className="text-base font-bold font-display text-[var(--fg)]">
                   Lembretes de Prática & Notificações
                 </h3>
-                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-700 border border-slate-200">
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-[oklch(0.96_0.01_84)] text-[var(--fg)] border border-[var(--border)]">
                   {reminders.filter((r) => r.ativo).length} ativos
                 </span>
               </div>
-              <p className="text-xs text-slate-500">
+              <p className="text-xs text-[var(--muted)] font-mono">
                 Horários salvos no armazenamento local com alertas sonoros e notificações do navegador.
               </p>
             </div>
           </div>
 
-          <div className="flex items-center space-x-2">
+          <div className="flex items-center space-x-2 font-mono">
             {notificationPermission !== 'granted' ? (
               <button
                 onClick={handleRequestPermission}
-                className="px-3 py-1.5 bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-300 rounded-lg text-xs font-semibold flex items-center space-x-1.5 transition cursor-pointer"
+                className="px-3 py-1.5 bg-[var(--sunny)]/20 hover:bg-[var(--sunny)]/30 text-[var(--fg)] border border-[var(--sunny)] rounded-full text-xs font-semibold flex items-center space-x-1.5 transition cursor-pointer"
                 title="Ativar permissão de notificações nativas no navegador"
               >
-                <BellRing className="w-3.5 h-3.5 text-amber-600" />
+                <BellRing className="w-3.5 h-3.5" />
                 <span>Ativar Notificações</span>
               </button>
             ) : (
-              <span className="px-2.5 py-1 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-lg text-[11px] font-bold flex items-center space-x-1">
+              <span className="px-2.5 py-1 bg-[var(--mint)] text-[var(--ok)] border border-[var(--ok)]/30 rounded-full text-[11px] font-bold flex items-center space-x-1">
                 <Check className="w-3.5 h-3.5" />
                 <span>Notificações Permitidas</span>
               </span>
@@ -390,7 +390,7 @@ export const CalendarPlanning: React.FC = () => {
 
             <button
               onClick={() => setIsCreatingReminder(!isCreatingReminder)}
-              className="px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-bold flex items-center space-x-1.5 transition shadow-2xs cursor-pointer"
+              className="px-3.5 py-1.5 bg-[var(--fg)] hover:bg-[var(--fg)]/90 text-[var(--bg)] rounded-full text-xs font-bold flex items-center space-x-1.5 transition shadow-xs cursor-pointer font-sans"
             >
               <Plus className="w-3.5 h-3.5" />
               <span>{isCreatingReminder ? 'Fechar' : 'Novo Lembrete'}</span>
@@ -406,56 +406,56 @@ export const CalendarPlanning: React.FC = () => {
               animate={{ opacity: 1, height: 'auto' }}
               exit={{ opacity: 0, height: 0 }}
               onSubmit={handleSaveNewReminder}
-              className="p-4 bg-slate-50 border border-slate-200 rounded-xl space-y-4 text-xs overflow-hidden"
+              className="p-4 bg-[oklch(0.97_0.01_84)] border border-[var(--border)] rounded-[var(--r-md)] space-y-4 text-xs font-mono overflow-hidden"
             >
-              <h4 className="font-bold text-slate-900 text-sm flex items-center space-x-1.5">
-                <Plus className="w-4 h-4 text-indigo-600" />
+              <h4 className="font-bold text-[var(--fg)] text-sm font-sans flex items-center space-x-1.5">
+                <Plus className="w-4 h-4 text-[var(--fg)]" />
                 <span>Agendar Novo Horário de Prática</span>
               </h4>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div className="space-y-1">
-                  <label className="font-bold text-slate-700">Título da Notificação:</label>
+                  <label className="font-bold text-[var(--muted)]">Título da Notificação:</label>
                   <input
                     type="text"
                     value={remTitle}
                     onChange={(e) => setRemTitle(e.target.value)}
                     placeholder="Ex: Treino Diário de Pronúncia & Fluência"
-                    className="w-full bg-white border border-slate-200 rounded-lg p-2 text-slate-900 focus:outline-none focus:border-indigo-500 shadow-2xs"
+                    className="w-full bg-[var(--surface)] border border-[var(--border)] rounded-[var(--r-sm)] p-2 text-[var(--fg)] focus:outline-none focus:border-[var(--fg)] shadow-xs"
                     required
                   />
                 </div>
 
                 <div className="space-y-1">
-                  <label className="font-bold text-slate-700">Tópico de Foco (Opcional):</label>
+                  <label className="font-bold text-[var(--muted)]">Tópico de Foco (Opcional):</label>
                   <input
                     type="text"
                     value={remTopic}
                     onChange={(e) => setRemTopic(e.target.value)}
                     placeholder="Ex: Connected Speech, Phrasal Verbs, Gramática"
-                    className="w-full bg-white border border-slate-200 rounded-lg p-2 text-slate-900 focus:outline-none focus:border-indigo-500 shadow-2xs"
+                    className="w-full bg-[var(--surface)] border border-[var(--border)] rounded-[var(--r-sm)] p-2 text-[var(--fg)] focus:outline-none focus:border-[var(--fg)] shadow-xs"
                   />
                 </div>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div className="space-y-1">
-                  <label className="font-bold text-slate-700">Horário do Lembrete:</label>
+                  <label className="font-bold text-[var(--muted)]">Horário do Lembrete:</label>
                   <input
                     type="time"
                     value={remTime}
                     onChange={(e) => setRemTime(e.target.value)}
-                    className="w-full bg-white border border-slate-200 rounded-lg p-2 text-slate-900 font-semibold focus:outline-none focus:border-indigo-500 shadow-2xs"
+                    className="w-full bg-[var(--surface)] border border-[var(--border)] rounded-[var(--r-sm)] p-2 text-[var(--fg)] font-semibold focus:outline-none focus:border-[var(--fg)] shadow-xs"
                     required
                   />
                 </div>
 
                 <div className="space-y-1">
-                  <label className="font-bold text-slate-700">Avisar com antecedência:</label>
+                  <label className="font-bold text-[var(--muted)]">Avisar com antecedência:</label>
                   <select
                     value={remAdvance}
                     onChange={(e) => setRemAdvance(Number(e.target.value))}
-                    className="w-full bg-white border border-slate-200 rounded-lg p-2 text-slate-900 font-semibold focus:outline-none focus:border-indigo-500 shadow-2xs cursor-pointer"
+                    className="w-full bg-[var(--surface)] border border-[var(--border)] rounded-[var(--r-sm)] p-2 text-[var(--fg)] font-semibold focus:outline-none focus:border-[var(--fg)] shadow-xs cursor-pointer"
                   >
                     <option value={0}>Exato no horário</option>
                     <option value={5}>5 minutos antes</option>
@@ -466,11 +466,11 @@ export const CalendarPlanning: React.FC = () => {
                 </div>
 
                 <div className="space-y-1">
-                  <label className="font-bold text-slate-700">Modo de Alerta:</label>
+                  <label className="font-bold text-[var(--muted)]">Modo de Alerta:</label>
                   <select
                     value={remType}
                     onChange={(e) => setRemType(e.target.value as any)}
-                    className="w-full bg-white border border-slate-200 rounded-lg p-2 text-slate-900 font-semibold focus:outline-none focus:border-indigo-500 shadow-2xs cursor-pointer"
+                    className="w-full bg-[var(--surface)] border border-[var(--border)] rounded-[var(--r-sm)] p-2 text-[var(--fg)] font-semibold focus:outline-none focus:border-[var(--fg)] shadow-xs cursor-pointer"
                   >
                     <option value="browser">🔔 Notificação Navegador + Som</option>
                     <option value="som">🔊 Somente Sino Sonoro</option>
@@ -481,7 +481,7 @@ export const CalendarPlanning: React.FC = () => {
 
               {/* Seletor de Dias da Semana */}
               <div className="space-y-1.5">
-                <label className="font-bold text-slate-700">Repetir nos dias da semana:</label>
+                <label className="font-bold text-[var(--muted)]">Repetir nos dias da semana:</label>
                 <div className="flex flex-wrap gap-1.5">
                   {DAYS_OF_WEEK.map((d) => {
                     const isSelected = remDays.includes(d.value);
@@ -490,10 +490,10 @@ export const CalendarPlanning: React.FC = () => {
                         key={d.value}
                         type="button"
                         onClick={() => toggleDaySelection(d.value)}
-                        className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
+                        className={`px-3 py-1.5 rounded-full text-xs font-bold transition cursor-pointer ${
                           isSelected
-                            ? 'bg-indigo-600 text-white shadow-2xs'
-                            : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-100'
+                            ? 'bg-[var(--fg)] text-[var(--bg)] shadow-xs'
+                            : 'bg-[var(--surface)] border border-[var(--border)] text-[var(--muted)] hover:text-[var(--fg)]'
                         }`}
                       >
                         {d.label}
@@ -503,31 +503,31 @@ export const CalendarPlanning: React.FC = () => {
                   <button
                     type="button"
                     onClick={() => setRemDays([1, 2, 3, 4, 5])}
-                    className="text-[11px] text-indigo-600 hover:underline px-2 font-semibold cursor-pointer"
+                    className="text-[11px] text-[var(--fg)] hover:underline px-2 font-semibold cursor-pointer"
                   >
                     Seg-Sex
                   </button>
                   <button
                     type="button"
                     onClick={() => setRemDays([0, 1, 2, 3, 4, 5, 6])}
-                    className="text-[11px] text-indigo-600 hover:underline px-2 font-semibold cursor-pointer"
+                    className="text-[11px] text-[var(--fg)] hover:underline px-2 font-semibold cursor-pointer"
                   >
                     Todos os dias
                   </button>
                 </div>
               </div>
 
-              <div className="flex justify-end space-x-2 pt-2 border-t border-slate-200">
+              <div className="flex justify-end space-x-2 pt-2 border-t border-[var(--border)]">
                 <button
                   type="button"
                   onClick={() => setIsCreatingReminder(false)}
-                  className="px-3.5 py-2 bg-white border border-slate-200 hover:bg-slate-100 text-slate-700 rounded-lg font-semibold transition cursor-pointer"
+                  className="px-3.5 py-2 bg-[var(--surface)] border border-[var(--border)] hover:bg-[oklch(0.96_0.01_84)] text-[var(--fg)] rounded-full font-semibold transition cursor-pointer"
                 >
                   Cancelar
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-bold transition shadow-2xs flex items-center space-x-1 cursor-pointer"
+                  className="px-4 py-2 bg-[var(--fg)] hover:bg-[var(--fg)]/90 text-[var(--bg)] rounded-full font-bold transition shadow-xs flex items-center space-x-1 cursor-pointer font-sans"
                 >
                   <Check className="w-3.5 h-3.5" />
                   <span>Salvar Lembrete no LocalStorage</span>
@@ -539,33 +539,33 @@ export const CalendarPlanning: React.FC = () => {
 
         {/* Lista de Lembretes Salvos */}
         {reminders.length === 0 ? (
-          <div className="p-6 text-center text-slate-400 bg-slate-50 border border-dashed border-slate-200 rounded-xl space-y-1 text-xs">
-            <BellOff className="w-6 h-6 mx-auto text-slate-300 mb-1" />
-            <p className="font-semibold text-slate-600">Nenhum lembrete configurado no momento.</p>
+          <div className="p-6 text-center text-[var(--muted)] bg-[oklch(0.97_0.01_84)] border border-dashed border-[var(--border)] rounded-[var(--r-md)] space-y-1 text-xs font-mono">
+            <BellOff className="w-6 h-6 mx-auto text-[var(--muted)]/50 mb-1" />
+            <p className="font-semibold text-[var(--fg)]">Nenhum lembrete configurado no momento.</p>
             <p>Clique em "Novo Lembrete" ou use o botão de atalho nas sessões sugeridas abaixo.</p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 font-mono">
             {reminders.map((r) => (
               <div
                 key={r.id}
-                className={`p-3.5 rounded-xl border transition flex flex-col justify-between space-y-2.5 ${
+                className={`p-3.5 rounded-[var(--r-md)] border transition flex flex-col justify-between space-y-2.5 ${
                   r.ativo
-                    ? 'bg-slate-50/80 border-slate-200 hover:border-slate-300'
-                    : 'bg-slate-100/50 border-slate-200 opacity-60'
+                    ? 'bg-[var(--surface)] border-[var(--border)] hover:border-[var(--fg)]/40 shadow-xs'
+                    : 'bg-[oklch(0.96_0.01_84)] border-[var(--border)] opacity-60'
                 }`}
               >
                 <div className="flex items-start justify-between gap-2">
                   <div>
                     <div className="flex items-center space-x-2">
-                      <span className="font-extrabold text-slate-900 text-sm">{r.titulo}</span>
-                      <span className="font-mono text-xs font-bold px-2 py-0.5 rounded bg-indigo-100 text-indigo-800">
+                      <span className="font-extrabold text-[var(--fg)] text-sm font-sans">{r.titulo}</span>
+                      <span className="font-mono text-xs font-bold px-2 py-0.5 rounded-full bg-[var(--sunny)]/30 text-[var(--fg)]">
                         {r.horario}
                       </span>
                     </div>
                     {r.topico && (
-                      <p className="text-xs text-slate-500 mt-0.5">
-                        Tópico: <strong className="text-slate-700">{r.topico}</strong>
+                      <p className="text-xs text-[var(--muted)] mt-0.5">
+                        Tópico: <strong className="text-[var(--fg)]">{r.topico}</strong>
                       </p>
                     )}
                   </div>
@@ -574,8 +574,8 @@ export const CalendarPlanning: React.FC = () => {
                     onClick={() => handleToggleReminder(r.id)}
                     className={`px-2.5 py-1 rounded-full text-[10px] font-extrabold transition cursor-pointer ${
                       r.ativo
-                        ? 'bg-emerald-100 text-emerald-800 hover:bg-emerald-200'
-                        : 'bg-slate-200 text-slate-600 hover:bg-slate-300'
+                        ? 'bg-[var(--mint)] text-[var(--ok)] border border-[var(--ok)]/30'
+                        : 'bg-[oklch(0.92_0.01_84)] text-[var(--muted)]'
                     }`}
                   >
                     {r.ativo ? 'ATIVO' : 'PAUSADO'}
@@ -583,22 +583,22 @@ export const CalendarPlanning: React.FC = () => {
                 </div>
 
                 {/* Dias da semana e antecedência */}
-                <div className="flex items-center justify-between text-[11px] text-slate-500 border-t border-slate-200/60 pt-2">
+                <div className="flex items-center justify-between text-[11px] text-[var(--muted)] border-t border-[var(--border)] pt-2">
                   <div className="flex items-center space-x-1">
                     {DAYS_OF_WEEK.map((d) => (
                       <span
                         key={d.value}
                         className={`w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-bold ${
                           r.dias_semana.includes(d.value)
-                            ? 'bg-indigo-600 text-white'
-                            : 'bg-slate-200 text-slate-400'
+                            ? 'bg-[var(--fg)] text-[var(--bg)]'
+                            : 'bg-[oklch(0.92_0.01_84)] text-[var(--muted)]'
                         }`}
                       >
                         {d.label[0]}
                       </span>
                     ))}
                     {r.antecedencia_minutos > 0 && (
-                      <span className="text-[10px] text-slate-500 ml-1.5">
+                      <span className="text-[10px] text-[var(--muted)] ml-1.5">
                         ({r.antecedencia_minutos}m antes)
                       </span>
                     )}
@@ -607,14 +607,14 @@ export const CalendarPlanning: React.FC = () => {
                   <div className="flex items-center space-x-1">
                     <button
                       onClick={() => handleTestReminder(r)}
-                      className="p-1.5 text-slate-500 hover:text-indigo-600 hover:bg-slate-200 rounded transition cursor-pointer"
+                      className="p-1.5 text-[var(--muted)] hover:text-[var(--fg)] hover:bg-[oklch(0.94_0.01_84)] rounded-full transition cursor-pointer"
                       title="Testar som e disparo imediato deste lembrete"
                     >
                       <Play className="w-3.5 h-3.5" />
                     </button>
                     <button
                       onClick={() => handleDeleteReminder(r.id)}
-                      className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded transition cursor-pointer"
+                      className="p-1.5 text-[var(--muted)] hover:text-rose-600 hover:bg-rose-50 rounded-full transition cursor-pointer"
                       title="Excluir lembrete"
                     >
                       <Trash2 className="w-3.5 h-3.5" />
@@ -628,16 +628,16 @@ export const CalendarPlanning: React.FC = () => {
       </div>
 
       {/* Configurações de Sessão e Disponibilidade */}
-      <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-sm space-y-4">
+      <div className="bg-[var(--surface)] border border-[var(--border)] rounded-[var(--r-lg)] p-5 shadow-[var(--shadow-sm)] space-y-4">
         <div className="flex flex-wrap items-center justify-between gap-4">
-          <div className="flex flex-wrap items-center gap-4 text-xs sm:text-sm">
+          <div className="flex flex-wrap items-center gap-4 text-xs sm:text-sm font-mono">
             <div className="flex items-center space-x-2">
-              <Clock className="w-4 h-4 text-slate-400" />
-              <span className="text-slate-700 font-medium">Duração diária:</span>
+              <Clock className="w-4 h-4 text-[var(--muted)]" />
+              <span className="text-[var(--fg)] font-medium font-sans">Duração diária:</span>
               <select
                 value={durationMinutes}
                 onChange={(e) => setDurationMinutes(Number(e.target.value))}
-                className="bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1 text-slate-900 font-semibold focus:outline-none focus:border-indigo-500"
+                className="bg-[oklch(0.97_0.01_84)] border border-[var(--border)] rounded-[var(--r-sm)] px-2.5 py-1 text-[var(--fg)] font-semibold focus:outline-none focus:border-[var(--fg)]"
               >
                 <option value={15}>15 minutos (Rápido)</option>
                 <option value={30}>30 minutos (Padrão)</option>
@@ -647,12 +647,12 @@ export const CalendarPlanning: React.FC = () => {
             </div>
 
             <div className="flex items-center space-x-2">
-              <span className="text-slate-700 font-medium">Horário preferencial:</span>
+              <span className="text-[var(--fg)] font-medium font-sans">Horário preferencial:</span>
               <input
                 type="time"
                 value={preferredTime}
                 onChange={(e) => setPreferredTime(e.target.value)}
-                className="bg-slate-50 border border-slate-200 rounded-lg px-2 py-1 text-slate-900 font-semibold focus:outline-none focus:border-indigo-500"
+                className="bg-[oklch(0.97_0.01_84)] border border-[var(--border)] rounded-[var(--r-sm)] px-2 py-1 text-[var(--fg)] font-semibold focus:outline-none focus:border-[var(--fg)]"
               />
             </div>
           </div>
@@ -660,7 +660,7 @@ export const CalendarPlanning: React.FC = () => {
           <button
             onClick={generateProposals}
             disabled={isLoading}
-            className="px-4 py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 rounded-lg text-xs font-bold transition flex items-center space-x-1.5 cursor-pointer"
+            className="px-4 py-2 bg-[oklch(0.96_0.01_84)] hover:bg-[oklch(0.92_0.01_84)] text-[var(--fg)] border border-[var(--border)] rounded-full text-xs font-mono font-bold transition flex items-center space-x-1.5 cursor-pointer"
           >
             <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin' : ''}`} />
             <span>Recalcular Sugestões IA</span>
@@ -668,17 +668,17 @@ export const CalendarPlanning: React.FC = () => {
         </div>
 
         {/* Status da Conexão OAuth */}
-        <div className="mt-4 pt-4 border-t border-slate-100 flex flex-wrap items-center justify-between text-xs gap-2">
+        <div className="mt-4 pt-4 border-t border-[var(--border)] flex flex-wrap items-center justify-between text-xs gap-2 font-mono">
           <div className="flex items-center space-x-2">
-            <ShieldCheck className="w-4 h-4 text-emerald-600" />
-            <span className="text-slate-700">
+            <ShieldCheck className="w-4 h-4 text-[var(--ok)]" />
+            <span className="text-[var(--fg)]">
               Status da Integração:{' '}
               {authState.connected ? (
-                <span className="font-bold text-emerald-700">
+                <span className="font-bold text-[var(--ok)]">
                   Conectado ao Google Calendar ({authState.userEmail || 'Autorizado'})
                 </span>
               ) : (
-                <span className="text-slate-500">
+                <span className="text-[var(--muted)]">
                   Desconectado (Fallback .ICS ativo ou conecte via token)
                 </span>
               )}
@@ -688,7 +688,7 @@ export const CalendarPlanning: React.FC = () => {
           {authState.connected ? (
             <button
               onClick={handleDisconnect}
-              className="text-rose-600 hover:text-rose-700 flex items-center space-x-1 font-semibold cursor-pointer"
+              className="text-rose-600 hover:underline flex items-center space-x-1 font-semibold cursor-pointer"
             >
               <LogOut className="w-3.5 h-3.5" />
               <span>Desconectar Conta</span>
@@ -696,7 +696,7 @@ export const CalendarPlanning: React.FC = () => {
           ) : (
             <button
               onClick={() => setShowTokenField(!showTokenField)}
-              className="text-indigo-600 hover:text-indigo-800 font-semibold underline cursor-pointer"
+              className="text-[var(--fg)] hover:underline font-semibold underline cursor-pointer"
             >
               {showTokenField ? 'Ocultar Configuração OAuth' : 'Configurar Token OAuth do Google'}
             </button>
@@ -704,8 +704,8 @@ export const CalendarPlanning: React.FC = () => {
         </div>
 
         {showTokenField && !authState.connected && (
-          <div className="mt-3 p-3 bg-slate-50 rounded-xl border border-slate-200 space-y-2 text-xs">
-            <p className="text-slate-700">
+          <div className="mt-3 p-3 bg-[oklch(0.97_0.01_84)] rounded-[var(--r-md)] border border-[var(--border)] space-y-2 text-xs font-mono">
+            <p className="text-[var(--fg)]">
               Cole o Token de Acesso OAuth do Google (escopo: <code>calendar.events</code>) para habilitar a criação direta na nuvem:
             </p>
             <div className="flex gap-2">
@@ -714,11 +714,11 @@ export const CalendarPlanning: React.FC = () => {
                 value={manualTokenInput}
                 onChange={(e) => setManualTokenInput(e.target.value)}
                 placeholder="ya29.a0AfH6..."
-                className="flex-1 bg-white border border-slate-200 rounded-lg px-3 py-1.5 text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:border-indigo-500 shadow-2xs"
+                className="flex-1 bg-[var(--surface)] border border-[var(--border)] rounded-[var(--r-sm)] px-3 py-1.5 text-xs text-[var(--fg)] placeholder:text-[var(--muted)] focus:outline-none focus:border-[var(--fg)] shadow-xs"
               />
               <button
                 onClick={handleConnectToken}
-                className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-bold shadow-2xs cursor-pointer"
+                className="px-3 py-1.5 bg-[var(--fg)] hover:bg-[var(--fg)]/90 text-[var(--bg)] rounded-full font-bold shadow-xs cursor-pointer font-sans"
               >
                 Conectar
               </button>
@@ -729,8 +729,8 @@ export const CalendarPlanning: React.FC = () => {
 
       {/* Prévia do Cronograma Semanal */}
       <div className="space-y-3">
-        <h3 className="text-sm font-bold uppercase tracking-wider text-slate-500 flex items-center space-x-2">
-          <Sparkles className="w-4 h-4 text-indigo-600" />
+        <h3 className="text-xs sm:text-sm font-bold font-mono uppercase tracking-wider text-[var(--muted)] flex items-center space-x-2">
+          <Sparkles className="w-4 h-4 text-[var(--fg)]" />
           <span>Prévia das Próximas Sessões Sugeridas:</span>
         </h3>
 
@@ -750,30 +750,30 @@ export const CalendarPlanning: React.FC = () => {
             return (
               <div
                 key={prop.id || idx}
-                className="bg-white border border-slate-200 rounded-xl p-4 flex flex-col justify-between space-y-3 hover:border-slate-300 shadow-sm transition"
+                className="bg-[var(--surface)] border border-[var(--border)] rounded-[var(--r-lg)] p-4 flex flex-col justify-between space-y-3 hover:border-[var(--fg)]/40 shadow-[var(--shadow-sm)] transition"
               >
                 <div>
-                  <div className="flex items-center justify-between text-xs mb-1">
-                    <span className="font-bold text-indigo-600 capitalize">
+                  <div className="flex items-center justify-between text-xs mb-1 font-mono">
+                    <span className="font-bold text-[var(--fg)] capitalize">
                       {diaSemana}, {dataFormatada}
                     </span>
                     <span
-                      className={`px-2 py-0.5 rounded-md text-[10px] font-bold uppercase border ${
+                      className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase border ${
                         prop.prioridade === 'alta'
-                          ? 'bg-rose-50 text-rose-700 border-rose-200'
-                          : 'bg-indigo-50 text-indigo-700 border-indigo-200'
+                          ? 'bg-rose-500/10 text-rose-600 border-rose-500/30'
+                          : 'bg-[oklch(0.94_0.01_84)] text-[var(--fg)] border-[var(--border)]'
                       }`}
                     >
                       {prop.prioridade}
                     </span>
                   </div>
 
-                  <h4 className="font-bold text-sm text-slate-900">{prop.titulo}</h4>
-                  <p className="text-xs text-slate-500 mt-1">{prop.descricao}</p>
+                  <h4 className="font-bold text-sm text-[var(--fg)] font-display">{prop.titulo}</h4>
+                  <p className="text-xs text-[var(--muted)] mt-1 font-mono">{prop.descricao}</p>
                 </div>
 
-                <div className="pt-2 border-t border-slate-100 text-xs space-y-2">
-                  <div className="flex items-center justify-between text-slate-500">
+                <div className="pt-2 border-t border-[var(--border)] text-xs space-y-2 font-mono">
+                  <div className="flex items-center justify-between text-[var(--muted)]">
                     <span>Horário: {horaFormatada}</span>
                     <span>{prop.duracao_minutos} minutos</span>
                   </div>
@@ -782,17 +782,17 @@ export const CalendarPlanning: React.FC = () => {
                     {prop.topicos.map((t, i) => (
                       <span
                         key={i}
-                        className="text-[10px] px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 border border-slate-200"
+                        className="text-[10px] px-2 py-0.5 rounded-full bg-[oklch(0.96_0.01_84)] text-[var(--fg)] border border-[var(--border)]"
                       >
                         {t}
                       </span>
                     ))}
                   </div>
 
-                  <div className="pt-2 border-t border-slate-100 flex items-center justify-between gap-2">
+                  <div className="pt-2 border-t border-[var(--border)] flex items-center justify-between gap-2">
                     <button
                       onClick={() => handleCreateReminderFromProposal(prop)}
-                      className="text-xs text-amber-700 hover:text-amber-900 font-semibold flex items-center space-x-1 cursor-pointer"
+                      className="text-xs text-[var(--fg)] hover:underline font-semibold flex items-center space-x-1 cursor-pointer"
                       title="Agendar lembrete sonoro local para este horário"
                     >
                       <Bell className="w-3.5 h-3.5" />
@@ -801,7 +801,7 @@ export const CalendarPlanning: React.FC = () => {
 
                     <button
                       onClick={() => handleOpenSyncModal(prop)}
-                      className="text-xs text-indigo-600 hover:text-indigo-800 font-semibold flex items-center space-x-1 cursor-pointer"
+                      className="text-xs text-[var(--fg)] hover:underline font-bold flex items-center space-x-1 cursor-pointer"
                     >
                       <span>Google Calendar</span>
                     </button>
@@ -815,22 +815,22 @@ export const CalendarPlanning: React.FC = () => {
 
       {/* Modal de Confirmação Explícita Obrigatória */}
       {showConfirmModal && (
-        <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white border border-slate-200 rounded-2xl max-w-lg w-full p-6 space-y-4 shadow-xl text-slate-900">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-2">
-              <div className="flex items-center space-x-2 text-indigo-600 font-bold">
+        <div className="fixed inset-0 z-50 bg-background/80 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-[var(--surface)] border border-[var(--border)] rounded-[var(--r-lg)] max-w-lg w-full p-6 space-y-4 shadow-2xl text-[var(--fg)]">
+            <div className="flex items-center justify-between border-b border-[var(--border)] pb-2">
+              <div className="flex items-center space-x-2 text-[var(--fg)] font-bold font-display">
                 <CalendarCheck className="w-5 h-5" />
                 <h3>Confirmação de Agendamento</h3>
               </div>
               <button
                 onClick={() => setShowConfirmModal(false)}
-                className="text-slate-400 hover:text-slate-700"
+                className="text-[var(--muted)] hover:text-[var(--fg)] font-bold cursor-pointer"
               >
                 ✕
               </button>
             </div>
 
-            <div className="text-xs sm:text-sm text-slate-700 space-y-2">
+            <div className="text-xs sm:text-sm text-[var(--fg)] space-y-2 font-mono">
               <p>
                 Você está prestes a agendar{' '}
                 <strong>
@@ -840,8 +840,8 @@ export const CalendarPlanning: React.FC = () => {
                 </strong>{' '}
                 no seu calendário.
               </p>
-              <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-amber-900 text-xs flex items-start space-x-2">
-                <AlertCircle className="w-4 h-4 shrink-0 mt-0.5 text-amber-600" />
+              <div className="p-3 bg-[var(--sunny)]/20 border border-[var(--sunny)] rounded-[var(--r-md)] text-[var(--fg)] text-xs flex items-start space-x-2">
+                <AlertCircle className="w-4 h-4 shrink-0 mt-0.5 text-amber-700" />
                 <span>
                   <strong>Aviso de Permissão:</strong> Eventos reais só serão criados mediante sua
                   confirmação explícita abaixo. Nenhum evento é gravado silenciosamente.
@@ -849,25 +849,25 @@ export const CalendarPlanning: React.FC = () => {
               </div>
 
               {syncStatus.successMessage && (
-                <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-emerald-800 text-xs flex items-center space-x-2">
-                  <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-600" />
+                <div className="p-3 bg-[var(--mint)] border border-[var(--ok)]/30 rounded-[var(--r-md)] text-[var(--ok)] text-xs flex items-center space-x-2">
+                  <CheckCircle2 className="w-4 h-4 shrink-0 text-[var(--ok)]" />
                   <span>{syncStatus.successMessage}</span>
                 </div>
               )}
 
               {syncStatus.errorMessage && (
-                <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-rose-800 text-xs flex items-center space-x-2">
+                <div className="p-3 bg-rose-500/10 border border-rose-500/30 rounded-[var(--r-md)] text-rose-600 text-xs flex items-center space-x-2">
                   <AlertCircle className="w-4 h-4 shrink-0 text-rose-600" />
                   <span>{syncStatus.errorMessage}</span>
                 </div>
               )}
             </div>
 
-            <div className="flex justify-end space-x-2 pt-3 border-t border-slate-100">
+            <div className="flex justify-end space-x-2 pt-3 border-t border-[var(--border)] font-mono">
               <button
                 type="button"
                 onClick={() => setShowConfirmModal(false)}
-                className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-semibold transition"
+                className="px-4 py-2 bg-[oklch(0.96_0.01_84)] hover:bg-[oklch(0.92_0.01_84)] text-[var(--fg)] rounded-full text-xs font-semibold transition cursor-pointer"
               >
                 Cancelar
               </button>
@@ -875,7 +875,7 @@ export const CalendarPlanning: React.FC = () => {
                 type="button"
                 disabled={syncStatus.inProgress}
                 onClick={handleConfirmGoogleCalendarSync}
-                className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white rounded-lg text-xs font-bold transition flex items-center space-x-1.5 shadow-2xs"
+                className="px-4 py-2 bg-[var(--fg)] hover:bg-[var(--fg)]/90 disabled:opacity-50 text-[var(--bg)] rounded-full text-xs font-bold transition flex items-center space-x-1.5 shadow-xs cursor-pointer font-sans"
               >
                 <CheckCircle2 className="w-4 h-4" />
                 <span>

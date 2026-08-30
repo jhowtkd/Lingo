@@ -2,7 +2,6 @@
 import React from 'react';
 import { cn } from '@/lib/utils';
 import { BorderTrail } from './border-trail';
-import { CornerPlus } from './corner-plus';
 import { Transition } from 'framer-motion';
 
 export interface BorderTrailWrapperProps extends React.HTMLAttributes<HTMLDivElement> {
@@ -32,12 +31,11 @@ export function BorderTrailWrapper({
   return (
     <div
       className={cn(
-        'relative rounded-lg border border-border bg-card text-card-foreground',
+        'relative rounded-[var(--r-lg)] border border-[var(--border)] bg-[var(--surface)] text-[var(--fg)] shadow-[var(--shadow-sm)]',
         className
       )}
       {...props}
     >
-      {withCorners && <CornerPlus size={cornerSize} />}
       {showTrail && (
         <BorderTrail
           size={trailSize}
@@ -45,7 +43,7 @@ export function BorderTrailWrapper({
           transition={trailTransition}
           style={{
             boxShadow:
-              '0px 0px 60px 30px rgb(255 255 255 / 40%), 0 0 100px 60px rgb(0 0 0 / 30%)',
+              '0px 0px 50px 25px oklch(0.70 0.155 55 / 0.35), 0 0 80px 40px oklch(0.89 0.12 92 / 0.25)',
             ...trailStyle,
           }}
         />
@@ -56,3 +54,4 @@ export function BorderTrailWrapper({
 }
 
 export const BorderTrailCard = BorderTrailWrapper;
+

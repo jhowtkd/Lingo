@@ -1,0 +1,130 @@
+{
+  "entities": {
+    "users": {
+      "title": "users",
+      "description": "User profiles and role management",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "description": "Unique user ID" },
+        "email": { "type": "string", "description": "User email address" },
+        "displayName": { "type": "string", "description": "Display name" },
+        "photoURL": { "type": "string", "description": "Avatar URL" },
+        "role": { "type": "string", "enum": ["admin", "user"], "description": "Access level" },
+        "createdAt": { "type": "string", "description": "Account creation ISO timestamp" },
+        "lastLoginAt": { "type": "string", "description": "Last login ISO timestamp" },
+        "statsSummary": {
+          "type": "object",
+          "description": "Quick overview of user progress",
+          "properties": {
+            "level": { "type": "number" },
+            "xp": { "type": "number" },
+            "streak": { "type": "number" },
+            "nodesCount": { "type": "number" },
+            "materialsCount": { "type": "number" }
+          }
+        }
+      },
+      "required": ["uid", "email", "role"]
+    },
+    "user_materials": {
+      "title": "user_materials",
+      "description": "Custom study materials uploaded and indexed per user",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "titulo": { "type": "string" },
+        "tipo": { "type": "string" },
+        "idioma": { "type": "string" },
+        "nivel_cefr": { "type": "string" },
+        "conteudo_texto": { "type": "string" },
+        "resumo": { "type": "string" },
+        "termos_chave": { "type": "array", "items": { "type": "string" } },
+        "criado_em": { "type": "string" },
+        "atualizado_em": { "type": "string" }
+      },
+      "required": ["id", "userId", "titulo", "conteudo_texto"]
+    },
+    "user_graph_nodes": {
+      "title": "user_graph_nodes",
+      "description": "Relational memory graph nodes of words and grammar concepts per user",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "tipo": { "type": "string" },
+        "titulo": { "type": "string" },
+        "descricao": { "type": "string" },
+        "dominio_estimado": { "type": "number" },
+        "dificuldade": { "type": "number" },
+        "frequencia_erro": { "type": "number" },
+        "ultima_revisao": { "type": "string" },
+        "proxima_revisao": { "type": "string" },
+        "idioma": { "type": "string" },
+        "traducao": { "type": "string" },
+        "pronuncia_ipa": { "type": "string" },
+        "exemplo_uso": { "type": "string" }
+      },
+      "required": ["id", "userId", "tipo", "titulo"]
+    },
+    "user_stats": {
+      "title": "user_stats",
+      "description": "User gamification, streak, level, XP and daily targets",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "nivel": { "type": "number" },
+        "xp": { "type": "number" },
+        "sequencia_dias": { "type": "number" },
+        "idioma_ativo": { "type": "string" },
+        "meta_diaria_minutos": { "type": "number" },
+        "minutos_praticados_hoje": { "type": "number" },
+        "atualizado_em": { "type": "string" }
+      },
+      "required": ["userId", "nivel", "xp"]
+    },
+    "shared_knowledge_packs": {
+      "title": "shared_knowledge_packs",
+      "description": "Shared and admin-curated knowledge bases available for students to clone",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "titulo": { "type": "string" },
+        "descricao": { "type": "string" },
+        "idioma": { "type": "string" },
+        "nivel_cefr": { "type": "string" },
+        "autor_nome": { "type": "string" },
+        "autor_id": { "type": "string" },
+        "publicado_em": { "type": "string" },
+        "total_termos": { "type": "number" },
+        "total_materiais": { "type": "number" },
+        "dados_pack": { "type": "object" }
+      },
+      "required": ["id", "titulo", "idioma", "autor_id"]
+    },
+    "frequent_errors": {
+      "title": "frequent_errors",
+      "description": "Catalog of frequent grammatical, lexical and phonetic mistakes identified automatically by the tutor",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "userEmail": { "type": "string" },
+        "userName": { "type": "string" },
+        "conceito": { "type": "string" },
+        "erro": { "type": "string" },
+        "explicacao": { "type": "string" },
+        "resposta_corrigida": { "type": "string" },
+        "gravidade": { "type": "string" },
+        "evidencia": { "type": "string" },
+        "topico": { "type": "string" },
+        "categoria": { "type": "string" },
+        "ocorrencias": { "type": "number" },
+        "data": { "type": "string" },
+        "criado_em": { "type": "string" },
+        "atualizado_em": { "type": "string" }
+      },
+      "required": ["id", "userId", "conceito", "erro"]
+    }
+  }
+}

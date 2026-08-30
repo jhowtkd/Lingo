@@ -32,6 +32,7 @@ import { AudioRecorderService } from '../services/audioService';
 import { SpeechService } from '../services/speechSynthesisService';
 import { StorageService } from '../services/storage';
 import { getLanguageTheme } from '../services/languageThemes';
+import { playSfx } from '../services/soundEffects';
 import { Button } from './ui/button';
 import { Badge } from './ui/badge';
 
@@ -143,6 +144,7 @@ export const VocabularyDuelView: React.FC<VocabularyDuelViewProps> = ({
 
   const processRoundResult = (roundAnswer: DuelRoundAnswer) => {
     if (roundAnswer.correta) {
+      playSfx('success');
       setCurrentCombo((prev) => prev + 1);
       setScore((prev) => prev + roundAnswer.pontos_ganhos);
       // Efeito de som positivo ou TTS do exemplo
@@ -151,6 +153,7 @@ export const VocabularyDuelView: React.FC<VocabularyDuelViewProps> = ({
         SpeechService.speak(currentQ.exemplo_frase, { lang: activeTheme.codigo_voz, rate: 1.0 });
       }
     } else {
+      playSfx('error');
       setCurrentCombo(0);
     }
 
@@ -257,23 +260,23 @@ export const VocabularyDuelView: React.FC<VocabularyDuelViewProps> = ({
   return (
     <div className="flex flex-col h-full space-y-4">
       {/* Cabeçalho do Duelo */}
-      <div className="flex items-center justify-between flex-wrap gap-3 pb-3 border-b border-[#171719]/10">
+      <div className="flex items-center justify-between flex-wrap gap-3 pb-3 border-b border-[var(--border)]">
         <div className="flex items-center space-x-3">
           <div
-            className="w-10 h-10 rounded-[9px] bg-[#171719] text-[#1ff98c] flex items-center justify-center font-bold shadow-xs border border-[#171719]/20"
+            className="w-10 h-10 rounded-full bg-[var(--fg)] text-[var(--accent)] flex items-center justify-center font-bold shadow-xs border border-[var(--border)]"
           >
             <Swords className="w-5 h-5" />
           </div>
           <div>
             <div className="flex items-center space-x-2">
-              <h2 className="text-base sm:text-lg font-extrabold tracking-tight text-[#171719]">
+              <h2 className="text-base sm:text-lg font-display font-bold tracking-tight text-[var(--fg)]">
                 Duelo de Vocabulário
               </h2>
-              <span className="text-[10px] font-mono px-2.5 py-0.5 rounded-full border border-[#171719]/15 bg-[#ededed] uppercase font-bold text-[#171719]">
+              <span className="text-[10px] font-mono px-2.5 py-0.5 rounded-full border border-[var(--border)] bg-[oklch(0.96_0.01_84)] uppercase font-bold text-[var(--fg)]">
                 {activeTheme.bandeira} {activeTheme.nome}
               </span>
             </div>
-            <p className="text-xs text-[#71717a] font-mono">
+            <p className="text-xs text-[var(--muted)]">
               Desafios rápidos baseados no seu Grafo de Memória • Treine velocidade e precisão fonética
             </p>
           </div>
@@ -281,27 +284,27 @@ export const VocabularyDuelView: React.FC<VocabularyDuelViewProps> = ({
 
         {/* Informações de Pontuação e Combo no Topo */}
         {gameState !== 'lobby' && (
-          <div className="flex items-center space-x-3 text-xs font-mono">
+          <div className="flex items-center space-x-3 text-xs">
             {/* Pontos */}
-            <div className="flex items-center space-x-1.5 px-3 py-1.5 rounded-[9px] border border-[#171719]/15 bg-white shadow-xs">
-              <Trophy className="w-4 h-4 text-[#08ba61]" />
-              <span className="font-bold text-[#171719]">{score} pts</span>
+            <div className="flex items-center space-x-1.5 px-3.5 py-1.5 rounded-full border border-[var(--border)] bg-[var(--surface)] shadow-xs">
+              <Trophy className="w-4 h-4 text-[var(--accent-deep)]" />
+              <span className="font-mono font-bold text-[var(--fg)]">{score} pts</span>
             </div>
 
             {/* Multiplicador de Combo */}
             <div
-              className={`flex items-center space-x-1 px-3 py-1.5 rounded-[9px] border font-bold transition-all ${
+              className={`flex items-center space-x-1 px-3.5 py-1.5 rounded-full border font-bold transition-all ${
                 currentCombo > 1
-                  ? 'border-[#08ba61] bg-[#1ff98c]/20 text-[#08ba61]'
-                  : 'border-[#171719]/15 bg-white text-[#71717a]'
+                  ? 'border-[var(--ok)]/40 bg-[var(--mint)] text-[var(--ok)]'
+                  : 'border-[var(--border)] bg-[var(--surface)] text-[var(--muted)]'
               }`}
             >
-              <Flame className={`w-4 h-4 ${currentCombo > 1 ? 'text-[#08ba61] fill-[#08ba61]' : ''}`} />
-              <span>{currentCombo}x Combo</span>
+              <Flame className={`w-4 h-4 ${currentCombo > 1 ? 'text-[var(--ok)] fill-[var(--ok)]' : ''}`} />
+              <span className="font-mono">{currentCombo}x Combo</span>
             </div>
 
             {/* Progresso de Questões */}
-            <div className="text-[#71717a] font-bold">
+            <div className="text-[var(--muted)] font-mono font-bold">
               {currentIndex + 1}/{questions.length}
             </div>
           </div>
@@ -313,7 +316,7 @@ export const VocabularyDuelView: React.FC<VocabularyDuelViewProps> = ({
         <div className="flex-1 flex flex-col items-center justify-center p-6 text-center max-w-2xl mx-auto space-y-6">
           <div className="relative">
             <div
-              className="w-20 h-20 rounded-[20px] bg-[#171719] text-[#1ff98c] flex items-center justify-center mx-auto shadow-md border border-[#171719]/20"
+              className="w-20 h-20 rounded-2xl bg-[var(--fg)] text-[var(--accent)] flex items-center justify-center mx-auto shadow-xs border border-[var(--border)]"
             >
               <Zap className="w-10 h-10" />
             </div>
@@ -321,73 +324,73 @@ export const VocabularyDuelView: React.FC<VocabularyDuelViewProps> = ({
           </div>
 
           <div className="space-y-2">
-            <h3 className="text-xl sm:text-2xl font-extrabold tracking-tight text-[#171719]">
+            <h3 className="text-xl sm:text-2xl font-display font-bold tracking-tight text-[var(--fg)]">
               Preparado para o Duelo de Velocidade?
             </h3>
-            <p className="text-xs sm:text-sm text-[#71717a] max-w-md mx-auto leading-relaxed">
+            <p className="text-xs sm:text-sm text-[var(--muted)] max-w-md mx-auto leading-relaxed">
               O sistema extraiu termos com menor domínio, falsos cognatos e expressões do seu{' '}
-              <span className="font-bold text-[#171719]">Grafo de Memória ({activeTheme.nome})</span>.
+              <span className="font-bold text-[var(--fg)]">Grafo de Memória ({activeTheme.nome})</span>.
               Responda por áudio ou texto antes do tempo esgotar para acumular combos e XP!
             </p>
           </div>
 
           {/* Cards de Benefícios / Regras Rápidas */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 w-full text-left font-mono text-xs">
-            <div className="p-4 rounded-[20px] border border-[#171719]/10 bg-white space-y-1 shadow-xs">
-              <div className="flex items-center space-x-1.5 font-bold text-[#171719]">
-                <Timer className="w-3.5 h-3.5 text-[#08ba61]" />
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 w-full text-left text-xs">
+            <div className="p-4 rounded-[var(--r-md)] border border-[var(--border)] bg-[var(--surface)] space-y-1 shadow-xs">
+              <div className="flex items-center space-x-1.5 font-bold text-[var(--fg)]">
+                <Timer className="w-3.5 h-3.5 text-[var(--accent-deep)]" />
                 <span>12s por Rodada</span>
               </div>
-              <p className="text-[11px] text-[#71717a]">
+              <p className="text-[11px] text-[var(--muted)]">
                 Bônus de velocidade para quem responder nos primeiros segundos.
               </p>
             </div>
 
-            <div className="p-4 rounded-[20px] border border-[#171719]/10 bg-white space-y-1 shadow-xs">
-              <div className="flex items-center space-x-1.5 font-bold text-[#171719]">
-                <Mic className="w-3.5 h-3.5 text-[#08ba61]" />
+            <div className="p-4 rounded-[var(--r-md)] border border-[var(--border)] bg-[var(--surface)] space-y-1 shadow-xs">
+              <div className="flex items-center space-x-1.5 font-bold text-[var(--fg)]">
+                <Mic className="w-3.5 h-3.5 text-[var(--accent-deep)]" />
                 <span>Bônus de Voz</span>
               </div>
-              <p className="text-[11px] text-[#71717a]">
+              <p className="text-[11px] text-[var(--muted)]">
                 Responder em áudio confere +30 pontos e avalia sua pronúncia.
               </p>
             </div>
 
-            <div className="p-4 rounded-[20px] border border-[#171719]/10 bg-white space-y-1 shadow-xs">
-              <div className="flex items-center space-x-1.5 font-bold text-[#171719]">
-                <Brain className="w-3.5 h-3.5 text-[#171719]" />
+            <div className="p-4 rounded-[var(--r-md)] border border-[var(--border)] bg-[var(--surface)] space-y-1 shadow-xs">
+              <div className="flex items-center space-x-1.5 font-bold text-[var(--fg)]">
+                <Brain className="w-3.5 h-3.5 text-[var(--fg)]" />
                 <span>Sincroniza Grafo</span>
               </div>
-              <p className="text-[11px] text-[#71717a]">
+              <p className="text-[11px] text-[var(--muted)]">
                 Acertos consolidam retenção e erros priorizam revisões no grafo.
               </p>
             </div>
           </div>
 
           {/* Seleção do Modo de Resposta */}
-          <div className="flex items-center space-x-2 text-xs font-mono">
-            <span className="text-[#71717a] font-bold">Preferência:</span>
-            <div className="inline-flex rounded-[9px] border border-[#171719]/15 p-0.5 bg-[#ededed]">
+          <div className="flex items-center space-x-2 text-xs">
+            <span className="text-[var(--muted)] font-bold">Preferência:</span>
+            <div className="inline-flex rounded-full border border-[var(--border)] p-0.5 bg-[oklch(0.96_0.01_84)]">
               <button
                 onClick={() => setAnswerMode('misto')}
-                className={`px-3 py-1.5 rounded-[7px] text-xs font-bold transition cursor-pointer ${
-                  answerMode === 'misto' ? 'bg-white text-[#171719] shadow-xs' : 'text-[#71717a]'
+                className={`px-3.5 py-1.5 rounded-full text-xs font-bold transition cursor-pointer ${
+                  answerMode === 'misto' ? 'bg-[var(--surface)] text-[var(--fg)] shadow-xs' : 'text-[var(--muted)]'
                 }`}
               >
                 🎙️ + ⌨️ Misto
               </button>
               <button
                 onClick={() => setAnswerMode('audio')}
-                className={`px-3 py-1.5 rounded-[7px] text-xs font-bold transition cursor-pointer ${
-                  answerMode === 'audio' ? 'bg-white text-[#171719] shadow-xs' : 'text-[#71717a]'
+                className={`px-3.5 py-1.5 rounded-full text-xs font-bold transition cursor-pointer ${
+                  answerMode === 'audio' ? 'bg-[var(--surface)] text-[var(--fg)] shadow-xs' : 'text-[var(--muted)]'
                 }`}
               >
                 🎙️ Somente Voz
               </button>
               <button
                 onClick={() => setAnswerMode('texto')}
-                className={`px-3 py-1.5 rounded-[7px] text-xs font-bold transition cursor-pointer ${
-                  answerMode === 'texto' ? 'bg-white text-[#171719] shadow-xs' : 'text-[#71717a]'
+                className={`px-3.5 py-1.5 rounded-full text-xs font-bold transition cursor-pointer ${
+                  answerMode === 'texto' ? 'bg-[var(--surface)] text-[var(--fg)] shadow-xs' : 'text-[var(--muted)]'
                 }`}
               >
                 ⌨️ Somente Texto
@@ -399,9 +402,9 @@ export const VocabularyDuelView: React.FC<VocabularyDuelViewProps> = ({
             size="lg"
             variant="default"
             onClick={handleStartGame}
-            className="w-full sm:w-auto px-8 py-3 text-sm font-bold tracking-wide cursor-pointer gap-2 rounded-[9px]"
+            className="w-full sm:w-auto px-8 py-3 text-sm font-bold tracking-wide cursor-pointer gap-2 rounded-full"
           >
-            <Zap className="w-4 h-4 text-[#1ff98c]" />
+            <Zap className="w-4 h-4 text-[var(--accent)]" />
             <span>INICIAR DUELO (8 RODADAS)</span>
           </Button>
         </div>
@@ -412,21 +415,21 @@ export const VocabularyDuelView: React.FC<VocabularyDuelViewProps> = ({
         <div className="flex-1 flex flex-col justify-between max-w-2xl mx-auto w-full space-y-4">
           {/* Barra do Cronômetro com Pulso */}
           <div className="space-y-1">
-            <div className="flex items-center justify-between text-xs font-mono">
+            <div className="flex items-center justify-between text-xs">
               <div className="flex items-center space-x-1.5">
-                <Timer className={`w-4 h-4 ${timeLeft <= 4 ? 'text-rose-600 animate-spin' : 'text-[#08ba61]'}`} />
-                <span className={`font-bold ${timeLeft <= 4 ? 'text-rose-600' : 'text-[#171719]'}`}>
+                <Timer className={`w-4 h-4 ${timeLeft <= 4 ? 'text-rose-600 animate-spin' : 'text-[var(--ok)]'}`} />
+                <span className={`font-mono font-bold ${timeLeft <= 4 ? 'text-rose-600' : 'text-[var(--fg)]'}`}>
                   {timeLeft}s restantes
                 </span>
               </div>
-              <span className="text-[#71717a]">
-                Tipo: <strong className="text-[#171719] uppercase">{currentQuestion.tipo.replace('_', ' ')}</strong>
+              <span className="text-[var(--muted)]">
+                Tipo: <strong className="text-[var(--fg)] uppercase font-mono">{currentQuestion.tipo.replace('_', ' ')}</strong>
               </span>
             </div>
-            <div className="w-full h-2 bg-[#ededed] rounded-full overflow-hidden border border-[#171719]/10">
+            <div className="w-full h-2 bg-[oklch(0.94_0.01_84)] rounded-full overflow-hidden border border-[var(--border)]">
               <div
                 className={`h-full transition-all duration-1000 ease-linear rounded-full ${
-                  timeLeft <= 4 ? 'bg-rose-500' : timeLeft <= 7 ? 'bg-amber-500' : 'bg-[#08ba61]'
+                  timeLeft <= 4 ? 'bg-rose-500' : timeLeft <= 7 ? 'bg-[var(--sunny)]' : 'bg-[var(--ok)]'
                 }`}
                 style={{ width: `${timePercent}%` }}
               />
@@ -434,8 +437,8 @@ export const VocabularyDuelView: React.FC<VocabularyDuelViewProps> = ({
           </div>
 
           {/* Card Principal da Pergunta */}
-          <div className="relative bg-white border border-[#171719]/10 rounded-[25px] p-6 sm:p-7 shadow-xs space-y-4 text-center">
-            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs border border-[#171719]/15 bg-[#ededed] text-[#171719] font-bold">
+          <div className="relative bg-[var(--surface)] border border-[var(--border)] rounded-[var(--r-lg)] p-6 sm:p-7 shadow-xs space-y-4 text-center">
+            <div className="inline-flex items-center gap-1.5 px-3.5 py-1 rounded-full text-xs border border-[var(--border)] bg-[oklch(0.96_0.01_84)] text-[var(--fg)] font-bold font-mono">
               <span>{activeTheme.bandeira}</span>
               <span>{currentQuestion.idioma_origem} ➔ {currentQuestion.idioma_alvo}</span>
             </div>
@@ -443,7 +446,7 @@ export const VocabularyDuelView: React.FC<VocabularyDuelViewProps> = ({
             {/* Termo em Destaque com Pronúncia e Áudio */}
             <div className="space-y-1">
               <div className="flex items-center justify-center space-x-2">
-                <h3 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-[#171719]">
+                <h3 className="text-2xl sm:text-3xl font-display font-extrabold tracking-tight text-[var(--fg)]">
                   {currentQuestion.termo_principal}
                 </h3>
                 <button
@@ -454,15 +457,15 @@ export const VocabularyDuelView: React.FC<VocabularyDuelViewProps> = ({
                       rate: 0.9,
                     })
                   }
-                  className="p-1.5 rounded-full hover:bg-[#ededed] text-[#71717a] hover:text-[#171719] transition cursor-pointer"
+                  className="p-1.5 rounded-full hover:bg-[oklch(0.96_0.01_84)] text-[var(--muted)] hover:text-[var(--fg)] transition cursor-pointer"
                   title="Ouvir pronúncia nativa"
                 >
-                  <Volume2 className="w-5 h-5 text-[#171719]" />
+                  <Volume2 className="w-5 h-5 text-[var(--fg)]" />
                 </button>
               </div>
 
               {currentQuestion.pronuncia_ipa && (
-                <p className="text-xs font-mono text-[#71717a]">
+                <p className="text-xs font-mono text-[var(--muted)]">
                   IPA: {currentQuestion.pronuncia_ipa}
                 </p>
               )}
@@ -470,7 +473,7 @@ export const VocabularyDuelView: React.FC<VocabularyDuelViewProps> = ({
 
             {/* Dica ou Alerta de Falso Cognato */}
             {currentQuestion.dica_contextual && (
-              <div className="inline-block p-2.5 rounded-[12px] bg-[#1ff98c]/15 border border-[#08ba61]/30 text-xs text-[#171719] font-medium max-w-lg">
+              <div className="inline-block p-3 rounded-2xl bg-[var(--mint)] border border-[var(--ok)]/30 text-xs text-[var(--fg)] font-medium max-w-lg">
                 💡 {currentQuestion.dica_contextual}
               </div>
             )}
@@ -486,10 +489,10 @@ export const VocabularyDuelView: React.FC<VocabularyDuelViewProps> = ({
                     setSelectedOption(opt);
                     handleSubmitAnswer(opt, false);
                   }}
-                  className={`p-3.5 rounded-[16px] border text-left font-medium text-xs sm:text-sm transition cursor-pointer flex items-center justify-between hover:scale-[1.01] ${
+                  className={`p-3.5 rounded-2xl border text-left font-medium text-xs sm:text-sm transition cursor-pointer flex items-center justify-between hover:scale-[1.01] ${
                     selectedOption === opt
-                      ? 'bg-[#171719] text-[#1ff98c] border-[#171719] font-bold shadow-md'
-                      : 'bg-white border-[#171719]/15 text-[#171719] hover:bg-[#ededed] hover:border-[#171719]/40'
+                      ? 'bg-[var(--fg)] text-[var(--accent)] border-[var(--fg)] font-bold shadow-md'
+                      : 'bg-[var(--surface)] border-[var(--border)] text-[var(--fg)] hover:bg-[oklch(0.96_0.01_84)]'
                   }`}
                 >
                   <span className="font-bold">{opt}</span>
@@ -516,7 +519,7 @@ export const VocabularyDuelView: React.FC<VocabularyDuelViewProps> = ({
                 value={inputAnswer}
                 onChange={(e) => setInputAnswer(e.target.value)}
                 placeholder="Digite a tradução ou explicação rápida..."
-                className="flex-1 px-4 py-3 text-xs sm:text-sm bg-white border border-[#171719]/15 rounded-[12px] focus:outline-none focus:ring-2 focus:ring-[#08ba61] text-[#171719] font-mono"
+                className="flex-1 px-4 py-3 text-xs sm:text-sm bg-[var(--surface)] border border-[var(--border)] rounded-full focus:outline-none focus:ring-2 focus:ring-[var(--fg)] text-[var(--fg)]"
               />
 
               {/* Botão de Gravação de Áudio */}
@@ -525,23 +528,23 @@ export const VocabularyDuelView: React.FC<VocabularyDuelViewProps> = ({
                   type="button"
                   onClick={isRecording ? handleStopVoiceRecord : handleStartVoiceRecord}
                   disabled={audioTranscribing}
-                  className={`px-4 py-3 rounded-[12px] border font-mono text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${
+                  className={`px-4 py-3 rounded-full border text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${
                     isRecording
                       ? 'bg-rose-600 text-white border-rose-600 animate-pulse'
                       : audioTranscribing
-                      ? 'bg-[#ededed] text-[#71717a] border-[#171719]/15'
-                      : 'bg-white hover:bg-[#ededed] border-[#171719]/15 text-[#171719]'
+                      ? 'bg-[oklch(0.96_0.01_84)] text-[var(--muted)] border-[var(--border)]'
+                      : 'bg-[var(--surface)] hover:bg-[oklch(0.96_0.01_84)] border-[var(--border)] text-[var(--fg)]'
                   }`}
                   title={isRecording ? 'Clique para parar e enviar áudio' : 'Falar resposta ao microfone (+30 pts)'}
                 >
-                  {isRecording ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4 text-[#08ba61]" />}
+                  {isRecording ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4 text-[var(--accent-deep)]" />}
                   <span className="hidden sm:inline">
                     {isRecording ? 'Gravando...' : audioTranscribing ? 'Transcrevendo...' : 'Falar'}
                   </span>
                 </button>
               )}
 
-              <Button type="submit" size="default" variant="default" className="px-5 py-3 cursor-pointer rounded-[12px] font-bold">
+              <Button type="submit" size="default" variant="default" className="px-5 py-3 cursor-pointer rounded-full font-bold">
                 Responder
               </Button>
             </form>
@@ -553,19 +556,19 @@ export const VocabularyDuelView: React.FC<VocabularyDuelViewProps> = ({
       {gameState === 'round_feedback' && lastAnswer && currentQuestion && (
         <div className="flex-1 flex flex-col justify-center max-w-xl mx-auto w-full space-y-5 text-center">
           <div
-            className={`p-6 rounded-[25px] border ${
+            className={`p-6 rounded-[var(--r-lg)] border ${
               lastAnswer.correta
-                ? 'bg-[#1ff98c]/15 border-[#08ba61]/30 text-[#171719]'
-                : 'bg-rose-500/10 border-rose-500/30 text-rose-700'
+                ? 'bg-[var(--mint)] border-[var(--ok)]/30 text-[var(--fg)]'
+                : 'bg-rose-50 border-rose-200 text-rose-800'
             } space-y-3`}
           >
             <div className="flex items-center justify-center space-x-2">
               {lastAnswer.correta ? (
-                <CheckCircle2 className="w-8 h-8 text-[#08ba61]" />
+                <CheckCircle2 className="w-8 h-8 text-[var(--ok)]" />
               ) : (
                 <XCircle className="w-8 h-8 text-rose-500" />
               )}
-              <h3 className="text-xl font-extrabold tracking-tight">
+              <h3 className="text-xl font-display font-extrabold tracking-tight">
                 {lastAnswer.correta ? 'RESPOSTA CORRETA!' : 'QUASE LÁ!'}
               </h3>
             </div>
@@ -574,17 +577,17 @@ export const VocabularyDuelView: React.FC<VocabularyDuelViewProps> = ({
 
             {/* Pontuação Obtida */}
             {lastAnswer.correta && (
-              <div className="flex items-center justify-center gap-3 pt-2 font-mono text-xs">
-                <span className="px-2.5 py-1 bg-[#08ba61] text-white rounded-[6px] font-bold">
+              <div className="flex items-center justify-center gap-3 pt-2 text-xs">
+                <span className="px-3 py-1 bg-[var(--ok)] text-white rounded-full font-bold font-mono">
                   +{lastAnswer.pontos_ganhos} pts
                 </span>
                 {lastAnswer.bonus_velocidade > 0 && (
-                  <span className="text-[#08ba61] font-bold">
+                  <span className="text-[var(--ok)] font-bold font-mono">
                     ⚡ +{lastAnswer.bonus_velocidade} vel.
                   </span>
                 )}
                 {lastAnswer.is_audio && (
-                  <span className="text-[#171719] font-bold">
+                  <span className="text-[var(--fg)] font-bold font-mono">
                     🎙️ +30 voz
                   </span>
                 )}
@@ -593,9 +596,9 @@ export const VocabularyDuelView: React.FC<VocabularyDuelViewProps> = ({
           </div>
 
           {/* Detalhes do Termo e Exemplo de Uso */}
-          <div className="bg-white border border-[#171719]/10 rounded-[20px] p-5 text-left font-mono text-xs space-y-2.5 shadow-xs">
-            <div className="flex items-center justify-between border-b border-[#171719]/10 pb-2">
-              <span className="text-[#71717a]">Termo: <strong className="text-[#171719] font-bold">{currentQuestion.termo_principal}</strong></span>
+          <div className="bg-[var(--surface)] border border-[var(--border)] rounded-[var(--r-md)] p-5 text-left text-xs space-y-2.5 shadow-xs">
+            <div className="flex items-center justify-between border-b border-[var(--border)] pb-2">
+              <span className="text-[var(--muted)]">Termo: <strong className="text-[var(--fg)] font-bold">{currentQuestion.termo_principal}</strong></span>
               <button
                 type="button"
                 onClick={() =>
@@ -604,21 +607,21 @@ export const VocabularyDuelView: React.FC<VocabularyDuelViewProps> = ({
                     rate: 0.9,
                   })
                 }
-                className="p-1 text-[#71717a] hover:text-[#171719] cursor-pointer"
+                className="p-1 text-[var(--muted)] hover:text-[var(--fg)] cursor-pointer"
               >
-                <Volume2 className="w-4 h-4 text-[#171719]" />
+                <Volume2 className="w-4 h-4 text-[var(--fg)]" />
               </button>
             </div>
 
             <div className="space-y-1">
-              <span className="text-[#71717a] block font-bold">Significado / Resposta:</span>
-              <p className="text-[#171719] font-bold text-sm">{currentQuestion.resposta_esperada}</p>
+              <span className="text-[var(--muted)] block font-bold">Significado / Resposta:</span>
+              <p className="text-[var(--fg)] font-bold text-sm">{currentQuestion.resposta_esperada}</p>
             </div>
 
             {currentQuestion.exemplo_frase && (
-              <div className="pt-2 border-t border-[#171719]/10 space-y-1">
-                <span className="text-[#71717a] block text-[11px] font-bold">Exemplo no contexto:</span>
-                <p className="text-[#171719] italic">"{currentQuestion.exemplo_frase}"</p>
+              <div className="pt-2 border-t border-[var(--border)] space-y-1">
+                <span className="text-[var(--muted)] block text-[11px] font-bold">Exemplo no contexto:</span>
+                <p className="text-[var(--fg)] italic">"{currentQuestion.exemplo_frase}"</p>
               </div>
             )}
           </div>
@@ -627,7 +630,7 @@ export const VocabularyDuelView: React.FC<VocabularyDuelViewProps> = ({
             size="lg"
             variant="default"
             onClick={handleNextQuestion}
-            className="w-full py-3 font-bold cursor-pointer gap-2 rounded-[9px]"
+            className="w-full py-3 font-bold cursor-pointer gap-2 rounded-full"
           >
             <span>{currentIndex + 1 < questions.length ? 'PRÓXIMA RODADA' : 'VER RESULTADO FINAL'}</span>
             <ArrowRight className="w-4 h-4 text-white" />
@@ -639,45 +642,45 @@ export const VocabularyDuelView: React.FC<VocabularyDuelViewProps> = ({
       {gameState === 'game_over' && finalSession && (
         <div className="flex-1 flex flex-col justify-center max-w-2xl mx-auto w-full space-y-6 text-center">
           <div className="space-y-2">
-            <div className="w-16 h-16 rounded-[14px] bg-[#1ff98c] text-[#171719] flex items-center justify-center mx-auto shadow-sm border border-[#171719]/20">
+            <div className="w-16 h-16 rounded-2xl bg-[var(--accent)] text-[var(--fg)] flex items-center justify-center mx-auto shadow-xs border border-[var(--border)]">
               <Award className="w-8 h-8" />
             </div>
-            <h3 className="text-2xl font-extrabold tracking-tight text-[#171719]">
+            <h3 className="text-2xl font-display font-extrabold tracking-tight text-[var(--fg)]">
               Duelo Concluído com Sucesso!
             </h3>
-            <p className="text-xs sm:text-sm text-[#71717a] font-mono">
+            <p className="text-xs sm:text-sm text-[var(--muted)]">
               Os dados de retenção foram atualizados dinamicamente no seu Grafo de Vocabulário.
             </p>
           </div>
 
           {/* Grid de Estatísticas Finais */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 font-mono text-xs">
-            <div className="p-4 rounded-[20px] border border-[#171719]/10 bg-white shadow-xs">
-              <span className="text-[#71717a] block text-[10px] font-bold">PONTUAÇÃO TOTAL</span>
-              <span className="text-xl font-extrabold text-[#171719]">{finalSession.pontuacao_total}</span>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+            <div className="p-4 rounded-[var(--r-md)] border border-[var(--border)] bg-[var(--surface)] shadow-xs">
+              <span className="text-[var(--muted)] block text-[10px] font-extrabold uppercase">PONTUAÇÃO TOTAL</span>
+              <span className="text-2xl font-display font-extrabold text-[var(--fg)] font-mono">{finalSession.pontuacao_total}</span>
             </div>
 
-            <div className="p-4 rounded-[20px] border border-[#171719]/10 bg-white shadow-xs">
-              <span className="text-[#71717a] block text-[10px] font-bold">PRECISÃO</span>
-              <span className="text-xl font-extrabold text-[#08ba61]">
+            <div className="p-4 rounded-[var(--r-md)] border border-[var(--border)] bg-[var(--surface)] shadow-xs">
+              <span className="text-[var(--muted)] block text-[10px] font-extrabold uppercase">PRECISÃO</span>
+              <span className="text-2xl font-display font-extrabold text-[var(--ok)] font-mono">
                 {Math.round((finalSession.acertos / Math.max(1, finalSession.questoes_totais)) * 100)}%
               </span>
             </div>
 
-            <div className="p-4 rounded-[20px] border border-[#171719]/10 bg-white shadow-xs">
-              <span className="text-[#71717a] block text-[10px] font-bold">MAIOR COMBO</span>
-              <span className="text-xl font-extrabold text-[#171719]">{finalSession.maior_combo}x 🔥</span>
+            <div className="p-4 rounded-[var(--r-md)] border border-[var(--border)] bg-[var(--surface)] shadow-xs">
+              <span className="text-[var(--muted)] block text-[10px] font-extrabold uppercase">MAIOR COMBO</span>
+              <span className="text-2xl font-display font-extrabold text-[var(--fg)] font-mono">{finalSession.maior_combo}x 🔥</span>
             </div>
 
-            <div className="p-4 rounded-[20px] border border-[#171719]/10 bg-white shadow-xs">
-              <span className="text-[#71717a] block text-[10px] font-bold">XP CONQUISTADO</span>
-              <span className="text-xl font-extrabold text-[#08ba61]">+{xpAwarded} XP</span>
+            <div className="p-4 rounded-[var(--r-md)] border border-[var(--border)] bg-[var(--surface)] shadow-xs">
+              <span className="text-[var(--muted)] block text-[10px] font-extrabold uppercase">XP CONQUISTADO</span>
+              <span className="text-2xl font-display font-extrabold text-[var(--ok)] font-mono">+{xpAwarded} XP</span>
             </div>
           </div>
 
           {/* Lista de Termos da Sessão */}
-          <div className="bg-white border border-[#171719]/10 rounded-[20px] p-5 text-left font-mono text-xs space-y-2 max-h-60 overflow-y-auto shadow-xs">
-            <span className="text-[#71717a] font-bold uppercase text-[10px] block">
+          <div className="bg-[var(--surface)] border border-[var(--border)] rounded-[var(--r-md)] p-5 text-left text-xs space-y-2 max-h-60 overflow-y-auto shadow-xs">
+            <span className="text-[var(--muted)] font-extrabold uppercase text-[10px] block">
               Desempenho por Termo do Grafo:
             </span>
             <div className="space-y-1.5">
@@ -686,17 +689,17 @@ export const VocabularyDuelView: React.FC<VocabularyDuelViewProps> = ({
                 return (
                   <div
                     key={idx}
-                    className="flex items-center justify-between p-2.5 rounded-[9px] bg-[#ededed] border border-[#171719]/10"
+                    className="flex items-center justify-between p-2.5 rounded-xl bg-[oklch(0.96_0.01_84)] border border-[var(--border)]"
                   >
                     <div className="flex items-center space-x-2">
                       {ans?.correta ? (
-                        <CheckCircle2 className="w-3.5 h-3.5 text-[#08ba61] shrink-0" />
+                        <CheckCircle2 className="w-3.5 h-3.5 text-[var(--ok)] shrink-0" />
                       ) : (
                         <XCircle className="w-3.5 h-3.5 text-rose-500 shrink-0" />
                       )}
-                      <span className="font-bold text-[#171719]">{q.termo_principal}</span>
+                      <span className="font-bold text-[var(--fg)]">{q.termo_principal}</span>
                     </div>
-                    <span className="text-[#71717a] text-[11px] truncate max-w-[200px] font-medium">
+                    <span className="text-[var(--muted)] text-[11px] truncate max-w-[200px] font-medium">
                       {q.resposta_esperada}
                     </span>
                   </div>
@@ -711,7 +714,7 @@ export const VocabularyDuelView: React.FC<VocabularyDuelViewProps> = ({
               size="lg"
               variant="default"
               onClick={handleStartGame}
-              className="font-bold text-xs cursor-pointer gap-1.5 rounded-[9px]"
+              className="font-bold text-xs cursor-pointer gap-1.5 rounded-full"
             >
               <RotateCcw className="w-4 h-4 text-white" />
               <span>JOGAR NOVAMENTE</span>
@@ -722,9 +725,9 @@ export const VocabularyDuelView: React.FC<VocabularyDuelViewProps> = ({
                 variant="outline"
                 size="lg"
                 onClick={() => onPracticeInChat(currentTopic)}
-                className="font-bold text-xs cursor-pointer gap-1.5 border-[#171719]/15 rounded-[9px]"
+                className="font-bold text-xs cursor-pointer gap-1.5 border-[var(--border)] rounded-full"
               >
-                <Headphones className="w-4 h-4 text-[#171719]" />
+                <Headphones className="w-4 h-4 text-[var(--fg)]" />
                 <span>Praticar com o Tutor</span>
               </Button>
             )}
@@ -734,7 +737,7 @@ export const VocabularyDuelView: React.FC<VocabularyDuelViewProps> = ({
                 variant="ghost"
                 size="lg"
                 onClick={onNavigateToGraph}
-                className="font-bold text-xs cursor-pointer gap-1.5 text-[#71717a] hover:text-[#171719] rounded-[9px]"
+                className="font-bold text-xs cursor-pointer gap-1.5 text-[var(--muted)] hover:text-[var(--fg)] rounded-full"
               >
                 <Brain className="w-4 h-4" />
                 <span>Ver Grafo de Memória</span>

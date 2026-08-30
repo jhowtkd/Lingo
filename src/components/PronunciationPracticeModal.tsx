@@ -16,18 +16,21 @@ import { motion, AnimatePresence } from 'motion/react';
 import confetti from 'canvas-confetti';
 import { PronunciationChallenge, UserStats } from '../types';
 import { AudioSpectrumVisualizer } from './AudioSpectrumVisualizer';
+import { PronunciationWaveformVisualizer } from './PronunciationWaveformVisualizer';
 import { requestMicrophoneStream, AudioRecorderService } from '../services/audioService';
 import { StorageService } from '../services/storage';
 import { SpeechService } from '../services/speechSynthesisService';
 import { TutorVoiceWaveform } from './TutorVoiceWaveform';
 import { CornerPlus } from './ui/corner-plus';
 import { Button } from './ui/button';
+import { playSfx } from '../services/soundEffects';
 
 interface PronunciationPracticeModalProps {
   isOpen: boolean;
   onClose: () => void;
   currentTopic: string;
   onUpdateStats: (newStats: UserStats) => void;
+  initialPhrase?: string;
 }
 
 const DEFAULT_CHALLENGES: PronunciationChallenge[] = [
@@ -78,6 +81,7 @@ export const PronunciationPracticeModal: React.FC<PronunciationPracticeModalProp
   onClose,
   currentTopic,
   onUpdateStats,
+  initialPhrase,
 }) => {
   const [challenges, setChallenges] = useState<PronunciationChallenge[]>(DEFAULT_CHALLENGES);
   const [selectedChallenge, setSelectedChallenge] = useState<PronunciationChallenge>(
@@ -85,6 +89,13 @@ export const PronunciationPracticeModal: React.FC<PronunciationPracticeModalProp
   );
   const [customPhrase, setCustomPhrase] = useState('');
   const [isCustomMode, setIsCustomMode] = useState(false);
+
+  useEffect(() => {
+    if (initialPhrase && initialPhrase.trim()) {
+      setCustomPhrase(initialPhrase.trim());
+      setIsCustomMode(true);
+    }
+  }, [initialPhrase, isOpen]);
 
   // Estados de Gravação e Áudio
   const [isRecording, setIsRecording] = useState(false);
@@ -414,27 +425,30 @@ export const PronunciationPracticeModal: React.FC<PronunciationPracticeModalProp
           </div>
         </div>
 
-        {/* Visualizador de Espectro de Áudio em Tempo Real */}
+        {/* Visualizador de Onda de Áudio (Waveform) & Espectro em Tempo Real */}
         <div className="space-y-1.5">
           <div className="flex items-center justify-between text-xs font-mono">
             <span className="font-bold text-foreground flex items-center space-x-1.5">
               <Zap className="w-3.5 h-3.5 text-foreground" />
-              <span>Espectro Vocal & Frequência (Tempo Real):</span>
+              <span>Onda Vocal & Captação em Tempo Real (Waveform):</span>
             </span>
             {isRecording && (
               <span className="text-rose-600 dark:text-rose-400 font-bold flex items-center space-x-1 font-mono">
                 <span className="w-2 h-2 rounded-full bg-rose-600 animate-ping" />
-                <span>Microfone Ativo • Fale a Frase</span>
+                <span>Microfone Ativo • Captação em Tempo Real</span>
               </span>
             )}
           </div>
 
-          <AudioSpectrumVisualizer
+          <PronunciationWaveformVisualizer
             stream={mediaStream}
             isActive={isRecording}
             height={90}
+            mode="waveform"
             showControls={true}
             showMetrics={true}
+            targetPhrase={currentTarget.frase}
+            title="Captação da Onda Vocal do Estudante"
           />
         </div>
 

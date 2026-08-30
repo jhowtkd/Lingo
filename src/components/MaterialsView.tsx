@@ -427,17 +427,17 @@ Camarero: ¡Enseguida se lo traigo!`,
 
           {/* Tipo de Fonte: Tabs */}
           <div>
-            <label className="block text-xs font-semibold text-slate-700 mb-2">
+            <label className="block text-xs font-semibold text-[var(--muted)] mb-2 font-mono">
               Tipo de Fonte:
             </label>
-            <div className="flex gap-2 p-1 bg-slate-100 rounded-xl w-fit">
+            <div className="flex gap-2 p-1 bg-[oklch(0.94_0.01_84)] rounded-full w-fit">
               <button
                 type="button"
                 onClick={() => setSourceType('youtube')}
-                className={`flex items-center space-x-2 px-3 py-1.5 rounded-lg text-xs font-semibold transition ${
+                className={`flex items-center space-x-2 px-3 py-1.5 rounded-full text-xs font-semibold transition cursor-pointer ${
                   sourceType === 'youtube'
-                    ? 'bg-white text-rose-600 shadow-2xs'
-                    : 'text-slate-600 hover:text-slate-900'
+                    ? 'bg-[var(--surface)] text-rose-600 shadow-xs'
+                    : 'text-[var(--muted)] hover:text-[var(--fg)]'
                 }`}
               >
                 <Youtube className="w-3.5 h-3.5" />
@@ -446,10 +446,10 @@ Camarero: ¡Enseguida se lo traigo!`,
               <button
                 type="button"
                 onClick={() => setSourceType('texto')}
-                className={`flex items-center space-x-2 px-3 py-1.5 rounded-lg text-xs font-semibold transition ${
+                className={`flex items-center space-x-2 px-3 py-1.5 rounded-full text-xs font-semibold transition cursor-pointer ${
                   sourceType === 'texto'
-                    ? 'bg-white text-indigo-600 shadow-2xs'
-                    : 'text-slate-600 hover:text-slate-900'
+                    ? 'bg-[var(--fg)] text-[var(--bg)] shadow-xs'
+                    : 'text-[var(--muted)] hover:text-[var(--fg)]'
                 }`}
               >
                 <FileText className="w-3.5 h-3.5" />
@@ -458,10 +458,10 @@ Camarero: ¡Enseguida se lo traigo!`,
               <button
                 type="button"
                 onClick={() => setSourceType('arquivo')}
-                className={`flex items-center space-x-2 px-3 py-1.5 rounded-lg text-xs font-semibold transition ${
+                className={`flex items-center space-x-2 px-3 py-1.5 rounded-full text-xs font-semibold transition cursor-pointer ${
                   sourceType === 'arquivo'
-                    ? 'bg-white text-emerald-600 shadow-2xs'
-                    : 'text-slate-600 hover:text-slate-900'
+                    ? 'bg-[var(--mint)] text-[var(--ok)] shadow-xs'
+                    : 'text-[var(--muted)] hover:text-[var(--fg)]'
                 }`}
               >
                 <UploadCloud className="w-3.5 h-3.5" />
@@ -473,7 +473,7 @@ Camarero: ¡Enseguida se lo traigo!`,
           {/* Entrada Específica do Tipo de Fonte */}
           {sourceType === 'youtube' && (
             <div className="space-y-3">
-              <label className="block text-xs font-semibold text-slate-700">
+              <label className="block text-xs font-semibold text-[var(--muted)] font-mono">
                 Link do Vídeo no YouTube:
               </label>
               <div className="relative">
@@ -482,22 +482,22 @@ Camarero: ¡Enseguida se lo traigo!`,
                   value={youtubeUrl}
                   onChange={(e) => setYoutubeUrl(e.target.value)}
                   placeholder="https://www.youtube.com/watch?v=..."
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs sm:text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:border-indigo-600"
+                  className="w-full bg-[var(--surface)] border border-[var(--border)] rounded-[var(--r-md)] px-3.5 py-2.5 text-xs sm:text-sm text-[var(--fg)] placeholder-[var(--muted)] focus:outline-none focus:border-[var(--fg)]"
                 />
               </div>
 
               {/* Preview do Vídeo do YouTube se URL for válida */}
               {getYouTubeId(youtubeUrl) && (
-                <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl flex items-center gap-3">
+                <div className="p-3 bg-[oklch(0.96_0.01_84)] border border-[var(--border)] rounded-[var(--r-md)] flex items-center gap-3">
                   <img
                     src={`https://img.youtube.com/vi/${getYouTubeId(youtubeUrl)}/mqdefault.jpg`}
                     alt="Thumbnail"
-                    className="w-24 h-16 object-cover rounded-lg border border-slate-200"
+                    className="w-24 h-16 object-cover rounded-lg border border-[var(--border)]"
                   />
                   <div className="text-xs space-y-1">
-                    <p className="font-semibold text-slate-800">Vídeo Detectado</p>
-                    <p className="text-slate-500 font-mono text-[11px]">ID: {getYouTubeId(youtubeUrl)}</p>
-                    <span className="inline-block text-[10px] text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+                    <p className="font-semibold text-[var(--fg)]">Vídeo Detectado</p>
+                    <p className="text-[var(--muted)] font-mono text-[11px]">ID: {getYouTubeId(youtubeUrl)}</p>
+                    <span className="inline-block text-[10px] text-[var(--ok)] bg-[var(--mint)] px-2 py-0.5 rounded-full border border-[var(--ok)]/30">
                       Pronto para extração de transcrição e vocabulário
                     </span>
                   </div>
@@ -508,7 +508,7 @@ Camarero: ¡Enseguida se lo traigo!`,
 
           {sourceType === 'texto' && (
             <div className="space-y-2">
-              <label className="block text-xs font-semibold text-slate-700">
+              <label className="block text-xs font-semibold text-[var(--muted)] font-mono">
                 Cole o Texto, Diálogo ou Artigo:
               </label>
               <textarea
@@ -516,17 +516,17 @@ Camarero: ¡Enseguida se lo traigo!`,
                 onChange={(e) => setTextContent(e.target.value)}
                 placeholder="Cole um diálogo em inglês, um parágrafo de notícia, transcrição de podcast ou conversa..."
                 rows={5}
-                className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-xs sm:text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:border-indigo-600 font-mono"
+                className="w-full bg-[var(--surface)] border border-[var(--border)] rounded-[var(--r-md)] p-3 text-xs sm:text-sm text-[var(--fg)] placeholder-[var(--muted)] focus:outline-none focus:border-[var(--fg)] font-mono"
               />
             </div>
           )}
 
           {sourceType === 'arquivo' && (
             <div className="space-y-3">
-              <label className="block text-xs font-semibold text-slate-700">
+              <label className="block text-xs font-semibold text-[var(--muted)] font-mono">
                 Selecione o Arquivo de Texto ou Legenda (.txt, .md, .srt, .vtt):
               </label>
-              <div className="border-2 border-dashed border-slate-200 hover:border-indigo-400 rounded-2xl p-6 text-center bg-slate-50/50 transition">
+              <div className="border-2 border-dashed border-[var(--border)] hover:border-[var(--fg)]/40 rounded-[var(--r-lg)] p-6 text-center bg-[oklch(0.97_0.01_84)] transition">
                 <input
                   type="file"
                   accept=".txt,.md,.srt,.vtt"
@@ -538,28 +538,28 @@ Camarero: ¡Enseguida se lo traigo!`,
                   htmlFor="file-upload-input"
                   className="cursor-pointer flex flex-col items-center justify-center space-y-2"
                 >
-                  <UploadCloud className="w-8 h-8 text-indigo-600" />
-                  <span className="text-xs sm:text-sm font-semibold text-slate-700">
+                  <UploadCloud className="w-8 h-8 text-[var(--fg)]" />
+                  <span className="text-xs sm:text-sm font-semibold text-[var(--fg)]">
                     Clique para selecionar ou arraste o arquivo aqui
                   </span>
-                  <span className="text-[11px] text-slate-400">
+                  <span className="text-[11px] text-[var(--muted)]">
                     Suporta arquivos de texto e legendas de vídeos (.srt / .vtt)
                   </span>
                 </label>
               </div>
 
               {textContent && (
-                <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 text-xs font-mono max-h-32 overflow-y-auto">
-                  <p className="font-semibold text-slate-700 mb-1">Prévia do Conteúdo Carregado:</p>
-                  <p className="text-slate-600 line-clamp-3">{textContent}</p>
+                <div className="p-3 bg-[oklch(0.96_0.01_84)] rounded-[var(--r-md)] border border-[var(--border)] text-xs font-mono max-h-32 overflow-y-auto">
+                  <p className="font-semibold text-[var(--fg)] mb-1">Prévia do Conteúdo Carregado:</p>
+                  <p className="text-[var(--muted)] line-clamp-3">{textContent}</p>
                 </div>
               )}
             </div>
           )}
 
           {/* Exemplos Rápidos */}
-          <div className="space-y-1.5 pt-2 border-t border-slate-100">
-            <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider block">
+          <div className="space-y-1.5 pt-2 border-t border-[var(--border)]">
+            <span className="text-[11px] font-semibold text-[var(--muted)] uppercase tracking-wider block font-mono">
               Ou escolha um modelo de exemplo:
             </span>
             <div className="flex flex-wrap gap-2">
@@ -577,7 +577,7 @@ Camarero: ¡Enseguida se lo traigo!`,
                       setTextContent(ex.content || '');
                     }
                   }}
-                  className="text-xs px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-indigo-50 hover:text-indigo-700 text-slate-700 border border-slate-200 transition font-medium"
+                  className="text-xs px-2.5 py-1 rounded-full bg-[oklch(0.96_0.01_84)] hover:bg-[var(--fg)] hover:text-[var(--bg)] text-[var(--fg)] border border-[var(--border)] transition font-medium cursor-pointer font-mono"
                 >
                   ⚡ {ex.title}
                 </button>
@@ -586,23 +586,23 @@ Camarero: ¡Enseguida se lo traigo!`,
           </div>
 
           {generationError && (
-            <div className="p-3 bg-rose-50 text-rose-700 text-xs rounded-xl border border-rose-200">
+            <div className="p-3 bg-rose-50 text-rose-700 text-xs rounded-[var(--r-md)] border border-rose-200">
               {generationError}
             </div>
           )}
 
-          <div className="flex items-center justify-end space-x-3 pt-3 border-t border-slate-100">
+          <div className="flex items-center justify-end space-x-3 pt-3 border-t border-[var(--border)]">
             <button
               type="button"
               onClick={() => setShowCreateForm(false)}
-              className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-100 transition"
+              className="px-4 py-2 rounded-full text-xs font-semibold text-[var(--muted)] hover:bg-[oklch(0.96_0.01_84)] transition cursor-pointer"
             >
               Cancelar
             </button>
             <button
               type="submit"
               disabled={isGenerating}
-              className="flex items-center space-x-2 px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs sm:text-sm font-semibold transition disabled:opacity-50 shadow-2xs"
+              className="flex items-center space-x-2 px-5 py-2.5 bg-[var(--fg)] hover:bg-[var(--fg)]/90 text-[var(--bg)] rounded-full text-xs sm:text-sm font-semibold transition disabled:opacity-50 shadow-xs cursor-pointer"
             >
               {isGenerating ? (
                 <>
@@ -611,7 +611,7 @@ Camarero: ¡Enseguida se lo traigo!`,
                 </>
               ) : (
                 <>
-                  <Sparkles className="w-4 h-4" />
+                  <Sparkles className="w-4 h-4 text-[var(--accent)]" />
                   <span>Gerar Kit de Estudos com IA</span>
                 </>
               )}
@@ -792,7 +792,7 @@ Camarero: ¡Enseguida se lo traigo!`,
 
                 {/* Player de YouTube Embutido ou Resumo */}
                 {selectedMaterial.tipo_fonte === 'youtube' && selectedMaterial.youtube_video_id && (
-                  <div className="mt-4 rounded-xl overflow-hidden border border-slate-200 bg-black aspect-video max-h-64 sm:max-h-72 w-full">
+                  <div className="mt-4 rounded-[var(--r-md)] overflow-hidden border border-[var(--border)] bg-black aspect-video max-h-64 sm:max-h-72 w-full">
                     <iframe
                       src={`https://www.youtube-nocookie.com/embed/${selectedMaterial.youtube_video_id}`}
                       title={selectedMaterial.titulo}
@@ -804,19 +804,19 @@ Camarero: ¡Enseguida se lo traigo!`,
                 )}
 
                 {/* Resumo do Material */}
-                <p className="text-xs sm:text-sm text-slate-600 mt-3 leading-relaxed">
+                <p className="text-xs sm:text-sm text-[var(--muted)] mt-3 leading-relaxed">
                   {selectedMaterial.resumo}
                 </p>
               </div>
 
               {/* Abas Interativas de Estudo */}
-              <div className="border-b border-slate-200 px-4 bg-white flex space-x-1 overflow-x-auto">
+              <div className="border-b border-[var(--border)] px-4 bg-[var(--surface)] flex space-x-1 overflow-x-auto font-mono">
                 <button
                   onClick={() => setActiveTab('vocab')}
-                  className={`flex items-center space-x-2 py-3 px-3.5 text-xs sm:text-sm font-semibold border-b-2 transition whitespace-nowrap ${
+                  className={`flex items-center space-x-2 py-3 px-3.5 text-xs sm:text-sm font-semibold border-b-2 transition whitespace-nowrap cursor-pointer ${
                     activeTab === 'vocab'
-                      ? 'border-indigo-600 text-indigo-600'
-                      : 'border-transparent text-slate-600 hover:text-slate-900'
+                      ? 'border-[var(--fg)] text-[var(--fg)]'
+                      : 'border-transparent text-[var(--muted)] hover:text-[var(--fg)]'
                   }`}
                 >
                   <BookOpen className="w-4 h-4" />
@@ -825,10 +825,10 @@ Camarero: ¡Enseguida se lo traigo!`,
 
                 <button
                   onClick={() => setActiveTab('grammar')}
-                  className={`flex items-center space-x-2 py-3 px-3.5 text-xs sm:text-sm font-semibold border-b-2 transition whitespace-nowrap ${
+                  className={`flex items-center space-x-2 py-3 px-3.5 text-xs sm:text-sm font-semibold border-b-2 transition whitespace-nowrap cursor-pointer ${
                     activeTab === 'grammar'
-                      ? 'border-indigo-600 text-indigo-600'
-                      : 'border-transparent text-slate-600 hover:text-slate-900'
+                      ? 'border-[var(--fg)] text-[var(--fg)]'
+                      : 'border-transparent text-[var(--muted)] hover:text-[var(--fg)]'
                   }`}
                 >
                   <Zap className="w-4 h-4" />
@@ -837,10 +837,10 @@ Camarero: ¡Enseguida se lo traigo!`,
 
                 <button
                   onClick={() => setActiveTab('dialogue')}
-                  className={`flex items-center space-x-2 py-3 px-3.5 text-xs sm:text-sm font-semibold border-b-2 transition whitespace-nowrap ${
+                  className={`flex items-center space-x-2 py-3 px-3.5 text-xs sm:text-sm font-semibold border-b-2 transition whitespace-nowrap cursor-pointer ${
                     activeTab === 'dialogue'
-                      ? 'border-indigo-600 text-indigo-600'
-                      : 'border-transparent text-slate-600 hover:text-slate-900'
+                      ? 'border-[var(--fg)] text-[var(--fg)]'
+                      : 'border-transparent text-[var(--muted)] hover:text-[var(--fg)]'
                   }`}
                 >
                   <MessageSquare className="w-4 h-4" />
@@ -849,10 +849,10 @@ Camarero: ¡Enseguida se lo traigo!`,
 
                 <button
                   onClick={() => setActiveTab('flashcards')}
-                  className={`flex items-center space-x-2 py-3 px-3.5 text-xs sm:text-sm font-semibold border-b-2 transition whitespace-nowrap ${
+                  className={`flex items-center space-x-2 py-3 px-3.5 text-xs sm:text-sm font-semibold border-b-2 transition whitespace-nowrap cursor-pointer ${
                     activeTab === 'flashcards'
-                      ? 'border-indigo-600 text-indigo-600'
-                      : 'border-transparent text-slate-600 hover:text-slate-900'
+                      ? 'border-[var(--fg)] text-[var(--fg)]'
+                      : 'border-transparent text-[var(--muted)] hover:text-[var(--fg)]'
                   }`}
                 >
                   <Layers className="w-4 h-4" />
@@ -861,10 +861,10 @@ Camarero: ¡Enseguida se lo traigo!`,
 
                 <button
                   onClick={() => setActiveTab('quiz')}
-                  className={`flex items-center space-x-2 py-3 px-3.5 text-xs sm:text-sm font-semibold border-b-2 transition whitespace-nowrap ${
+                  className={`flex items-center space-x-2 py-3 px-3.5 text-xs sm:text-sm font-semibold border-b-2 transition whitespace-nowrap cursor-pointer ${
                     activeTab === 'quiz'
-                      ? 'border-indigo-600 text-indigo-600'
-                      : 'border-transparent text-slate-600 hover:text-slate-900'
+                      ? 'border-[var(--fg)] text-[var(--fg)]'
+                      : 'border-transparent text-[var(--muted)] hover:text-[var(--fg)]'
                   }`}
                 >
                   <CheckCircle2 className="w-4 h-4" />
@@ -881,52 +881,52 @@ Camarero: ¡Enseguida se lo traigo!`,
                       {(selectedMaterial.vocabulario || []).map((voc, idx) => (
                         <div
                           key={idx}
-                          className="p-4 rounded-xl border border-slate-200/90 bg-slate-50/50 hover:bg-white hover:border-indigo-200 transition space-y-2"
+                          className="p-4 rounded-[var(--r-md)] border border-[var(--border)] bg-[oklch(0.97_0.01_84)] hover:bg-[var(--surface)] hover:border-[var(--fg)]/40 transition space-y-2"
                         >
                           <div className="flex items-start justify-between">
                             <div>
                               <div className="flex items-center space-x-2">
-                                <h4 className="text-sm sm:text-base font-bold text-slate-900">
+                                <h4 className="text-sm sm:text-base font-display font-bold text-[var(--fg)]">
                                   {voc.termo}
                                 </h4>
                                 {voc.pronuncia_ipa && (
-                                  <span className="text-xs font-mono text-indigo-600 px-1.5 py-0.5 rounded bg-indigo-50 border border-indigo-100">
+                                  <span className="text-xs font-mono text-[var(--fg)] px-1.5 py-0.5 rounded bg-[var(--surface)] border border-[var(--border)]">
                                     {voc.pronuncia_ipa}
                                   </span>
                                 )}
                               </div>
-                              <p className="text-xs font-semibold text-slate-600 mt-0.5">
+                              <p className="text-xs font-semibold text-[var(--muted)] mt-0.5">
                                 {voc.traducao}
                               </p>
                             </div>
 
                             <button
                               onClick={() => speakText(voc.termo)}
-                              className="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition"
+                              className="p-1.5 text-[var(--muted)] hover:text-[var(--fg)] hover:bg-[oklch(0.94_0.01_84)] rounded-full transition cursor-pointer"
                               title="Ouvir Pronúncia"
                             >
                               <Volume2 className="w-4 h-4" />
                             </button>
                           </div>
 
-                          <div className="flex items-center gap-2 text-[11px] text-slate-400">
+                          <div className="flex items-center gap-2 text-[11px] text-[var(--muted)] font-mono">
                             {voc.classe_gramatical && (
-                              <span className="px-2 py-0.5 rounded bg-slate-200/70 text-slate-700 font-medium">
+                              <span className="px-2 py-0.5 rounded bg-[var(--surface)] border border-[var(--border)] text-[var(--fg)] font-medium">
                                 {voc.classe_gramatical}
                               </span>
                             )}
                             {voc.nivel && (
-                              <span className="px-1.5 py-0.5 rounded bg-indigo-50 text-indigo-700 font-bold">
+                              <span className="px-1.5 py-0.5 rounded bg-[var(--mint)] border border-[var(--ok)]/30 text-[var(--ok)] font-bold">
                                 {voc.nivel}
                               </span>
                             )}
                           </div>
 
                           {voc.exemplo && (
-                            <div className="pt-2 border-t border-slate-200/60 text-xs space-y-1">
-                              <p className="text-slate-800 font-medium italic">"{voc.exemplo}"</p>
+                            <div className="pt-2 border-t border-[var(--border)] text-xs space-y-1">
+                              <p className="text-[var(--fg)] font-medium italic">"{voc.exemplo}"</p>
                               {voc.traducao_exemplo && (
-                                <p className="text-slate-500 text-[11px]">→ {voc.traducao_exemplo}</p>
+                                <p className="text-[var(--muted)] text-[11px]">→ {voc.traducao_exemplo}</p>
                               )}
                             </div>
                           )}
@@ -937,11 +937,11 @@ Camarero: ¡Enseguida se lo traigo!`,
                     {/* Dicas de Pronúncia e Culturais */}
                     {selectedMaterial.dicas_culturais_e_pronuncia &&
                       selectedMaterial.dicas_culturais_e_pronuncia.length > 0 && (
-                        <div className="p-4 bg-amber-50/70 border border-amber-200 rounded-xl space-y-2">
-                          <span className="text-xs font-bold uppercase tracking-wider text-amber-800 block">
+                        <div className="p-4 bg-[var(--sunny)]/15 border border-[var(--sunny)]/40 rounded-[var(--r-md)] space-y-2">
+                          <span className="text-xs font-bold uppercase tracking-wider text-[var(--fg)] font-mono block">
                             💡 Dicas de Pronúncia & Ritmo Natural:
                           </span>
-                          <ul className="text-xs text-amber-900 space-y-1 list-disc list-inside">
+                          <ul className="text-xs text-[var(--fg)] space-y-1 list-disc list-inside">
                             {selectedMaterial.dicas_culturais_e_pronuncia.map((dica, i) => (
                               <li key={i}>{dica}</li>
                             ))}
@@ -957,27 +957,27 @@ Camarero: ¡Enseguida se lo traigo!`,
                     {(selectedMaterial.gramatica || []).map((gram, idx) => (
                       <div
                         key={idx}
-                        className="p-4 rounded-xl border border-slate-200 bg-white space-y-3 shadow-2xs"
+                        className="p-4 rounded-[var(--r-md)] border border-[var(--border)] bg-[var(--surface)] space-y-3 shadow-xs"
                       >
                         <div className="flex items-center space-x-2">
-                          <span className="w-6 h-6 rounded-full bg-indigo-100 text-indigo-700 font-bold text-xs flex items-center justify-center">
+                          <span className="w-6 h-6 rounded-full bg-[var(--fg)] text-[var(--bg)] font-bold text-xs flex items-center justify-center font-mono">
                             {idx + 1}
                           </span>
-                          <h4 className="text-sm font-bold text-slate-900">{gram.topico}</h4>
+                          <h4 className="text-sm font-display font-bold text-[var(--fg)]">{gram.topico}</h4>
                         </div>
 
-                        <p className="text-xs sm:text-sm text-slate-700 leading-relaxed">
+                        <p className="text-xs sm:text-sm text-[var(--muted)] leading-relaxed">
                           {gram.explicacao}
                         </p>
 
                         {/* Exemplos Práticos */}
                         {gram.exemplos && gram.exemplos.length > 0 && (
-                          <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 text-xs space-y-1 font-mono">
-                            <span className="text-slate-400 font-sans font-semibold block text-[11px]">
+                          <div className="p-3 bg-[oklch(0.97_0.01_84)] rounded-[var(--r-md)] border border-[var(--border)] text-xs space-y-1 font-mono">
+                            <span className="text-[var(--muted)] font-sans font-semibold block text-[11px]">
                               Exemplos Práticos:
                             </span>
                             {gram.exemplos.map((ex, i) => (
-                              <p key={i} className="text-slate-800">
+                              <p key={i} className="text-[var(--fg)]">
                                 • {ex}
                               </p>
                             ))}
@@ -986,8 +986,8 @@ Camarero: ¡Enseguida se lo traigo!`,
 
                         {/* Dica de Transferência para Falantes de Português */}
                         {gram.dica_para_brasileiros && (
-                          <div className="p-3 bg-emerald-50/80 border border-emerald-200 rounded-xl text-xs text-emerald-900">
-                            <span className="font-bold text-emerald-800 block mb-0.5">
+                          <div className="p-3 bg-[var(--mint)] border border-[var(--ok)]/30 rounded-[var(--r-md)] text-xs text-[var(--fg)]">
+                            <span className="font-bold text-[var(--ok)] block mb-0.5">
                               🇧🇷 Atenção Especial para Brasileiros:
                             </span>
                             {gram.dica_para_brasileiros}
@@ -1001,13 +1001,13 @@ Camarero: ¡Enseguida se lo traigo!`,
                 {/* 3. ABA: DIÁLOGO DE ROLEPLAY */}
                 {activeTab === 'dialogue' && (
                   <div className="space-y-4">
-                    <div className="flex items-center justify-between bg-indigo-50/70 p-3 rounded-xl border border-indigo-100">
-                      <span className="text-xs text-indigo-900 font-medium">
+                    <div className="flex items-center justify-between bg-[var(--mint)] p-3 rounded-[var(--r-md)] border border-[var(--ok)]/30">
+                      <span className="text-xs text-[var(--fg)] font-medium">
                         Pratique lendo em voz alta ou usando a ferramenta de voz para treinar sua entonação natural.
                       </span>
                       <button
                         onClick={handleStartPracticeInChat}
-                        className="text-xs font-bold text-indigo-600 hover:text-indigo-800 underline flex items-center space-x-1"
+                        className="text-xs font-bold text-[var(--ok)] hover:underline flex items-center space-x-1 cursor-pointer"
                       >
                         <span>Simular no Chat</span>
                         <ArrowRight className="w-3.5 h-3.5" />
@@ -1018,43 +1018,43 @@ Camarero: ¡Enseguida se lo traigo!`,
                       {(selectedMaterial.dialogo_pratica || []).map((line, idx) => (
                         <div
                           key={idx}
-                          className={`p-3.5 rounded-xl border ${
+                          className={`p-3.5 rounded-[var(--r-md)] border ${
                             idx % 2 === 0
-                              ? 'bg-slate-50/80 border-slate-200'
-                              : 'bg-indigo-50/30 border-indigo-100'
+                              ? 'bg-[var(--surface)] border-[var(--border)]'
+                              : 'bg-[oklch(0.97_0.01_84)] border-[var(--border)]'
                           }`}
                         >
                           <div className="flex items-start justify-between">
                             <div className="flex items-center space-x-2">
-                              <span className="w-7 h-7 rounded-full bg-slate-800 text-white text-xs font-bold flex items-center justify-center">
+                              <span className="w-7 h-7 rounded-full bg-[var(--fg)] text-[var(--bg)] text-xs font-bold flex items-center justify-center font-mono">
                                 {line.personagem[0]}
                               </span>
-                              <span className="text-xs font-bold text-slate-900">
+                              <span className="text-xs font-bold text-[var(--fg)] font-mono">
                                 {line.personagem}
                               </span>
                             </div>
 
                             <button
                               onClick={() => speakText(line.fala)}
-                              className="text-slate-400 hover:text-indigo-600 p-1"
+                              className="text-[var(--muted)] hover:text-[var(--fg)] p-1 cursor-pointer"
                               title="Ouvir Fala"
                             >
                               <Volume2 className="w-4 h-4" />
                             </button>
                           </div>
 
-                          <p className="text-xs sm:text-sm font-semibold text-slate-800 mt-2 pl-9">
+                          <p className="text-xs sm:text-sm font-semibold text-[var(--fg)] mt-2 pl-9">
                             "{line.fala}"
                           </p>
 
                           {line.traducao && (
-                            <p className="text-xs text-slate-500 pl-9 mt-0.5">
+                            <p className="text-xs text-[var(--muted)] pl-9 mt-0.5">
                               → {line.traducao}
                             </p>
                           )}
 
                           {line.audio_tip && (
-                            <div className="mt-2 ml-9 text-[11px] text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded border border-indigo-100 w-fit">
+                            <div className="mt-2 ml-9 text-[11px] text-[var(--ok)] bg-[var(--mint)] px-2 py-0.5 rounded-full border border-[var(--ok)]/30 w-fit font-mono">
                               🎙️ {line.audio_tip}
                             </div>
                           )}
@@ -1069,7 +1069,7 @@ Camarero: ¡Enseguida se lo traigo!`,
                   <div className="space-y-4 max-w-lg mx-auto py-2">
                     {selectedMaterial.flashcards && selectedMaterial.flashcards.length > 0 ? (
                       <div className="space-y-4">
-                        <div className="flex items-center justify-between text-xs text-slate-400">
+                        <div className="flex items-center justify-between text-xs text-[var(--muted)] font-mono">
                           <span>
                             Cartão {currentCardIndex + 1} de {selectedMaterial.flashcards.length}
                           </span>
@@ -1079,26 +1079,26 @@ Camarero: ¡Enseguida se lo traigo!`,
                         {/* Cartão de Flashcard Interativo */}
                         <div
                           onClick={() => setIsCardFlipped(!isCardFlipped)}
-                          className="min-h-[220px] bg-gradient-to-br from-white to-slate-50 border-2 border-indigo-200/80 rounded-2xl p-6 shadow-sm flex flex-col items-center justify-center text-center cursor-pointer transition-all hover:border-indigo-400 relative select-none"
+                          className="min-h-[220px] bg-[var(--surface)] border-2 border-[var(--border)] hover:border-[var(--fg)]/40 rounded-[var(--r-lg)] p-6 shadow-sm flex flex-col items-center justify-center text-center cursor-pointer transition-all relative select-none"
                         >
-                          <span className="absolute top-3 right-3 text-[10px] uppercase font-bold px-2 py-0.5 rounded bg-slate-100 text-slate-500">
+                          <span className="absolute top-3 right-3 text-[10px] uppercase font-bold px-2 py-0.5 rounded-full bg-[oklch(0.96_0.01_84)] border border-[var(--border)] text-[var(--muted)] font-mono">
                             {isCardFlipped ? 'Verso (Tradução / Significado)' : 'Frente (Termo Alvo)'}
                           </span>
 
                           {!isCardFlipped ? (
                             <div className="space-y-2">
-                              <h3 className="text-xl sm:text-2xl font-bold text-slate-900">
+                              <h3 className="text-xl sm:text-2xl font-display font-bold text-[var(--fg)]">
                                 {selectedMaterial.flashcards[currentCardIndex].frente}
                               </h3>
-                              <p className="text-xs text-slate-400">Toque para ver a tradução</p>
+                              <p className="text-xs text-[var(--muted)]">Toque para ver a tradução</p>
                             </div>
                           ) : (
                             <div className="space-y-2">
-                              <h3 className="text-lg sm:text-xl font-bold text-emerald-700">
+                              <h3 className="text-lg sm:text-xl font-display font-bold text-[var(--ok)]">
                                 {selectedMaterial.flashcards[currentCardIndex].verso}
                               </h3>
                               {selectedMaterial.flashcards[currentCardIndex].dica && (
-                                <p className="text-xs text-slate-500 bg-amber-50 px-2 py-1 rounded border border-amber-200">
+                                <p className="text-xs text-[var(--fg)] bg-[var(--sunny)]/15 px-2.5 py-1 rounded-full border border-[var(--sunny)]/40">
                                   💡 {selectedMaterial.flashcards[currentCardIndex].dica}
                                 </p>
                               )}
@@ -1110,7 +1110,7 @@ Camarero: ¡Enseguida se lo traigo!`,
                               e.stopPropagation();
                               speakText(selectedMaterial.flashcards[currentCardIndex].frente);
                             }}
-                            className="absolute bottom-3 right-3 p-1.5 text-slate-400 hover:text-indigo-600 rounded-lg hover:bg-slate-100"
+                            className="absolute bottom-3 right-3 p-1.5 text-[var(--muted)] hover:text-[var(--fg)] rounded-full hover:bg-[oklch(0.96_0.01_84)] cursor-pointer"
                             title="Ouvir Pronúncia"
                           >
                             <Volume2 className="w-4 h-4" />
@@ -1118,14 +1118,14 @@ Camarero: ¡Enseguida se lo traigo!`,
                         </div>
 
                         {/* Navegação entre Flashcards */}
-                        <div className="flex items-center justify-between gap-3">
+                        <div className="flex items-center justify-between gap-3 font-mono">
                           <button
                             onClick={() => {
                               setIsCardFlipped(false);
                               setCurrentCardIndex((prev) => Math.max(0, prev - 1));
                             }}
                             disabled={currentCardIndex === 0}
-                            className="px-4 py-2 bg-slate-100 hover:bg-slate-200 disabled:opacity-40 rounded-xl text-xs font-semibold text-slate-700 transition"
+                            className="px-4 py-2 bg-[oklch(0.96_0.01_84)] hover:bg-[oklch(0.92_0.01_84)] disabled:opacity-40 rounded-full text-xs font-semibold text-[var(--fg)] transition cursor-pointer"
                           >
                             Anterior
                           </button>
@@ -1138,8 +1138,8 @@ Camarero: ¡Enseguida se lo traigo!`,
                                   setIsCardFlipped(false);
                                   setCurrentCardIndex(i);
                                 }}
-                                className={`w-2 h-2 rounded-full transition ${
-                                  i === currentCardIndex ? 'bg-indigo-600 w-4' : 'bg-slate-300'
+                                className={`w-2 h-2 rounded-full transition cursor-pointer ${
+                                  i === currentCardIndex ? 'bg-[var(--fg)] w-4' : 'bg-[var(--border)]'
                                 }`}
                               />
                             ))}
@@ -1153,14 +1153,14 @@ Camarero: ¡Enseguida se lo traigo!`,
                               );
                             }}
                             disabled={currentCardIndex === selectedMaterial.flashcards.length - 1}
-                            className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-40 text-white rounded-xl text-xs font-semibold transition"
+                            className="px-4 py-2 bg-[var(--fg)] hover:bg-[var(--fg)]/90 disabled:opacity-40 text-[var(--bg)] rounded-full text-xs font-semibold transition cursor-pointer"
                           >
                             Próximo
                           </button>
                         </div>
                       </div>
                     ) : (
-                      <p className="text-xs text-slate-500 text-center">Nenhum flashcard gerado.</p>
+                      <p className="text-xs text-[var(--muted)] text-center">Nenhum flashcard gerado.</p>
                     )}
                   </div>
                 )}
@@ -1175,25 +1175,25 @@ Camarero: ¡Enseguida se lo traigo!`,
                       return (
                         <div
                           key={qIndex}
-                          className="p-4 rounded-xl border border-slate-200 bg-slate-50/50 space-y-3"
+                          className="p-4 rounded-[var(--r-md)] border border-[var(--border)] bg-[oklch(0.97_0.01_84)] space-y-3"
                         >
-                          <h4 className="text-xs sm:text-sm font-bold text-slate-900">
+                          <h4 className="text-xs sm:text-sm font-bold text-[var(--fg)]">
                             {qIndex + 1}. {q.pergunta}
                           </h4>
 
                           <div className="space-y-2">
                             {(q.opcoes || []).map((opt, optIdx) => {
                               const isSelected = selectedOption === opt;
-                              let btnStyle = 'bg-white border-slate-200 text-slate-700 hover:bg-slate-100';
+                              let btnStyle = 'bg-[var(--surface)] border-[var(--border)] text-[var(--fg)] hover:bg-[oklch(0.95_0.01_84)]';
 
                               if (quizSubmitted) {
                                 if (opt === q.resposta_correta) {
-                                  btnStyle = 'bg-emerald-50 border-emerald-400 text-emerald-900 font-semibold';
+                                  btnStyle = 'bg-[var(--mint)] border-[var(--ok)] text-[var(--ok)] font-semibold';
                                 } else if (isSelected) {
-                                  btnStyle = 'bg-rose-50 border-rose-300 text-rose-800';
+                                  btnStyle = 'bg-rose-50 border-rose-300 text-rose-800 line-through';
                                 }
                               } else if (isSelected) {
-                                btnStyle = 'bg-indigo-50 border-indigo-500 text-indigo-900 font-semibold';
+                                btnStyle = 'bg-[var(--fg)] border-[var(--fg)] text-[var(--accent)] font-semibold';
                               }
 
                               return (
@@ -1208,11 +1208,11 @@ Camarero: ¡Enseguida se lo traigo!`,
                                       });
                                     }
                                   }}
-                                  className={`w-full p-2.5 rounded-xl border text-left text-xs sm:text-sm transition flex items-center justify-between ${btnStyle}`}
+                                  className={`w-full p-2.5 rounded-full border text-left text-xs sm:text-sm transition flex items-center justify-between cursor-pointer ${btnStyle}`}
                                 >
                                   <span>{opt}</span>
                                   {quizSubmitted && opt === q.resposta_correta && (
-                                    <Check className="w-4 h-4 text-emerald-600 shrink-0" />
+                                    <Check className="w-4 h-4 text-[var(--ok)] shrink-0" />
                                   )}
                                 </button>
                               );
@@ -1221,9 +1221,9 @@ Camarero: ¡Enseguida se lo traigo!`,
 
                           {quizSubmitted && (
                             <div
-                              className={`p-3 rounded-xl text-xs space-y-1 ${
+                              className={`p-3 rounded-[var(--r-md)] text-xs space-y-1 ${
                                 isCorrect
-                                  ? 'bg-emerald-50 text-emerald-900 border border-emerald-200'
+                                  ? 'bg-[var(--mint)] text-[var(--fg)] border border-[var(--ok)]/30'
                                   : 'bg-rose-50 text-rose-900 border border-rose-200'
                               }`}
                             >
@@ -1237,7 +1237,7 @@ Camarero: ¡Enseguida se lo traigo!`,
                       );
                     })}
 
-                    <div className="flex justify-end pt-2">
+                    <div className="flex justify-end pt-2 font-mono">
                       {!quizSubmitted ? (
                         <button
                           onClick={() => {
@@ -1252,7 +1252,7 @@ Camarero: ¡Enseguida se lo traigo!`,
                               StorageService.addXP(acertos * 15);
                             }
                           }}
-                          className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-semibold transition"
+                          className="px-5 py-2.5 bg-[var(--fg)] hover:bg-[var(--fg)]/90 text-[var(--bg)] rounded-full text-xs font-semibold transition cursor-pointer shadow-xs"
                         >
                           Verificar Respostas
                         </button>
@@ -1262,7 +1262,7 @@ Camarero: ¡Enseguida se lo traigo!`,
                             setSelectedQuizAnswers({});
                             setQuizSubmitted(false);
                           }}
-                          className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-semibold transition"
+                          className="px-4 py-2 bg-[oklch(0.96_0.01_84)] hover:bg-[oklch(0.92_0.01_84)] text-[var(--fg)] rounded-full text-xs font-semibold transition cursor-pointer"
                         >
                           Tentar Novamente
                         </button>
@@ -1273,10 +1273,10 @@ Camarero: ¡Enseguida se lo traigo!`,
               </div>
             </div>
           ) : (
-            <div className="bg-white p-12 rounded-2xl border border-slate-200 text-center space-y-3">
-              <Youtube className="w-12 h-12 text-slate-300 mx-auto" />
-              <h3 className="text-base font-bold text-slate-700">Selecione um Material de Estudos</h3>
-              <p className="text-xs text-slate-500 max-w-sm mx-auto">
+            <div className="bg-[var(--surface)] p-12 rounded-[var(--r-lg)] border border-[var(--border)] text-center space-y-3">
+              <Youtube className="w-12 h-12 text-[var(--muted)] mx-auto" />
+              <h3 className="text-base font-bold text-[var(--fg)]">Selecione um Material de Estudos</h3>
+              <p className="text-xs text-[var(--muted)] max-w-sm mx-auto">
                 Escolha um material na barra lateral ou adicione um novo link do YouTube ou texto para
                 gerar vocabulário, diálogo e flashcards.
               </p>

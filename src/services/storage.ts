@@ -9,7 +9,16 @@ import {
   StudyMaterialItem,
   NotebookLMSyncDoc,
   PracticeReminder,
+  UserProfile,
+  SharedKnowledgePack,
+  GeneratedStudyPlan,
+  OnboardingAnswers,
 } from '../types';
+import {
+  syncPersonalKnowledgeToCloud,
+  fetchPersonalKnowledgeFromCloud,
+  updateUserStatsSummary,
+} from './firebase';
 
 const STORAGE_KEYS = {
   NODES: 'tutor_graph_nodes_v1',
@@ -23,9 +32,11 @@ const STORAGE_KEYS = {
   NOTEBOOKLM: 'tutor_notebooklm_docs_v1',
   REMINDERS: 'tutor_practice_reminders_v1',
   SETTINGS: 'tutor_settings_v1',
+  ONBOARDING_PLAN: 'tutor_onboarding_plan_v1',
+  ONBOARDING_COMPLETED: 'tutor_onboarding_completed_v1',
 };
 
-// Conquistas Iniciais Personalizadas para Tutor de Línguas
+// Conquistas Iniciais Personalizadas para Tutor de Línguas (Iniciam bloqueadas com 0 de progresso)
 export const DEFAULT_ACHIEVEMENTS: Achievement[] = [
   {
     id: 'primeira_conversa',
@@ -33,9 +44,8 @@ export const DEFAULT_ACHIEVEMENTS: Achievement[] = [
     descricao: 'Iniciou sua primeira sessão de conversação e imersão com o tutor de línguas.',
     icone: 'Sparkles',
     xp_recompensa: 50,
-    desbloqueada: true,
-    data_desbloqueio: new Date().toISOString(),
-    progresso_atual: 1,
+    desbloqueada: false,
+    progresso_atual: 0,
     progresso_meta: 1,
     categoria: 'consistencia',
   },
@@ -46,7 +56,7 @@ export const DEFAULT_ACHIEVEMENTS: Achievement[] = [
     icone: 'Award',
     xp_recompensa: 250,
     desbloqueada: false,
-    progresso_atual: 75,
+    progresso_atual: 0,
     progresso_meta: 80,
     categoria: 'dominio',
   },
@@ -56,9 +66,8 @@ export const DEFAULT_ACHIEVEMENTS: Achievement[] = [
     descricao: 'Manteve uma sequência de pelo menos 3 dias consecutivos de imersão e prática diária.',
     icone: 'Flame',
     xp_recompensa: 200,
-    desbloqueada: true,
-    data_desbloqueio: new Date().toISOString(),
-    progresso_atual: 3,
+    desbloqueada: false,
+    progresso_atual: 0,
     progresso_meta: 3,
     categoria: 'consistencia',
   },
@@ -69,7 +78,7 @@ export const DEFAULT_ACHIEVEMENTS: Achievement[] = [
     icone: 'CheckCircle2',
     xp_recompensa: 180,
     desbloqueada: false,
-    progresso_atual: 2,
+    progresso_atual: 0,
     progresso_meta: 3,
     categoria: 'correcao',
   },
@@ -79,9 +88,8 @@ export const DEFAULT_ACHIEVEMENTS: Achievement[] = [
     descricao: 'Mapeou e conectou 5 ou mais termos de vocabulário e regras no Grafo de Memória.',
     icone: 'Network',
     xp_recompensa: 220,
-    desbloqueada: true,
-    data_desbloqueio: new Date().toISOString(),
-    progresso_atual: 5,
+    desbloqueada: false,
+    progresso_atual: 0,
     progresso_meta: 5,
     categoria: 'grafo',
   },
@@ -92,7 +100,7 @@ export const DEFAULT_ACHIEVEMENTS: Achievement[] = [
     icone: 'Mic',
     xp_recompensa: 150,
     desbloqueada: false,
-    progresso_atual: 1,
+    progresso_atual: 0,
     progresso_meta: 2,
     categoria: 'voz',
   },
@@ -103,7 +111,7 @@ export const DEFAULT_ACHIEVEMENTS: Achievement[] = [
     icone: 'Brain',
     xp_recompensa: 160,
     desbloqueada: false,
-    progresso_atual: 1,
+    progresso_atual: 0,
     progresso_meta: 2,
     categoria: 'dominio',
   },
@@ -113,9 +121,8 @@ export const DEFAULT_ACHIEVEMENTS: Achievement[] = [
     descricao: 'Transformou vídeos do YouTube ou textos em kits de estudos completos com vocabulário e diálogos.',
     icone: 'BookOpen',
     xp_recompensa: 150,
-    desbloqueada: true,
-    data_desbloqueio: new Date().toISOString(),
-    progresso_atual: 1,
+    desbloqueada: false,
+    progresso_atual: 0,
     progresso_meta: 1,
     categoria: 'materiais',
   },
@@ -715,23 +722,121 @@ export const SEED_SESSIONS: StudySession[] = [
   },
 ];
 
+// Estado do Usuário Ativo
+let _currentUserId = 'default_user';
+let _currentUserProfile: UserProfile | null = null;
+let _syncTimeout: any = null;
+
 export const StorageService = {
+  // Configuração do Usuário Atual para isolamento de dados
+  setCurrentUser(user: UserProfile | null) {
+    _currentUserProfile = user;
+    _currentUserId = user ? user.uid : 'default_user';
+  },
+
+  getCurrentUser(): UserProfile | null {
+    return _currentUserProfile;
+  },
+
+  getCurrentUserId(): string {
+    return _currentUserId;
+  },
+
+  // Retorna a chave com namespace do usuário ativo
+  getKey(baseKey: string): string {
+    if (!_currentUserId || _currentUserId === 'default_user') {
+      return baseKey;
+    }
+    return `${baseKey}_${_currentUserId}`;
+  },
+
+  // Dispara sincronização em segundo plano com a nuvem (Firestore)
+  scheduleCloudSync() {
+    if (!_currentUserId || _currentUserId === 'default_user') return;
+    if (_syncTimeout) clearTimeout(_syncTimeout);
+
+    _syncTimeout = setTimeout(async () => {
+      try {
+        const stats = this.getStats();
+        const nodes = this.getNodes();
+        const materials = this.getMaterials();
+        const relations = this.getRelations();
+        const corrections = this.getCorrections();
+
+        await syncPersonalKnowledgeToCloud(_currentUserId, {
+          stats,
+          nodes,
+          materials,
+          relations,
+          corrections,
+        });
+
+        // Atualiza resumo de progresso no perfil do usuário
+        await updateUserStatsSummary(_currentUserId, {
+          level: stats.nivel,
+          xp: stats.xp,
+          streak: stats.sequencia_dias,
+          nodesCount: nodes.length,
+          materialsCount: materials.length,
+        });
+      } catch (err) {
+        console.warn('Erro durante sincronização com o Firestore:', err);
+      }
+    }, 1500);
+  },
+
+  // Carrega e hidrata dados da nuvem para o usuário atual
+  async hydrateFromCloud(userId: string): Promise<boolean> {
+    if (!userId || userId === 'default_user') return false;
+
+    try {
+      const cloudData = await fetchPersonalKnowledgeFromCloud(userId);
+      if (!cloudData) return false;
+
+      let hasData = false;
+      if (cloudData.stats) {
+        this.saveStats(cloudData.stats, false);
+        hasData = true;
+      }
+      if (cloudData.materials && cloudData.materials.length > 0) {
+        this.saveMaterials(cloudData.materials, false);
+        hasData = true;
+      }
+      if (cloudData.nodes && cloudData.nodes.length > 0) {
+        this.saveNodes(cloudData.nodes, false);
+        hasData = true;
+      }
+      if (cloudData.relations && cloudData.relations.length > 0) {
+        this.saveRelations(cloudData.relations, false);
+        hasData = true;
+      }
+      if (cloudData.corrections && cloudData.corrections.length > 0) {
+        this.saveCorrections(cloudData.corrections, false);
+        hasData = true;
+      }
+      return hasData;
+    } catch (err) {
+      console.warn('Erro ao hidratar dados da nuvem:', err);
+      return false;
+    }
+  },
+
   // Materiais de Estudo (YouTube, Textos, Arquivos)
   getMaterials(): StudyMaterialItem[] {
-    const raw = localStorage.getItem(STORAGE_KEYS.MATERIALS);
+    const raw = localStorage.getItem(this.getKey(STORAGE_KEYS.MATERIALS));
     if (!raw) {
-      this.saveMaterials(SEED_MATERIALS);
-      return SEED_MATERIALS;
+      return [];
     }
     try {
       return JSON.parse(raw);
     } catch {
-      return SEED_MATERIALS;
+      return [];
     }
   },
 
-  saveMaterials(materials: StudyMaterialItem[]) {
-    localStorage.setItem(STORAGE_KEYS.MATERIALS, JSON.stringify(materials));
+  saveMaterials(materials: StudyMaterialItem[], sync = true) {
+    localStorage.setItem(this.getKey(STORAGE_KEYS.MATERIALS), JSON.stringify(materials));
+    if (sync) this.scheduleCloudSync();
   },
 
   addMaterial(material: StudyMaterialItem): StudyMaterialItem {
@@ -761,20 +866,20 @@ export const StorageService = {
 
   // Nós do Grafo
   getNodes(): GraphNode[] {
-    const raw = localStorage.getItem(STORAGE_KEYS.NODES);
+    const raw = localStorage.getItem(this.getKey(STORAGE_KEYS.NODES));
     if (!raw) {
-      this.saveNodes(SEED_NODES);
-      return SEED_NODES;
+      return [];
     }
     try {
       return JSON.parse(raw);
     } catch {
-      return SEED_NODES;
+      return [];
     }
   },
 
-  saveNodes(nodes: GraphNode[]) {
-    localStorage.setItem(STORAGE_KEYS.NODES, JSON.stringify(nodes));
+  saveNodes(nodes: GraphNode[], sync = true) {
+    localStorage.setItem(this.getKey(STORAGE_KEYS.NODES), JSON.stringify(nodes));
+    if (sync) this.scheduleCloudSync();
   },
 
   addOrUpdateNode(node: GraphNode): GraphNode {
@@ -801,20 +906,20 @@ export const StorageService = {
 
   // Relações do Grafo
   getRelations(): GraphRelation[] {
-    const raw = localStorage.getItem(STORAGE_KEYS.RELATIONS);
+    const raw = localStorage.getItem(this.getKey(STORAGE_KEYS.RELATIONS));
     if (!raw) {
-      this.saveRelations(SEED_RELATIONS);
-      return SEED_RELATIONS;
+      return [];
     }
     try {
       return JSON.parse(raw);
     } catch {
-      return SEED_RELATIONS;
+      return [];
     }
   },
 
-  saveRelations(relations: GraphRelation[]) {
-    localStorage.setItem(STORAGE_KEYS.RELATIONS, JSON.stringify(relations));
+  saveRelations(relations: GraphRelation[], sync = true) {
+    localStorage.setItem(this.getKey(STORAGE_KEYS.RELATIONS), JSON.stringify(relations));
+    if (sync) this.scheduleCloudSync();
   },
 
   addRelation(rel: GraphRelation) {
@@ -833,20 +938,20 @@ export const StorageService = {
 
   // Correções Pedagógicas
   getCorrections(): PedagogicalCorrection[] {
-    const raw = localStorage.getItem(STORAGE_KEYS.CORRECTIONS);
+    const raw = localStorage.getItem(this.getKey(STORAGE_KEYS.CORRECTIONS));
     if (!raw) {
-      this.saveCorrections(SEED_CORRECTIONS);
-      return SEED_CORRECTIONS;
+      return [];
     }
     try {
       return JSON.parse(raw);
     } catch {
-      return SEED_CORRECTIONS;
+      return [];
     }
   },
 
-  saveCorrections(corrections: PedagogicalCorrection[]) {
-    localStorage.setItem(STORAGE_KEYS.CORRECTIONS, JSON.stringify(corrections));
+  saveCorrections(corrections: PedagogicalCorrection[], sync = true) {
+    localStorage.setItem(this.getKey(STORAGE_KEYS.CORRECTIONS), JSON.stringify(corrections));
+    if (sync) this.scheduleCloudSync();
   },
 
   addCorrection(corr: PedagogicalCorrection) {
@@ -869,16 +974,50 @@ export const StorageService = {
 
   // Histórico de Chat
   getChatHistory(): ChatMessage[] {
-    const raw = localStorage.getItem(STORAGE_KEYS.CHATS);
+    const raw = localStorage.getItem(this.getKey(STORAGE_KEYS.CHATS));
     if (!raw) {
+      const stats = this.getStats();
+      const plan = this.getStudyPlan();
+      const lang = plan?.idioma || stats.idioma_ativo || 'Inglês';
+
+      let initialContent = '';
+      if (plan && plan.mensagem_boas_vindas_tutor) {
+        initialContent = plan.mensagem_boas_vindas_tutor;
+      } else {
+        const greetingsByLang: Record<string, string> = {
+          'Inglês':
+            'Hello! Welcome to your Language Tutor. Estou aqui para destravar sua fala, corrigir vícios de tradução e falsos amigos, e praticar conversação no seu ritmo. Qual idioma e tópico vamos praticar hoje?',
+          'Francês':
+            'Bonjour ! Bienvenue à votre tuteur de français. Estou aqui para destravar sua conversação e pronúncia em francês. Vamos começar nossa prática?',
+          'Espanhol':
+            '¡Hola! Bienvenido a tu tutor de español. Estoy aquí para ayudarte a hablar con fluidez y soltura. ¿Qué tema te gustaría practicar hoy?',
+          'Alemão':
+            'Hallo! Willkommen zu deinem Sprach-Tutor. Estou aqui para te ajudar com estruturas e conversação em alemão. Vamos começar?',
+          'Italiano':
+            'Ciao! Benvenuto al tuo tutor di italiano. Sono qui per aiutarti a parlare italiano con scioltezza e sicurezza. Cosa vorresti praticare oggi?',
+          'Japonês':
+            'Konnichiwa! (こんにちは!) Bem-vindo ao seu tutor de japonês. Estou pronto para praticar frases úteis e vocabulário com você. Vamos começar?',
+        };
+        initialContent =
+          greetingsByLang[lang] ||
+          `Olá! Bem-vindo ao seu tutor de ${lang}. Qual tópico ou situação prática vamos treinar hoje?`;
+      }
+
       const initial: ChatMessage[] = [
         {
-          id: 'welcome-msg',
+          id: `welcome-${Date.now()}`,
           remetente: 'tutor',
-          conteudo:
-            'Hello! Welcome to your Language Tutor. Estou aqui para destravar sua fala, corrigir vícios de tradução e falsos amigos, e praticar conversação no seu ritmo. Qual idioma e tópico vamos praticar hoje?',
+          conteudo: initialContent,
           timestamp: new Date().toISOString(),
-          idioma: 'Inglês',
+          idioma: lang,
+          conceitos_chave: plan?.interesses_principais,
+          adaptacao: plan ? {
+            nivel: plan.nivel_cefr === 'A1' || plan.nivel_cefr === 'A2' ? 'fundamental_analogico' : (plan.nivel_cefr === 'B1' || plan.nivel_cefr === 'B2' ? 'intermediario_aplicado' : 'avancado_analitico'),
+            rotulo: `Nível ${plan.nivel_cefr} (${plan.motivo_principal})`,
+            dominio_avaliado: plan.nivel_cefr === 'A1' ? 35 : plan.nivel_cefr === 'A2' ? 50 : plan.nivel_cefr === 'B1' ? 65 : 85,
+            justificativa: `Início calibrado com base no plano de estudos gerado para ${plan.idioma}.`,
+            estrategia_pedagogica: plan.estrategia_pedagogica || 'Imersão conversacional adaptativa.',
+          } : undefined,
         },
       ];
       this.saveChatHistory(initial);
@@ -891,8 +1030,57 @@ export const StorageService = {
     }
   },
 
+  resetChatToStudyPlan(plan?: GeneratedStudyPlan) {
+    const activePlan = plan || this.getStudyPlan();
+    const stats = this.getStats();
+    const lang = activePlan?.idioma || stats.idioma_ativo || 'Inglês';
+
+    let initialContent = '';
+    if (activePlan && activePlan.mensagem_boas_vindas_tutor) {
+      initialContent = activePlan.mensagem_boas_vindas_tutor;
+    } else {
+      const greetingsByLang: Record<string, string> = {
+        'Inglês':
+          'Hello! Welcome to your Language Tutor. Estou aqui para destravar sua fala, corrigir vícios de tradução e falsos amigos, e praticar conversação no seu ritmo. Qual tópico vamos praticar hoje?',
+        'Francês':
+          'Bonjour ! Bienvenue à votre tuteur de français. Estou aqui para destravar sua conversação e pronúncia em francês. Vamos começar nossa prática?',
+        'Espanhol':
+          '¡Hola! Bienvenido a tu tutor de español. Estoy aquí para ayudarte a hablar con fluidez y soltura. ¿Qué tema te gustaría practicar hoy?',
+        'Alemão':
+          'Hallo! Willkommen zu deinem Sprach-Tutor. Estou aqui para te ajudar com estruturas e conversação em alemão. Vamos começar?',
+        'Italiano':
+          'Ciao! Benvenuto al tuo tutor di italiano. Sono qui per aiutarti a parlare italiano con scioltezza e sicurezza. Cosa vorresti praticare oggi?',
+        'Japonês':
+          'Konnichiwa! (こんにちは!) Bem-vindo ao seu tutor de japonês. Estou pronto para praticar frases úteis e vocabulário com você. Vamos começar?',
+      };
+      initialContent =
+        greetingsByLang[lang] ||
+        `Olá! Bem-vindo ao seu tutor de ${lang}. Qual tópico ou situação prática vamos treinar hoje?`;
+    }
+
+    const initial: ChatMessage[] = [
+      {
+        id: `welcome-plan-${Date.now()}`,
+        remetente: 'tutor',
+        conteudo: initialContent,
+        timestamp: new Date().toISOString(),
+        idioma: lang,
+        conceitos_chave: activePlan?.interesses_principais,
+        adaptacao: activePlan ? {
+          nivel: activePlan.nivel_cefr === 'A1' || activePlan.nivel_cefr === 'A2' ? 'fundamental_analogico' : (activePlan.nivel_cefr === 'B1' || activePlan.nivel_cefr === 'B2' ? 'intermediario_aplicado' : 'avancado_analitico'),
+          rotulo: `Nível ${activePlan.nivel_cefr} (${activePlan.motivo_principal})`,
+          dominio_avaliado: activePlan.nivel_cefr === 'A1' ? 35 : activePlan.nivel_cefr === 'A2' ? 50 : activePlan.nivel_cefr === 'B1' ? 65 : 85,
+          justificativa: `Início calibrado com base no plano de estudos gerado para ${activePlan.idioma}.`,
+          estrategia_pedagogica: activePlan.estrategia_pedagogica || 'Imersão conversacional adaptativa.',
+        } : undefined,
+      },
+    ];
+    this.saveChatHistory(initial);
+    return initial;
+  },
+
   saveChatHistory(messages: ChatMessage[]) {
-    localStorage.setItem(STORAGE_KEYS.CHATS, JSON.stringify(messages));
+    localStorage.setItem(this.getKey(STORAGE_KEYS.CHATS), JSON.stringify(messages));
   },
 
   addChatMessage(msg: ChatMessage) {
@@ -914,27 +1102,27 @@ export const StorageService = {
 
   // Estatísticas e Gamificação
   getStats(): UserStats {
-    const raw = localStorage.getItem(STORAGE_KEYS.STATS);
+    const raw = localStorage.getItem(this.getKey(STORAGE_KEYS.STATS));
     const today = new Date().toISOString().split('T')[0];
-    const defaultStats: UserStats = {
-      xp: 420,
-      nivel: 2,
-      sequencia_dias: 3,
+    const cleanDefaultStats: UserStats = {
+      xp: 0,
+      nivel: 1,
+      sequencia_dias: 0,
       ultimo_dia_estudo: today,
       meta_diaria_minutos: 30,
-      minutos_hoje: 20,
-      conquistas_desbloqueadas: ['primeira_conversa', 'arquiteto_saber', 'criador_materiais'],
-      total_respostas: 16,
-      respostas_corretas: 13,
-      erros_corrigidos: 3,
+      minutos_hoje: 0,
+      conquistas_desbloqueadas: [],
+      total_respostas: 0,
+      respostas_corretas: 0,
+      erros_corrigidos: 0,
       idioma_ativo: 'Inglês',
-      nivel_cefr: 'B1',
-      materiais_gerados: 1,
+      nivel_cefr: 'A1',
+      materiais_gerados: 0,
     };
 
     if (!raw) {
-      this.saveStats(defaultStats);
-      return defaultStats;
+      this.saveStats(cleanDefaultStats, false);
+      return cleanDefaultStats;
     }
 
     try {
@@ -946,7 +1134,7 @@ export const StorageService = {
         if (diffDays === 1) {
           parsed.sequencia_dias += 1;
         } else if (diffDays > 2) {
-          parsed.sequencia_dias = 1;
+          parsed.sequencia_dias = 0;
         }
         parsed.ultimo_dia_estudo = today;
         parsed.minutos_hoje = 0;
@@ -954,12 +1142,13 @@ export const StorageService = {
       }
       return parsed;
     } catch {
-      return defaultStats;
+      return cleanDefaultStats;
     }
   },
 
-  saveStats(stats: UserStats) {
-    localStorage.setItem(STORAGE_KEYS.STATS, JSON.stringify(stats));
+  saveStats(stats: UserStats, sync = true) {
+    localStorage.setItem(this.getKey(STORAGE_KEYS.STATS), JSON.stringify(stats));
+    if (sync) this.scheduleCloudSync();
   },
 
   addXP(amount: number): { stats: UserStats; subiu_nivel: boolean; novo_nivel: number } {
@@ -992,7 +1181,7 @@ export const StorageService = {
 
   // Conquistas
   getAchievements(): Achievement[] {
-    const raw = localStorage.getItem(STORAGE_KEYS.ACHIEVEMENTS);
+    const raw = localStorage.getItem(this.getKey(STORAGE_KEYS.ACHIEVEMENTS));
     if (!raw) {
       this.saveAchievements(DEFAULT_ACHIEVEMENTS);
       return DEFAULT_ACHIEVEMENTS;
@@ -1005,7 +1194,7 @@ export const StorageService = {
   },
 
   saveAchievements(achievements: Achievement[]) {
-    localStorage.setItem(STORAGE_KEYS.ACHIEVEMENTS, JSON.stringify(achievements));
+    localStorage.setItem(this.getKey(STORAGE_KEYS.ACHIEVEMENTS), JSON.stringify(achievements));
   },
 
   unlockAchievement(id: string): Achievement | null {
@@ -1023,20 +1212,19 @@ export const StorageService = {
 
   // Sessões
   getSessions(): StudySession[] {
-    const raw = localStorage.getItem(STORAGE_KEYS.SESSIONS);
+    const raw = localStorage.getItem(this.getKey(STORAGE_KEYS.SESSIONS));
     if (!raw) {
-      this.saveSessions(SEED_SESSIONS);
-      return SEED_SESSIONS;
+      return [];
     }
     try {
       return JSON.parse(raw);
     } catch {
-      return SEED_SESSIONS;
+      return [];
     }
   },
 
   saveSessions(sessions: StudySession[]) {
-    localStorage.setItem(STORAGE_KEYS.SESSIONS, JSON.stringify(sessions));
+    localStorage.setItem(this.getKey(STORAGE_KEYS.SESSIONS), JSON.stringify(sessions));
   },
 
   addSession(session: StudySession) {
@@ -1047,7 +1235,7 @@ export const StorageService = {
 
   // Documentos de Sincronização NotebookLM (compatibilidade)
   getNotebookLMDocs(): NotebookLMSyncDoc[] {
-    const raw = localStorage.getItem(STORAGE_KEYS.NOTEBOOKLM);
+    const raw = localStorage.getItem(this.getKey(STORAGE_KEYS.NOTEBOOKLM));
     if (!raw) return [];
     try {
       return JSON.parse(raw);
@@ -1057,7 +1245,7 @@ export const StorageService = {
   },
 
   saveNotebookLMDocs(docs: NotebookLMSyncDoc[]) {
-    localStorage.setItem(STORAGE_KEYS.NOTEBOOKLM, JSON.stringify(docs));
+    localStorage.setItem(this.getKey(STORAGE_KEYS.NOTEBOOKLM), JSON.stringify(docs));
   },
 
   saveOrUpdateNotebookDoc(doc: NotebookLMSyncDoc) {
@@ -1073,34 +1261,9 @@ export const StorageService = {
 
   // Lembretes de Prática e Notificações Locais
   getReminders(): PracticeReminder[] {
-    const raw = localStorage.getItem(STORAGE_KEYS.REMINDERS);
+    const raw = localStorage.getItem(this.getKey(STORAGE_KEYS.REMINDERS));
     if (!raw) {
-      const defaultReminders: PracticeReminder[] = [
-        {
-          id: 'rem-1',
-          titulo: 'Prática Noturna de Conversação & Fluência',
-          topico: 'Connected Speech & Pronúncia',
-          horario: '19:00',
-          dias_semana: [1, 2, 3, 4, 5], // Seg a Sex
-          ativo: true,
-          tipo_notificacao: 'browser',
-          antecedencia_minutos: 5,
-          criado_em: new Date().toISOString(),
-        },
-        {
-          id: 'rem-2',
-          titulo: 'Revisão Espaçada de Vocabulário & Cartões',
-          topico: 'Vocabulário & Phrasal Verbs',
-          horario: '08:30',
-          dias_semana: [0, 1, 2, 3, 4, 5, 6], // Todos os dias
-          ativo: true,
-          tipo_notificacao: 'browser',
-          antecedencia_minutos: 10,
-          criado_em: new Date().toISOString(),
-        },
-      ];
-      this.saveReminders(defaultReminders);
-      return defaultReminders;
+      return [];
     }
     try {
       return JSON.parse(raw);
@@ -1110,7 +1273,7 @@ export const StorageService = {
   },
 
   saveReminders(reminders: PracticeReminder[]) {
-    localStorage.setItem(STORAGE_KEYS.REMINDERS, JSON.stringify(reminders));
+    localStorage.setItem(this.getKey(STORAGE_KEYS.REMINDERS), JSON.stringify(reminders));
   },
 
   addReminder(reminder: PracticeReminder) {
@@ -1143,22 +1306,114 @@ export const StorageService = {
     }
   },
 
-  // Reset completo
+  // Exportação e Importação de Pacotes de Conhecimento
+  exportCurrentKnowledgeBase(
+    titulo: string,
+    descricao: string,
+    idioma = 'Inglês',
+    autorNome = 'Professor'
+  ): SharedKnowledgePack {
+    const nodes = this.getNodes();
+    const relations = this.getRelations();
+    const materials = this.getMaterials();
+
+    return {
+      id: `pack-${Date.now()}`,
+      titulo: titulo || 'Base de Conhecimento Personalizada',
+      descricao: descricao || 'Vocabulário e materiais de estudo selecionados.',
+      idioma: idioma,
+      nivel_cefr: 'B1',
+      autor_nome: autorNome,
+      autor_id: _currentUserId,
+      publicado_em: new Date().toISOString(),
+      total_termos: nodes.length,
+      total_materiais: materials.length,
+      dados_pack: {
+        nodes,
+        relations,
+        materials,
+      },
+    };
+  },
+
+  importKnowledgePack(pack: SharedKnowledgePack): { addedNodes: number; addedMaterials: number } {
+    let addedNodes = 0;
+    let addedMaterials = 0;
+
+    if (pack.dados_pack?.nodes && pack.dados_pack.nodes.length > 0) {
+      const currentNodes = this.getNodes();
+      pack.dados_pack.nodes.forEach((n) => {
+        const exists = currentNodes.some((cn) => cn.titulo.toLowerCase() === n.titulo.toLowerCase());
+        if (!exists) {
+          currentNodes.push({
+            ...n,
+            id: `node-imported-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+            criado_em: new Date().toISOString(),
+          });
+          addedNodes++;
+        }
+      });
+      this.saveNodes(currentNodes);
+    }
+
+    if (pack.dados_pack?.materials && pack.dados_pack.materials.length > 0) {
+      const currentMaterials = this.getMaterials();
+      pack.dados_pack.materials.forEach((m) => {
+        const exists = currentMaterials.some((cm) => cm.titulo.toLowerCase() === m.titulo.toLowerCase());
+        if (!exists) {
+          currentMaterials.unshift({
+            ...m,
+            id: `mat-imported-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+            criado_em: new Date().toISOString(),
+          });
+          addedMaterials++;
+        }
+      });
+      this.saveMaterials(currentMaterials);
+    }
+
+    if (pack.dados_pack?.relations && pack.dados_pack.relations.length > 0) {
+      const currentRelations = this.getRelations();
+      pack.dados_pack.relations.forEach((r) => {
+        currentRelations.push({
+          ...r,
+          id: `rel-imported-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+        });
+      });
+      this.saveRelations(currentRelations);
+    }
+
+    return { addedNodes, addedMaterials };
+  },
+
+  // Reset completo para a base do usuário atual (Zera tudo para começar do zero)
   resetAllData() {
-    localStorage.removeItem(STORAGE_KEYS.NODES);
-    localStorage.removeItem(STORAGE_KEYS.RELATIONS);
-    localStorage.removeItem(STORAGE_KEYS.CORRECTIONS);
-    localStorage.removeItem(STORAGE_KEYS.CHATS);
-    localStorage.removeItem(STORAGE_KEYS.STATS);
-    localStorage.removeItem(STORAGE_KEYS.ACHIEVEMENTS);
-    localStorage.removeItem(STORAGE_KEYS.SESSIONS);
-    localStorage.removeItem(STORAGE_KEYS.MATERIALS);
-    localStorage.removeItem(STORAGE_KEYS.NOTEBOOKLM);
-    localStorage.removeItem(STORAGE_KEYS.REMINDERS);
+    localStorage.removeItem(this.getKey(STORAGE_KEYS.NODES));
+    localStorage.removeItem(this.getKey(STORAGE_KEYS.RELATIONS));
+    localStorage.removeItem(this.getKey(STORAGE_KEYS.CORRECTIONS));
+    localStorage.removeItem(this.getKey(STORAGE_KEYS.CHATS));
+    localStorage.removeItem(this.getKey(STORAGE_KEYS.STATS));
+    localStorage.removeItem(this.getKey(STORAGE_KEYS.ACHIEVEMENTS));
+    localStorage.removeItem(this.getKey(STORAGE_KEYS.SESSIONS));
+    localStorage.removeItem(this.getKey(STORAGE_KEYS.MATERIALS));
+    localStorage.removeItem(this.getKey(STORAGE_KEYS.NOTEBOOKLM));
+    localStorage.removeItem(this.getKey(STORAGE_KEYS.REMINDERS));
+    localStorage.removeItem(this.getKey(STORAGE_KEYS.SETTINGS));
+    localStorage.removeItem(this.getKey(STORAGE_KEYS.ONBOARDING_PLAN));
+    localStorage.removeItem(this.getKey(STORAGE_KEYS.ONBOARDING_COMPLETED));
   },
 
   resetToDefaults() {
     this.resetAllData();
+  },
+
+  // Carrega dados de demonstração apenas se o usuário solicitar explicitamente
+  loadSampleData() {
+    this.saveMaterials(SEED_MATERIALS, false);
+    this.saveNodes(SEED_NODES, false);
+    this.saveRelations(SEED_RELATIONS, false);
+    this.saveCorrections(SEED_CORRECTIONS, false);
+    this.saveSessions(SEED_SESSIONS);
   },
 
   setDailyGoal(minutes: number): UserStats {
@@ -1166,5 +1421,124 @@ export const StorageService = {
     stats.meta_diaria_minutos = minutes;
     this.saveStats(stats);
     return stats;
+  },
+
+  // Suporte ao Assistente de Configuração (Onboarding) e Plano de Estudos
+  hasCompletedOnboarding(): boolean {
+    const val = localStorage.getItem(this.getKey(STORAGE_KEYS.ONBOARDING_COMPLETED));
+    return val === 'true';
+  },
+
+  setOnboardingCompleted(completed: boolean = true) {
+    localStorage.setItem(this.getKey(STORAGE_KEYS.ONBOARDING_COMPLETED), completed ? 'true' : 'false');
+  },
+
+  getStudyPlan(): GeneratedStudyPlan | null {
+    const raw = localStorage.getItem(this.getKey(STORAGE_KEYS.ONBOARDING_PLAN));
+    if (!raw) return null;
+    try {
+      return JSON.parse(raw);
+    } catch {
+      return null;
+    }
+  },
+
+  saveStudyPlan(plan: GeneratedStudyPlan) {
+    localStorage.setItem(this.getKey(STORAGE_KEYS.ONBOARDING_PLAN), JSON.stringify(plan));
+  },
+
+  /**
+   * Aplica o Plano de Estudos Gerado em todo o ecossistema (Grafo, Materiais, Stats, Lembretes)
+   */
+  applyGeneratedPlan(plan: GeneratedStudyPlan): {
+    nodesAdded: number;
+    materialAdded: boolean;
+    newStats: UserStats;
+  } {
+    // 1. Salva o plano como ativo
+    this.saveStudyPlan(plan);
+    this.setOnboardingCompleted(true);
+
+    // 2. Atualiza stats de idioma, nível e meta diária
+    const stats = this.getStats();
+    stats.idioma_ativo = plan.idioma;
+    stats.nivel_cefr = plan.nivel_cefr;
+    stats.meta_diaria_minutos = plan.meta_diaria_minutos || 30;
+    this.saveStats(stats);
+
+    // 3. Adiciona nós iniciais ao Grafo de Conhecimento
+    let nodesAdded = 0;
+    if (plan.nos_iniciais_grafo && plan.nos_iniciais_grafo.length > 0) {
+      const currentNodes = this.getNodes();
+      plan.nos_iniciais_grafo.forEach((newNode) => {
+        if (!newNode.titulo) return;
+        const exists = currentNodes.some(
+          (cn) => cn.titulo.toLowerCase() === (newNode.titulo || '').toLowerCase()
+        );
+        if (!exists) {
+          const fullNode: GraphNode = {
+            id: newNode.id || `node-plan-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+            tipo: (newNode.tipo || 'vocabulario') as any,
+            titulo: newNode.titulo,
+            descricao: newNode.descricao || '',
+            dominio_estimado: newNode.dominio_estimado || 45,
+            dificuldade: newNode.dificuldade || 2,
+            frequencia_erro: 0,
+            ultima_revisao: new Date().toISOString(),
+            proxima_revisao: new Date(Date.now() + 86400000).toISOString(),
+            idioma: plan.idioma,
+            pronuncia_ipa: newNode.pronuncia_ipa,
+            traducao: newNode.traducao,
+            exemplo_uso: newNode.exemplo_uso,
+            evidencias: ['Plano Personalizado de Aprendizado'],
+            criado_em: new Date().toISOString(),
+            atualizado_em: new Date().toISOString(),
+          };
+          currentNodes.push(fullNode);
+          nodesAdded++;
+        }
+      });
+      this.saveNodes(currentNodes);
+    }
+
+    // 4. Adiciona o Primeiro Material de Estudo
+    let materialAdded = false;
+    if (plan.primeiro_material_estudo) {
+      const currentMaterials = this.getMaterials();
+      const exists = currentMaterials.some(
+        (m) => m.titulo.toLowerCase() === plan.primeiro_material_estudo.titulo.toLowerCase()
+      );
+      if (!exists) {
+        currentMaterials.unshift(plan.primeiro_material_estudo);
+        this.saveMaterials(currentMaterials);
+        materialAdded = true;
+      }
+    }
+
+    // 5. Configura um lembrete diário baseado no plano
+    const currentReminders = this.getReminders();
+    const hasPlanReminder = currentReminders.some((r) => r.topico === plan.topico_inicial_recomendado);
+    if (!hasPlanReminder) {
+      this.addReminder({
+        id: `rem-plan-${Date.now()}`,
+        titulo: `Prática de ${plan.idioma} (${plan.meta_diaria_minutos} min)`,
+        topico: plan.topico_inicial_recomendado,
+        horario: '19:00',
+        dias_semana: [1, 2, 3, 4, 5],
+        ativo: true,
+        tipo_notificacao: 'browser',
+        antecedencia_minutos: 10,
+        criado_em: new Date().toISOString(),
+      });
+    }
+
+    // 6. Inicializa o Chat do Tutor 100% calibrado com o plano de estudos gerado
+    this.resetChatToStudyPlan(plan);
+
+    return {
+      nodesAdded,
+      materialAdded,
+      newStats: stats,
+    };
   },
 };

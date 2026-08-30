@@ -39,6 +39,7 @@ import { FlashcardsEngine } from '../services/flashcardsEngine';
 import { SpeechService } from '../services/speechSynthesisService';
 import { AudioRecorderService } from '../services/audioService';
 import { getLanguageTheme } from '../services/languageThemes';
+import { playSfx } from '../services/soundEffects';
 import { Button } from './ui/button';
 import { Badge } from './ui/badge';
 
@@ -107,9 +108,9 @@ export const FlashcardsView: React.FC<FlashcardsViewProps> = ({
 
   // Virar a Carta
   const handleFlip = () => {
+    playSfx('card_flip');
     setIsFlipped((prev) => {
       const nextState = !prev;
-      // Se virou para o verso e tem exemplo, ouve pronúncia se desejar
       return nextState;
     });
   };
@@ -118,6 +119,12 @@ export const FlashcardsView: React.FC<FlashcardsViewProps> = ({
   const handleGrade = (grade: SRSGrade) => {
     if (cards.length === 0 || currentIndex >= cards.length) return;
     const currentCard = cards[currentIndex];
+
+    if (grade >= 3) {
+      playSfx('success');
+    } else {
+      playSfx('error');
+    }
 
     // Processa a revisão no motor SRS
     const { result, updatedCard, updatedStats, repeatInSession } = FlashcardsEngine.processReview(
@@ -257,23 +264,23 @@ export const FlashcardsView: React.FC<FlashcardsViewProps> = ({
   return (
     <div className="flex flex-col h-full space-y-4 max-w-4xl mx-auto w-full">
       {/* Cabeçalho de Controle e Filtros */}
-      <div className="flex items-center justify-between flex-wrap gap-3 pb-3 border-b border-[#171719]/10">
+      <div className="flex items-center justify-between flex-wrap gap-3 pb-3 border-b border-[var(--border)]">
         <div className="flex items-center space-x-3">
           <div
-            className="w-10 h-10 rounded-[9px] bg-[#171719] text-[#1ff98c] flex items-center justify-center font-bold shadow-xs border border-[#171719]/20"
+            className="w-10 h-10 rounded-full bg-[var(--fg)] text-[var(--accent)] flex items-center justify-center font-bold shadow-xs border border-[var(--border)]"
           >
             <Layers className="w-5 h-5" />
           </div>
           <div>
             <div className="flex items-center space-x-2">
-              <h2 className="text-base sm:text-lg font-extrabold tracking-tight text-[#171719]">
+              <h2 className="text-base sm:text-lg font-display font-bold tracking-tight text-[var(--fg)]">
                 Flashcards de Repetição Espaçada
               </h2>
-              <span className="text-[10px] font-mono px-2.5 py-0.5 rounded-full border border-[#171719]/15 bg-[#ededed] uppercase font-bold text-[#171719]">
+              <span className="text-[10px] font-mono px-2.5 py-0.5 rounded-full border border-[var(--border)] bg-[oklch(0.96_0.01_84)] uppercase font-bold text-[var(--fg)]">
                 {activeTheme.bandeira} {activeTheme.nome}
               </span>
             </div>
-            <p className="text-xs text-[#71717a] font-mono">
+            <p className="text-xs text-[var(--muted)]">
               Algoritmo SM-2 otimizado com base nos termos e erros do seu Grafo de Memória
             </p>
           </div>
@@ -283,10 +290,10 @@ export const FlashcardsView: React.FC<FlashcardsViewProps> = ({
         <div className="flex items-center space-x-2">
           <button
             onClick={() => setInvertMode((prev) => !prev)}
-            className={`px-3 py-1.5 rounded-[9px] border text-xs font-bold transition flex items-center space-x-1.5 cursor-pointer ${
+            className={`px-3.5 py-1.5 rounded-full border text-xs font-bold transition flex items-center space-x-1.5 cursor-pointer ${
               invertMode
-                ? 'bg-[#171719] text-[#1ff98c] border-[#171719] shadow-xs'
-                : 'bg-white text-[#171719] border-[#171719]/15 hover:bg-[#ededed]'
+                ? 'bg-[var(--fg)] text-[var(--accent)] border-[var(--fg)] shadow-xs'
+                : 'bg-[var(--surface)] text-[var(--fg)] border-[var(--border)] hover:bg-[oklch(0.96_0.01_84)]'
             }`}
             title="Inverter ordem: Significado primeiro ➔ Termo"
           >
@@ -296,7 +303,7 @@ export const FlashcardsView: React.FC<FlashcardsViewProps> = ({
 
           <button
             onClick={handleShuffle}
-            className="p-2 rounded-[9px] border border-[#171719]/15 bg-white text-[#171719] hover:bg-[#ededed] transition cursor-pointer"
+            className="p-2 rounded-full border border-[var(--border)] bg-[var(--surface)] text-[var(--fg)] hover:bg-[oklch(0.96_0.01_84)] transition cursor-pointer"
             title="Embaralhar Flashcards"
           >
             <Shuffle className="w-4 h-4" />
@@ -304,7 +311,7 @@ export const FlashcardsView: React.FC<FlashcardsViewProps> = ({
 
           <button
             onClick={loadCards}
-            className="p-2 rounded-[9px] border border-[#171719]/15 bg-white text-[#171719] hover:bg-[#ededed] transition cursor-pointer"
+            className="p-2 rounded-full border border-[var(--border)] bg-[var(--surface)] text-[var(--fg)] hover:bg-[oklch(0.96_0.01_84)] transition cursor-pointer"
             title="Recarregar do Grafo de Memória"
           >
             <RotateCcw className="w-4 h-4" />
@@ -313,17 +320,17 @@ export const FlashcardsView: React.FC<FlashcardsViewProps> = ({
       </div>
 
       {/* Barra de Filtros Rápidos */}
-      <div className="flex items-center gap-1.5 overflow-x-auto py-1 scrollbar-none text-xs font-mono">
-        <span className="text-[#71717a] uppercase text-[10px] tracking-wider flex items-center gap-1 mr-1 font-bold">
+      <div className="flex items-center gap-1.5 overflow-x-auto py-1 scrollbar-none text-xs">
+        <span className="text-[var(--muted)] uppercase text-[10px] font-extrabold tracking-wider flex items-center gap-1 mr-1">
           <Filter className="w-3 h-3" /> Filtro:
         </span>
 
         <button
           onClick={() => setFilterMode('todos')}
-          className={`px-3 py-1 rounded-full border transition cursor-pointer whitespace-nowrap text-xs font-bold ${
+          className={`px-3.5 py-1 rounded-full border transition cursor-pointer whitespace-nowrap text-xs font-bold ${
             filterMode === 'todos'
-              ? 'bg-[#171719] text-white border-[#171719]'
-              : 'bg-white border-[#171719]/15 text-[#171719] hover:bg-[#ededed]'
+              ? 'bg-[var(--fg)] text-[var(--bg)] border-[var(--fg)]'
+              : 'bg-[var(--surface)] border-[var(--border)] text-[var(--fg)] hover:bg-[oklch(0.96_0.01_84)]'
           }`}
         >
           🎯 Todos ({cards.length})
@@ -331,10 +338,10 @@ export const FlashcardsView: React.FC<FlashcardsViewProps> = ({
 
         <button
           onClick={() => setFilterMode('criticos')}
-          className={`px-3 py-1 rounded-full border transition cursor-pointer whitespace-nowrap text-xs font-bold ${
+          className={`px-3.5 py-1 rounded-full border transition cursor-pointer whitespace-nowrap text-xs font-bold ${
             filterMode === 'criticos'
               ? 'bg-rose-600 text-white border-rose-600'
-              : 'bg-white border-[#171719]/15 text-[#71717a] hover:bg-[#ededed] hover:text-rose-600'
+              : 'bg-[var(--surface)] border-[var(--border)] text-[var(--muted)] hover:bg-[oklch(0.96_0.01_84)] hover:text-rose-600'
           }`}
         >
           🚨 Críticos / Baixo Domínio
@@ -342,10 +349,10 @@ export const FlashcardsView: React.FC<FlashcardsViewProps> = ({
 
         <button
           onClick={() => setFilterMode('falsos_amigos')}
-          className={`px-3 py-1 rounded-full border transition cursor-pointer whitespace-nowrap text-xs font-bold ${
+          className={`px-3.5 py-1 rounded-full border transition cursor-pointer whitespace-nowrap text-xs font-bold ${
             filterMode === 'falsos_amigos'
-              ? 'bg-amber-600 text-white border-amber-600'
-              : 'bg-white border-[#171719]/15 text-[#71717a] hover:bg-[#ededed] hover:text-amber-600'
+              ? 'bg-[var(--sunny)] text-[var(--fg)] border-amber-400 font-extrabold'
+              : 'bg-[var(--surface)] border-[var(--border)] text-[var(--muted)] hover:bg-[oklch(0.96_0.01_84)] hover:text-amber-800'
           }`}
         >
           🎭 Falsos Amigos
@@ -353,10 +360,10 @@ export const FlashcardsView: React.FC<FlashcardsViewProps> = ({
 
         <button
           onClick={() => setFilterMode('expressoes')}
-          className={`px-3 py-1 rounded-full border transition cursor-pointer whitespace-nowrap text-xs font-bold ${
+          className={`px-3.5 py-1 rounded-full border transition cursor-pointer whitespace-nowrap text-xs font-bold ${
             filterMode === 'expressoes'
-              ? 'bg-[#171719] text-[#1ff98c] border-[#171719]'
-              : 'bg-white border-[#171719]/15 text-[#71717a] hover:bg-[#ededed] hover:text-[#171719]'
+              ? 'bg-[var(--sky)] text-sky-950 border-sky-300 font-extrabold'
+              : 'bg-[var(--surface)] border-[var(--border)] text-[var(--muted)] hover:bg-[oklch(0.96_0.01_84)] hover:text-[var(--fg)]'
           }`}
         >
           🗣️ Expressões & Gírias
@@ -364,10 +371,10 @@ export const FlashcardsView: React.FC<FlashcardsViewProps> = ({
 
         <button
           onClick={() => setFilterMode('vencidos_hoje')}
-          className={`px-3 py-1 rounded-full border transition cursor-pointer whitespace-nowrap text-xs font-bold ${
+          className={`px-3.5 py-1 rounded-full border transition cursor-pointer whitespace-nowrap text-xs font-bold ${
             filterMode === 'vencidos_hoje'
-              ? 'bg-[#08ba61] text-white border-[#08ba61]'
-              : 'bg-white border-[#171719]/15 text-[#71717a] hover:bg-[#ededed] hover:text-[#08ba61]'
+              ? 'bg-[var(--mint)] text-[var(--ok)] border-[var(--ok)]/40 font-extrabold'
+              : 'bg-[var(--surface)] border-[var(--border)] text-[var(--muted)] hover:bg-[oklch(0.96_0.01_84)] hover:text-[var(--ok)]'
           }`}
         >
           📅 Vencidos para Hoje (SRS)
@@ -377,67 +384,67 @@ export const FlashcardsView: React.FC<FlashcardsViewProps> = ({
       {/* TELA DE CONCLUSÃO / RESUMO DA SESSÃO */}
       {isSessionCompleted && sessionSummary ? (
         <div className="flex-1 flex flex-col justify-center items-center p-6 text-center max-w-2xl mx-auto space-y-6">
-          <div className="w-16 h-16 rounded-[14px] bg-[#1ff98c] text-[#171719] flex items-center justify-center mx-auto shadow-sm border border-[#171719]/20">
+          <div className="w-16 h-16 rounded-2xl bg-[var(--accent)] text-[var(--fg)] flex items-center justify-center mx-auto shadow-xs border border-[var(--border)]">
             <Award className="w-8 h-8" />
           </div>
 
           <div className="space-y-1">
-            <h3 className="text-2xl font-extrabold tracking-tight text-[#171719]">
+            <h3 className="text-2xl font-display font-bold tracking-tight text-[var(--fg)]">
               Sessão de Flashcards Concluída!
             </h3>
-            <p className="text-xs sm:text-sm text-[#71717a] font-mono">
+            <p className="text-xs sm:text-sm text-[var(--muted)]">
               O agendamento de repetição espaçada foi recalculado e sincronizado com o Grafo de Memória.
             </p>
           </div>
 
           {/* Grid de Estatísticas Finais */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 w-full font-mono text-xs">
-            <div className="p-4 rounded-[20px] border border-[#171719]/10 bg-white shadow-xs">
-              <span className="text-[#71717a] block text-[10px] font-bold">CARTÕES REVISADOS</span>
-              <span className="text-xl font-extrabold text-[#171719]">{sessionSummary.revisados}</span>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 w-full text-xs">
+            <div className="p-4 rounded-[var(--r-md)] border border-[var(--border)] bg-[var(--surface)] shadow-xs">
+              <span className="text-[var(--muted)] block text-[10px] font-extrabold uppercase">CARTÕES REVISADOS</span>
+              <span className="text-2xl font-display font-extrabold text-[var(--fg)] font-mono">{sessionSummary.revisados}</span>
             </div>
 
-            <div className="p-4 rounded-[20px] border border-[#171719]/10 bg-white shadow-xs">
-              <span className="text-[#71717a] block text-[10px] font-bold">DOMÍNIO MÉDIO</span>
-              <span className="text-xl font-extrabold text-[#08ba61]">
+            <div className="p-4 rounded-[var(--r-md)] border border-[var(--border)] bg-[var(--surface)] shadow-xs">
+              <span className="text-[var(--muted)] block text-[10px] font-extrabold uppercase">DOMÍNIO MÉDIO</span>
+              <span className="text-2xl font-display font-extrabold text-[var(--ok)] font-mono">
                 {sessionSummary.dominioMedioFinal}%
               </span>
             </div>
 
-            <div className="p-4 rounded-[20px] border border-[#171719]/10 bg-white shadow-xs">
-              <span className="text-[#71717a] block text-[10px] font-bold">DOMINADOS HOJE</span>
-              <span className="text-xl font-extrabold text-[#171719]">
+            <div className="p-4 rounded-[var(--r-md)] border border-[var(--border)] bg-[var(--surface)] shadow-xs">
+              <span className="text-[var(--muted)] block text-[10px] font-extrabold uppercase">DOMINADOS HOJE</span>
+              <span className="text-2xl font-display font-extrabold text-[var(--fg)] font-mono">
                 {sessionSummary.cartasDominadasHoje} 🏆
               </span>
             </div>
 
-            <div className="p-4 rounded-[20px] border border-[#171719]/10 bg-white shadow-xs">
-              <span className="text-[#71717a] block text-[10px] font-bold">XP OBTIDO</span>
-              <span className="text-xl font-extrabold text-[#08ba61]">+{sessionSummary.xpGanhoTotal} XP</span>
+            <div className="p-4 rounded-[var(--r-md)] border border-[var(--border)] bg-[var(--surface)] shadow-xs">
+              <span className="text-[var(--muted)] block text-[10px] font-extrabold uppercase">XP OBTIDO</span>
+              <span className="text-2xl font-display font-extrabold text-[var(--ok)] font-mono">+{sessionSummary.xpGanhoTotal} XP</span>
             </div>
           </div>
 
           {/* Breakdown de Respostas SRS */}
-          <div className="p-5 rounded-[20px] border border-[#171719]/10 bg-white w-full text-left font-mono text-xs space-y-2.5 shadow-xs">
-            <span className="text-[#71717a] font-bold uppercase text-[10px] block">
+          <div className="p-5 rounded-[var(--r-md)] border border-[var(--border)] bg-[var(--surface)] w-full text-left text-xs space-y-2.5 shadow-xs">
+            <span className="text-[var(--muted)] font-extrabold uppercase text-[10px] block">
               Distribuição de Avaliações SRS:
             </span>
             <div className="grid grid-cols-4 gap-2 text-center">
-              <div className="p-2.5 rounded-[9px] bg-rose-500/10 border border-rose-500/30 text-rose-600">
-                <span className="block text-[10px] font-bold">Novamente</span>
-                <span className="text-base font-extrabold">{sessionSummary.novamenteCount}</span>
+              <div className="p-2.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-700">
+                <span className="block text-[10px] font-bold uppercase">Novamente</span>
+                <span className="text-lg font-mono font-extrabold">{sessionSummary.novamenteCount}</span>
               </div>
-              <div className="p-2.5 rounded-[9px] bg-amber-500/10 border border-amber-500/30 text-amber-600">
-                <span className="block text-[10px] font-bold">Difícil</span>
-                <span className="text-base font-extrabold">{sessionSummary.dificilCount}</span>
+              <div className="p-2.5 rounded-xl bg-[var(--sunny)] border border-amber-300 text-amber-900">
+                <span className="block text-[10px] font-bold uppercase">Difícil</span>
+                <span className="text-lg font-mono font-extrabold">{sessionSummary.dificilCount}</span>
               </div>
-              <div className="p-2.5 rounded-[9px] bg-[#1ff98c]/20 border border-[#08ba61]/30 text-[#08ba61]">
-                <span className="block text-[10px] font-bold">Bom</span>
-                <span className="text-base font-extrabold">{sessionSummary.bomCount}</span>
+              <div className="p-2.5 rounded-xl bg-[var(--mint)] border border-[var(--ok)]/30 text-[var(--ok)]">
+                <span className="block text-[10px] font-bold uppercase">Bom</span>
+                <span className="text-lg font-mono font-extrabold">{sessionSummary.bomCount}</span>
               </div>
-              <div className="p-2.5 rounded-[9px] bg-[#ededed] border border-[#171719]/20 text-[#171719]">
-                <span className="block text-[10px] font-bold">Fácil</span>
-                <span className="text-base font-extrabold">{sessionSummary.facilCount}</span>
+              <div className="p-2.5 rounded-xl bg-[oklch(0.96_0.01_84)] border border-[var(--border)] text-[var(--fg)]">
+                <span className="block text-[10px] font-bold uppercase">Fácil</span>
+                <span className="text-lg font-mono font-extrabold">{sessionSummary.facilCount}</span>
               </div>
             </div>
           </div>
@@ -448,7 +455,7 @@ export const FlashcardsView: React.FC<FlashcardsViewProps> = ({
               size="lg"
               variant="default"
               onClick={loadCards}
-              className="font-bold text-xs cursor-pointer gap-1.5 rounded-[9px]"
+              className="font-bold text-xs cursor-pointer gap-1.5 rounded-full"
             >
               <RotateCcw className="w-4 h-4 text-white" />
               <span>REPETIR SESSÃO</span>
@@ -459,9 +466,9 @@ export const FlashcardsView: React.FC<FlashcardsViewProps> = ({
                 variant="outline"
                 size="lg"
                 onClick={() => onPracticeInChat(currentTopic)}
-                className="font-bold text-xs cursor-pointer gap-1.5 border-[#171719]/15 rounded-[9px]"
+                className="font-bold text-xs cursor-pointer gap-1.5 border-[var(--border)] rounded-full"
               >
-                <Headphones className="w-4 h-4 text-[#171719]" />
+                <Headphones className="w-4 h-4 text-[var(--fg)]" />
                 <span>Praticar com Tutor</span>
               </Button>
             )}
@@ -471,7 +478,7 @@ export const FlashcardsView: React.FC<FlashcardsViewProps> = ({
                 variant="ghost"
                 size="lg"
                 onClick={onNavigateToGraph}
-                className="font-bold text-xs cursor-pointer gap-1.5 text-[#71717a] hover:text-[#171719] rounded-[9px]"
+                className="font-bold text-xs cursor-pointer gap-1.5 text-[var(--muted)] hover:text-[var(--fg)] rounded-full"
               >
                 <Brain className="w-4 h-4" />
                 <span>Ver Grafo de Memória</span>
@@ -481,14 +488,14 @@ export const FlashcardsView: React.FC<FlashcardsViewProps> = ({
         </div>
       ) : cards.length === 0 ? (
         <div className="flex-1 flex flex-col items-center justify-center p-8 text-center space-y-4">
-          <BookOpen className="w-12 h-12 text-[#71717a] stroke-1" />
-          <h3 className="text-base font-extrabold text-[#171719]">
+          <BookOpen className="w-12 h-12 text-[var(--muted)] stroke-1" />
+          <h3 className="text-base font-display font-bold text-[var(--fg)]">
             Nenhum cartão encontrado para este filtro
           </h3>
-          <p className="text-xs text-[#71717a] font-mono max-w-md">
+          <p className="text-xs text-[var(--muted)] max-w-md">
             Experimente selecionar "🎯 Todos" ou interaja no chat para que o Grafo de Memória mapeie novos termos.
           </p>
-          <Button onClick={() => setFilterMode('todos')} size="sm" variant="default" className="rounded-[9px] font-bold">
+          <Button onClick={() => setFilterMode('todos')} size="sm" variant="default" className="rounded-full font-bold">
             Mostrar Todos os Cartões
           </Button>
         </div>
@@ -496,26 +503,26 @@ export const FlashcardsView: React.FC<FlashcardsViewProps> = ({
         /* ÁREA PRINCIPAL DO FLASHCARD INTERATIVO COM FRAMER MOTION */
         <div className="flex-1 flex flex-col justify-between items-center w-full space-y-4">
           {/* Barra de Progresso Superior */}
-          <div className="w-full flex items-center justify-between text-xs font-mono">
+          <div className="w-full flex items-center justify-between text-xs">
             <div className="flex items-center space-x-2">
-              <span className="text-[#71717a] font-bold">Progresso:</span>
-              <span className="font-extrabold text-[#171719]">
+              <span className="text-[var(--muted)] font-bold">Progresso:</span>
+              <span className="font-mono font-extrabold text-[var(--fg)]">
                 {currentIndex + 1} / {cards.length}
               </span>
-              <span className="text-[11px] text-[#71717a]">({progressPercent}%)</span>
+              <span className="text-[11px] text-[var(--muted)] font-mono">({progressPercent}%)</span>
             </div>
 
             <div className="flex items-center space-x-3">
-              <span className="text-[#71717a] text-[11px] hidden sm:inline">
-                Domínio: <strong className="text-[#171719] font-bold">{currentCard?.dominio_atual}%</strong>
+              <span className="text-[var(--muted)] text-[11px] hidden sm:inline">
+                Domínio: <strong className="text-[var(--fg)] font-bold font-mono">{currentCard?.dominio_atual}%</strong>
               </span>
-              <div className="w-24 h-1.5 bg-[#ededed] rounded-full overflow-hidden border border-[#171719]/10">
+              <div className="w-24 h-2 bg-[oklch(0.94_0.01_84)] rounded-full overflow-hidden border border-[var(--border)]">
                 <div
                   className={`h-full transition-all duration-300 rounded-full ${
                     (currentCard?.dominio_atual || 0) >= 80
-                      ? 'bg-[#08ba61]'
+                      ? 'bg-[var(--ok)]'
                       : (currentCard?.dominio_atual || 0) >= 50
-                      ? 'bg-amber-500'
+                      ? 'bg-[var(--sunny)]'
                       : 'bg-rose-500'
                   }`}
                   style={{ width: `${currentCard?.dominio_atual || 0}%` }}
@@ -527,8 +534,8 @@ export const FlashcardsView: React.FC<FlashcardsViewProps> = ({
           {/* PALCO 3D COM FRAMER MOTION */}
           <div className="relative w-full max-w-xl h-[360px] sm:h-[400px] flex items-center justify-center [perspective:1200px]">
             {/* Cartas em pilha no fundo para profundidade visual */}
-            <div className="absolute inset-0 max-w-xl mx-auto rounded-[25px] border border-[#171719]/10 bg-[#ededed]/60 -rotate-2 translate-y-3 scale-95 pointer-events-none" />
-            <div className="absolute inset-0 max-w-xl mx-auto rounded-[25px] border border-[#171719]/15 bg-[#ededed]/80 rotate-1 translate-y-1.5 scale-98 pointer-events-none" />
+            <div className="absolute inset-0 max-w-xl mx-auto rounded-[var(--r-lg)] border border-[var(--border)] bg-[oklch(0.96_0.01_84)] -rotate-2 translate-y-3 scale-95 pointer-events-none" />
+            <div className="absolute inset-0 max-w-xl mx-auto rounded-[var(--r-lg)] border border-[var(--border)] bg-[oklch(0.97_0.01_84)] rotate-1 translate-y-1.5 scale-98 pointer-events-none" />
 
             <AnimatePresence mode="wait">
               <motion.div
@@ -546,26 +553,26 @@ export const FlashcardsView: React.FC<FlashcardsViewProps> = ({
                   transition={{ duration: 0.6, ease: [0.23, 1, 0.32, 1] }}
                 >
                   {/* FACE 1: FRENTE DO FLASHCARD */}
-                  <div className="absolute inset-0 w-full h-full bg-white border border-[#171719]/15 rounded-[25px] p-6 sm:p-7 shadow-md flex flex-col justify-between [backface-visibility:hidden]">
+                  <div className="absolute inset-0 w-full h-full bg-[var(--surface)] border border-[var(--border)] rounded-[var(--r-lg)] p-6 sm:p-7 shadow-md flex flex-col justify-between [backface-visibility:hidden]">
                     {/* Topo da Carta: Tags & Pronúncia */}
-                    <div className="flex items-center justify-between border-b border-[#171719]/10 pb-3">
+                    <div className="flex items-center justify-between border-b border-[var(--border)] pb-3">
                       <div className="flex items-center space-x-2">
                         <span className="text-base">{activeTheme.bandeira.split(' ')[0]}</span>
-                        <span className="text-[11px] px-2.5 py-0.5 rounded-full border border-[#171719]/15 bg-[#ededed] text-[#171719] uppercase font-bold">
+                        <span className="text-[11px] px-3 py-0.5 rounded-full border border-[var(--border)] bg-[oklch(0.96_0.01_84)] text-[var(--fg)] uppercase font-bold">
                           {currentCard.tipo.replace('_', ' ')}
                         </span>
                       </div>
 
-                      <div className="flex items-center space-x-1 text-[11px] text-[#71717a]">
-                        <Flame className="w-3.5 h-3.5 text-[#08ba61]" />
-                        <span className="font-bold text-[#171719]">SRS {currentCard.status_srs}</span>
+                      <div className="flex items-center space-x-1 text-[11px] text-[var(--muted)]">
+                        <Flame className="w-3.5 h-3.5 text-[var(--accent-deep)]" />
+                        <span className="font-bold text-[var(--fg)]">SRS {currentCard.status_srs}</span>
                       </div>
                     </div>
 
                     {/* Conteúdo Central da Frente */}
                     <div className="flex-1 flex flex-col items-center justify-center text-center space-y-3 px-2">
                       <div className="flex items-center justify-center space-x-3">
-                        <h3 className="text-2xl sm:text-4xl font-extrabold tracking-tight text-[#171719]">
+                        <h3 className="text-2xl sm:text-4xl font-display font-extrabold tracking-tight text-[var(--fg)]">
                           {invertMode ? currentCard.traducao : currentCard.termo}
                         </h3>
 
@@ -578,30 +585,30 @@ export const FlashcardsView: React.FC<FlashcardsViewProps> = ({
                               rate: 0.9,
                             });
                           }}
-                          className="p-2.5 rounded-full hover:bg-[#ededed] text-[#71717a] hover:text-[#171719] transition cursor-pointer"
+                          className="p-2.5 rounded-full hover:bg-[oklch(0.96_0.01_84)] text-[var(--muted)] hover:text-[var(--fg)] transition cursor-pointer"
                           title="Ouvir pronúncia nativa"
                         >
-                          <Volume2 className="w-5 h-5 text-[#171719]" />
+                          <Volume2 className="w-5 h-5 text-[var(--fg)]" />
                         </button>
                       </div>
 
                       {/* Transcrição IPA */}
                       {currentCard.pronuncia_ipa && !invertMode && (
-                        <p className="text-xs sm:text-sm font-mono text-[#71717a]">
+                        <p className="text-xs sm:text-sm font-mono text-[var(--muted)]">
                           IPA: {currentCard.pronuncia_ipa}
                         </p>
                       )}
 
                       {/* Alerta de Dica ou Falso Amigo */}
                       {currentCard.dica_mnemonica && (
-                        <div className="p-2.5 rounded-[12px] bg-[#1ff98c]/15 border border-[#08ba61]/30 text-[#171719] text-xs max-w-sm font-medium">
+                        <div className="p-3 rounded-2xl bg-[var(--mint)] border border-[var(--ok)]/30 text-[var(--fg)] text-xs max-w-sm font-medium">
                           💡 {currentCard.dica_mnemonica}
                         </div>
                       )}
                     </div>
 
                     {/* Rodapé da Frente: Dica de Virar e Treino de Voz */}
-                    <div className="border-t border-[#171719]/10 pt-3 flex items-center justify-between text-xs text-[#71717a]">
+                    <div className="border-t border-[var(--border)] pt-3 flex items-center justify-between text-xs text-[var(--muted)]">
                       <div className="flex items-center space-x-2">
                         <button
                           type="button"
@@ -610,12 +617,12 @@ export const FlashcardsView: React.FC<FlashcardsViewProps> = ({
                             isRecording ? handleStopVoice() : handleStartVoice();
                           }}
                           disabled={voiceTranscribing}
-                          className={`p-2 rounded-[9px] border flex items-center space-x-1.5 cursor-pointer transition text-xs font-bold ${
+                          className={`px-3 py-1.5 rounded-full border flex items-center space-x-1.5 cursor-pointer transition text-xs font-bold ${
                             isRecording
                               ? 'bg-rose-600 text-white border-rose-600 animate-pulse'
                               : voiceTranscribing
-                              ? 'bg-[#ededed] text-[#71717a] border-[#171719]/15'
-                              : 'bg-white hover:bg-[#ededed] text-[#171719] border-[#171719]/15'
+                              ? 'bg-[oklch(0.96_0.01_84)] text-[var(--muted)] border-[var(--border)]'
+                              : 'bg-[var(--surface)] hover:bg-[oklch(0.96_0.01_84)] text-[var(--fg)] border-[var(--border)]'
                           }`}
                           title="Falar em voz alta para testar pronúncia antes de virar"
                         >
@@ -626,13 +633,13 @@ export const FlashcardsView: React.FC<FlashcardsViewProps> = ({
                         </button>
 
                         {transcribedText && (
-                          <span className="text-[11px] text-[#08ba61] font-bold truncate max-w-[150px]">
+                          <span className="text-[11px] text-[var(--ok)] font-bold truncate max-w-[150px]">
                             "{transcribedText}"
                           </span>
                         )}
                       </div>
 
-                      <div className="flex items-center space-x-1 text-[#71717a] font-bold">
+                      <div className="flex items-center space-x-1 text-[var(--muted)] font-bold">
                         <RotateCw className="w-3.5 h-3.5" />
                         <span>Clique para virar</span>
                       </div>
@@ -640,15 +647,15 @@ export const FlashcardsView: React.FC<FlashcardsViewProps> = ({
                   </div>
 
                   {/* FACE 2: VERSO DO FLASHCARD (RESPOSTA E CONTEXTO) */}
-                  <div className="absolute inset-0 w-full h-full bg-white border-2 border-[#1ff98c] rounded-[25px] p-6 sm:p-7 shadow-xl flex flex-col justify-between [transform:rotateY(180deg)] [backface-visibility:hidden]">
+                  <div className="absolute inset-0 w-full h-full bg-[var(--surface)] border-2 border-[var(--accent-deep)] rounded-[var(--r-lg)] p-6 sm:p-7 shadow-xl flex flex-col justify-between [transform:rotateY(180deg)] [backface-visibility:hidden]">
                     {/* Topo do Verso */}
-                    <div className="flex items-center justify-between border-b border-[#171719]/10 pb-3">
-                      <span className="text-xs font-extrabold text-[#171719] flex items-center gap-1.5">
-                        <CheckCircle2 className="w-4 h-4 text-[#08ba61]" />
+                    <div className="flex items-center justify-between border-b border-[var(--border)] pb-3">
+                      <span className="text-xs font-bold text-[var(--fg)] flex items-center gap-1.5">
+                        <CheckCircle2 className="w-4 h-4 text-[var(--ok)]" />
                         <span>Significado & Contexto</span>
                       </span>
 
-                      <span className="text-[10px] font-mono text-[#71717a] font-bold">
+                      <span className="text-[10px] font-mono text-[var(--muted)] font-bold">
                         Próx. revisão: +{currentCard.intervalo_dias}d
                       </span>
                     </div>
@@ -656,30 +663,30 @@ export const FlashcardsView: React.FC<FlashcardsViewProps> = ({
                     {/* Conteúdo Central do Verso */}
                     <div className="flex-1 flex flex-col justify-center space-y-3.5 text-left py-2">
                       <div>
-                        <span className="text-[10px] font-mono uppercase tracking-wider text-[#71717a] block font-bold">
+                        <span className="text-[10px] uppercase font-extrabold tracking-wider text-[var(--muted)] block">
                           Tradução Principal:
                         </span>
-                        <h4 className="text-xl sm:text-2xl font-extrabold text-[#171719]">
+                        <h4 className="text-xl sm:text-2xl font-display font-extrabold text-[var(--fg)]">
                           {invertMode ? currentCard.termo : currentCard.traducao}
                         </h4>
                       </div>
 
                       {/* Explicação Pedagógica */}
-                      <div className="p-3 rounded-[12px] bg-[#ededed] border border-[#171719]/10 text-xs font-mono text-[#71717a] space-y-1">
-                        <span className="text-[10px] font-extrabold text-[#171719] block uppercase">
+                      <div className="p-3 rounded-2xl bg-[oklch(0.96_0.01_84)] border border-[var(--border)] text-xs text-[var(--fg)] space-y-1">
+                        <span className="text-[10px] font-extrabold text-[var(--fg)] block uppercase">
                           💡 Detalhes do Grafo de Memória:
                         </span>
-                        <p className="leading-relaxed text-[#171719]">
+                        <p className="leading-relaxed text-[var(--fg)]">
                           {currentCard.explicacao}
                         </p>
                       </div>
 
                       {/* Exemplo de Frase no Contexto com Áudio */}
                       {currentCard.exemplo_uso && (
-                        <div className="pt-2 border-t border-[#171719]/10 flex items-start justify-between gap-2">
-                          <div className="space-y-0.5 font-mono text-xs">
-                            <span className="text-[10px] text-[#71717a] block font-bold">Exemplo:</span>
-                            <p className="text-[#171719] italic font-medium">"{currentCard.exemplo_uso}"</p>
+                        <div className="pt-2 border-t border-[var(--border)] flex items-start justify-between gap-2">
+                          <div className="space-y-0.5 text-xs">
+                            <span className="text-[10px] text-[var(--muted)] block font-bold">Exemplo:</span>
+                            <p className="text-[var(--fg)] italic font-medium">"{currentCard.exemplo_uso}"</p>
                           </div>
                           <button
                             type="button"
@@ -690,19 +697,19 @@ export const FlashcardsView: React.FC<FlashcardsViewProps> = ({
                                 rate: 1.0,
                               });
                             }}
-                            className="p-1.5 text-[#71717a] hover:text-[#171719] cursor-pointer shrink-0"
+                            className="p-1.5 text-[var(--muted)] hover:text-[var(--fg)] cursor-pointer shrink-0"
                             title="Ouvir frase completa"
                           >
-                            <Volume2 className="w-4 h-4 text-[#171719]" />
+                            <Volume2 className="w-4 h-4 text-[var(--fg)]" />
                           </button>
                         </div>
                       )}
                     </div>
 
                     {/* Rodapé do Verso */}
-                    <div className="border-t border-[#171719]/10 pt-2 flex items-center justify-between text-[11px] font-mono text-[#71717a]">
+                    <div className="border-t border-[var(--border)] pt-2 flex items-center justify-between text-[11px] text-[var(--muted)]">
                       <span>Avalie seu nível de retenção abaixo:</span>
-                      <span className="text-[#171719] font-bold">[1 - 4]</span>
+                      <span className="text-[var(--fg)] font-bold font-mono">[1 - 4]</span>
                     </div>
                   </div>
                 </motion.div>
@@ -716,62 +723,62 @@ export const FlashcardsView: React.FC<FlashcardsViewProps> = ({
               {/* 1: Novamente (Again) */}
               <button
                 onClick={() => handleGrade(1)}
-                className="p-3 rounded-[9px] border border-rose-500/40 bg-rose-500/10 hover:bg-rose-500/20 text-rose-700 font-mono text-xs font-bold transition flex flex-col items-center justify-center space-y-1 cursor-pointer group"
+                className="p-3 rounded-2xl border border-rose-300 bg-rose-50 hover:bg-rose-100 text-rose-800 text-xs font-bold transition flex flex-col items-center justify-center space-y-1 cursor-pointer group shadow-2xs"
                 title="Não lembrei da resposta (Repetir nesta sessão)"
               >
                 <div className="flex items-center space-x-1">
-                  <XCircle className="w-3.5 h-3.5 text-rose-500" />
+                  <XCircle className="w-3.5 h-3.5 text-rose-600" />
                   <span>Novamente</span>
                 </div>
-                <span className="text-[10px] opacity-75 font-normal">&lt; 1 min [1]</span>
+                <span className="text-[10px] opacity-75 font-normal font-mono">&lt; 1 min [1]</span>
               </button>
 
               {/* 2: Difícil (Hard) */}
               <button
                 onClick={() => handleGrade(2)}
-                className="p-3 rounded-[9px] border border-amber-500/40 bg-amber-500/10 hover:bg-amber-500/20 text-amber-700 font-mono text-xs font-bold transition flex flex-col items-center justify-center space-y-1 cursor-pointer group"
+                className="p-3 rounded-2xl border border-amber-300 bg-[var(--sunny)] hover:bg-amber-100 text-amber-900 text-xs font-bold transition flex flex-col items-center justify-center space-y-1 cursor-pointer group shadow-2xs"
                 title="Lembrei com hesitação ou esforço"
               >
                 <div className="flex items-center space-x-1">
-                  <AlertTriangle className="w-3.5 h-3.5 text-amber-500" />
+                  <AlertTriangle className="w-3.5 h-3.5 text-amber-700" />
                   <span>Difícil</span>
                 </div>
-                <span className="text-[10px] opacity-75 font-normal">1 dia [2]</span>
+                <span className="text-[10px] opacity-75 font-normal font-mono">1 dia [2]</span>
               </button>
 
               {/* 3: Bom (Good) */}
               <button
                 onClick={() => handleGrade(3)}
-                className="p-3 rounded-[9px] border border-[#08ba61]/40 bg-[#1ff98c]/20 hover:bg-[#1ff98c]/30 text-[#08ba61] font-mono text-xs font-bold transition flex flex-col items-center justify-center space-y-1 cursor-pointer group"
+                className="p-3 rounded-2xl border border-[var(--ok)]/30 bg-[var(--mint)] hover:bg-[var(--accent)] text-[var(--ok)] text-xs font-bold transition flex flex-col items-center justify-center space-y-1 cursor-pointer group shadow-2xs"
                 title="Resposta correta e tempo adequado"
               >
                 <div className="flex items-center space-x-1">
-                  <CheckCircle2 className="w-3.5 h-3.5 text-[#08ba61]" />
+                  <CheckCircle2 className="w-3.5 h-3.5 text-[var(--ok)]" />
                   <span>Bom</span>
                 </div>
-                <span className="text-[10px] opacity-75 font-normal">3 dias [3]</span>
+                <span className="text-[10px] opacity-75 font-normal font-mono">3 dias [3]</span>
               </button>
 
               {/* 4: Fácil (Easy) */}
               <button
                 onClick={() => handleGrade(4)}
-                className="p-3 rounded-[9px] border border-[#171719]/20 bg-[#ededed] hover:bg-[#171719] hover:text-[#1ff98c] text-[#171719] font-mono text-xs font-bold transition flex flex-col items-center justify-center space-y-1 cursor-pointer group"
+                className="p-3 rounded-2xl border border-[var(--border)] bg-[oklch(0.96_0.01_84)] hover:bg-[var(--fg)] hover:text-[var(--accent)] text-[var(--fg)] text-xs font-bold transition flex flex-col items-center justify-center space-y-1 cursor-pointer group shadow-2xs"
                 title="Domínio imediato e seguro"
               >
                 <div className="flex items-center space-x-1">
-                  <Sparkles className="w-3.5 h-3.5 text-[#08ba61]" />
+                  <Sparkles className="w-3.5 h-3.5 text-[var(--accent-deep)]" />
                   <span>Fácil</span>
                 </div>
-                <span className="text-[10px] opacity-75 font-normal">7 dias [4]</span>
+                <span className="text-[10px] opacity-75 font-normal font-mono">7 dias [4]</span>
               </button>
             </div>
 
             {/* Dica de Navegação Rápida */}
-            <div className="flex items-center justify-between text-[11px] font-mono text-[#71717a] px-1">
+            <div className="flex items-center justify-between text-[11px] text-[var(--muted)] px-1">
               <span>💡 Dica: [Espaço] para virar carta, [1-4] para avaliar retenção.</span>
               <button
                 onClick={handleFlip}
-                className="underline hover:text-[#171719] cursor-pointer font-bold"
+                className="underline hover:text-[var(--fg)] cursor-pointer font-bold"
               >
                 {isFlipped ? 'Mostrar Frente' : 'Mostrar Verso'}
               </button>
@@ -782,3 +789,4 @@ export const FlashcardsView: React.FC<FlashcardsViewProps> = ({
     </div>
   );
 };
+

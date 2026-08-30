@@ -4,21 +4,21 @@ import { cva, type VariantProps } from "class-variance-authority"
 import { cn } from "@/lib/utils"
 
 const badgeVariants = cva(
-  "inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold tracking-tight transition-all duration-300",
+  "inline-flex items-center rounded-full border px-3 py-0.5 text-xs font-extrabold tracking-tight transition-all duration-200",
   {
     variants: {
       variant: {
         default:
-          "border-transparent bg-[#08ba61] text-white hover:bg-[#07a656]",
+          "border-transparent bg-[var(--accent)] text-[var(--fg)] shadow-xs",
         accent:
-          "border-[#171719]/20 bg-[#1ff98c] text-[#171719] font-bold shadow-xs",
+          "border-transparent bg-[var(--sunny)] text-[var(--fg)] font-extrabold shadow-xs",
         secondary:
-          "border-[#171719]/10 bg-[#ededed] text-[#171719]",
+          "border-transparent bg-[var(--accent-soft)] text-[var(--accent-deep)] font-bold",
         dark:
-          "border-transparent bg-[#171719] text-white",
+          "border-transparent bg-[var(--fg)] text-white font-bold",
         destructive:
-          "border-transparent bg-destructive text-destructive-foreground hover:bg-destructive/80",
-        outline: "border-[#171719]/20 text-[#171719] bg-white",
+          "border-transparent bg-rose-100 text-rose-800 border-rose-300 font-bold",
+        outline: "border-[var(--border)] text-[var(--fg)] bg-[var(--surface)] font-bold",
       },
     },
     defaultVariants: {
@@ -41,3 +41,4 @@ function Badge({ className, variant, ...props }: BadgeProps) {
 }
 
 export { Badge, badgeVariants }
+

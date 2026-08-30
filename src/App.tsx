@@ -11,25 +11,63 @@ import { WeeklyDashboard } from './components/WeeklyDashboard';
 import { AchievementsView } from './components/AchievementsView';
 import { LanguageThemeSelector } from './components/LanguageThemeSelector';
 import { ScreenCaptureModal } from './components/ScreenCaptureModal';
-import { UserStats, LanguageThemeId } from './types';
+import { AuthModal } from './components/AuthModal';
+import { SharedPacksModal } from './components/SharedPacksModal';
+import { AdminView } from './components/AdminView';
+import { OnboardingWizardModal } from './components/OnboardingWizardModal';
+import { UserStats, LanguageThemeId, UserProfile, GeneratedStudyPlan } from './types';
 import { StorageService } from './services/storage';
 import { getLanguageTheme, detectLanguageTheme } from './services/languageThemes';
+import { onAuthChange, syncUserProfile } from './services/firebase';
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<string>('home');
   const [currentTopic, setCurrentTopic] = useState<string>('Inglês: Connected Speech & Pronúncia Natural');
   const [stats, setStats] = useState<UserStats>(StorageService.getStats());
+  const [currentUser, setCurrentUser] = useState<UserProfile | null>(null);
+
   const [showTopicModal, setShowTopicModal] = useState(false);
   const [showScreenshotModal, setShowScreenshotModal] = useState(false);
+  const [showAuthModal, setShowAuthModal] = useState(false);
+  const [showSharedPacksModal, setShowSharedPacksModal] = useState(false);
+  const [showOnboardingModal, setShowOnboardingModal] = useState(() => !StorageService.hasCompletedOnboarding());
   const [customTopicInput, setCustomTopicInput] = useState('');
 
   // Identificação do Tema do Idioma Ativo
   const activeLanguageTheme = getLanguageTheme(stats.idioma_ativo || currentTopic);
 
   useEffect(() => {
-    // Sincroniza dados iniciais
-    setStats(StorageService.getStats());
+    // Escuta mudanças de estado de autenticação do Firebase
+    const unsubscribe = onAuthChange(async (profile) => {
+      if (profile) {
+        setCurrentUser(profile);
+        StorageService.setCurrentUser(profile);
+        await StorageService.hydrateFromCloud(profile.uid);
+        setStats(StorageService.getStats());
+      } else {
+        // Sem usuário logado (usar perfil convidado padrão)
+        setCurrentUser(null);
+        StorageService.setCurrentUser(null);
+        setStats(StorageService.getStats());
+      }
+    });
+
+    return () => unsubscribe();
   }, []);
+
+  const handleUserAuthSuccess = async (profile: UserProfile) => {
+    setCurrentUser(profile);
+    StorageService.setCurrentUser(profile);
+    await StorageService.hydrateFromCloud(profile.uid);
+    setStats(StorageService.getStats());
+  };
+
+  const handleUserLogout = () => {
+    setCurrentUser(null);
+    StorageService.setCurrentUser(null);
+    setStats(StorageService.getStats());
+    setActiveTab('home');
+  };
 
   const handleUpdateStats = (newStats: UserStats) => {
     setStats(newStats);
@@ -92,6 +130,24 @@ export default function App() {
     'Japonês: Frases Essenciais & Estrutura Contextual',
   ];
 
+  const handlePlanApplied = (plan: GeneratedStudyPlan) => {
+    const updatedStats = StorageService.getStats();
+    setStats(updatedStats);
+    
+    // Evita duplicação do prefixo do idioma (ex: Francês: Francês: ...)
+    let cleanTopic = plan.topico_inicial_recomendado || `${plan.idioma}: Conversação & Prática Inicial`;
+    const langPrefix = `${plan.idioma}:`;
+    if (cleanTopic.toLowerCase().startsWith(langPrefix.toLowerCase())) {
+      cleanTopic = `${plan.idioma}:${cleanTopic.slice(langPrefix.length)}`;
+    } else if (!cleanTopic.toLowerCase().startsWith(plan.idioma.toLowerCase())) {
+      cleanTopic = `${plan.idioma}: ${cleanTopic}`;
+    }
+    
+    setCurrentTopic(cleanTopic);
+    setShowOnboardingModal(false);
+    setActiveTab('chat');
+  };
+
   return (
     <div
       data-lang-theme={activeLanguageTheme.id}
@@ -110,9 +166,13 @@ export default function App() {
         setActiveTab={setActiveTab}
         stats={stats}
         currentTopic={currentTopic}
+        currentUser={currentUser}
         onTopicClick={() => setShowTopicModal(true)}
         onResetData={handleResetData}
         onOpenScreenshotModal={() => setShowScreenshotModal(true)}
+        onOpenAuthModal={() => setShowAuthModal(true)}
+        onOpenSharedPacksModal={() => setShowSharedPacksModal(true)}
+        onLogout={handleUserLogout}
       />
 
       {/* Main View Container */}
@@ -124,6 +184,7 @@ export default function App() {
                 stats={stats}
                 currentTopic={currentTopic}
                 onNavigate={(tab) => setActiveTab(tab)}
+                onOpenOnboarding={() => setShowOnboardingModal(true)}
               />
             )}
 
@@ -198,6 +259,13 @@ export default function App() {
                 onResetData={handleResetData}
               />
             )}
+
+            {activeTab === 'admin' && currentUser && (
+              <AdminView
+                currentUser={currentUser}
+                onImportPackToCurrentBase={() => setStats(StorageService.getStats())}
+              />
+            )}
           </div>
         </main>
       </div>
@@ -205,14 +273,22 @@ export default function App() {
       {/* Footer */}
       <footer className="max-w-6xl mx-auto w-full px-6 py-6 text-xs sm:text-sm text-[var(--muted)] flex items-center justify-between gap-4 flex-wrap border-t border-[var(--border)] mt-auto">
         <span>
-          <strong className="font-display text-[var(--fg)]">Lingo</strong> · tutor de idiomas com memória relacional em grafo
+          <strong className="font-display text-[var(--fg)]">Lingo</strong> · tutor de idiomas com memória relacional em grafo & bases compartilhadas
         </span>
-        <button
-          onClick={handleResetData}
-          className="text-[var(--accent-deep)] hover:underline font-extrabold cursor-pointer"
-        >
-          Restaurar dados padrão
-        </button>
+        <div className="flex items-center gap-4">
+          <button
+            onClick={() => setShowSharedPacksModal(true)}
+            className="text-[var(--muted)] hover:text-[var(--fg)] font-semibold cursor-pointer"
+          >
+            Bases Públicas
+          </button>
+          <button
+            onClick={handleResetData}
+            className="text-[var(--accent-deep)] hover:underline font-extrabold cursor-pointer"
+          >
+            Restaurar dados padrão
+          </button>
+        </div>
       </footer>
 
       {/* Modal para Alteração de Tópico & Idioma */}
@@ -236,6 +312,29 @@ export default function App() {
                 className="text-[var(--muted)] hover:text-[var(--fg)] p-2 rounded-full hover:bg-[oklch(0.955_0.012_84)] transition cursor-pointer"
               >
                 ✕
+              </button>
+            </div>
+
+            {/* Atalho para o Assistente de Configuração com IA */}
+            <div className="p-4 rounded-2xl bg-gradient-to-r from-[var(--accent-soft)] to-[oklch(0.96_0.02_84)] border border-[var(--accent)] flex items-center justify-between gap-4 flex-wrap text-left">
+              <div className="space-y-0.5">
+                <span className="text-xs font-extrabold text-[var(--accent-deep)] flex items-center gap-1.5">
+                  <span>🚀 NOVO</span>
+                  <span>·</span>
+                  <span>Assistente com Inteligência Artificial</span>
+                </span>
+                <p className="text-xs text-[var(--fg)] font-medium">
+                  Gere um plano de estudos sob medida com base nos seus interesses e tempo.
+                </p>
+              </div>
+              <button
+                onClick={() => {
+                  setShowTopicModal(false);
+                  setShowOnboardingModal(true);
+                }}
+                className="px-4 py-2 rounded-full font-extrabold text-xs bg-[var(--accent)] text-[var(--fg)] hover:bg-[var(--accent-deep)] transition shadow-xs cursor-pointer"
+              >
+                Abrir Assistente
               </button>
             </div>
 
@@ -304,6 +403,32 @@ export default function App() {
           </div>
         </div>
       )}
+
+      {/* Modal de Autenticação / Login */}
+      <AuthModal
+        isOpen={showAuthModal}
+        onClose={() => setShowAuthModal(false)}
+        onSuccess={handleUserAuthSuccess}
+      />
+
+      {/* Modal de Bases Compartilhadas */}
+      <SharedPacksModal
+        isOpen={showSharedPacksModal}
+        onClose={() => setShowSharedPacksModal(false)}
+        currentUser={currentUser}
+        onImportSuccess={() => {
+          setStats(StorageService.getStats());
+          setActiveTab('materials');
+        }}
+      />
+
+      {/* Modal do Assistente de Configuração Inteligente */}
+      <OnboardingWizardModal
+        isOpen={showOnboardingModal}
+        onClose={() => setShowOnboardingModal(false)}
+        onPlanApplied={handlePlanApplied}
+        currentStats={stats}
+      />
 
       {/* Modal de Captura de Telas em PNG */}
       <ScreenCaptureModal

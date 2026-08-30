@@ -52,9 +52,13 @@ import { PronunciationScoreCard } from './PronunciationScoreCard';
 import { SpeechRateVisualizer } from './SpeechRateVisualizer';
 import { SpeechRateCoachModal } from './SpeechRateCoachModal';
 import { AudioSpectrumVisualizer } from './AudioSpectrumVisualizer';
+import { PronunciationWaveformVisualizer } from './PronunciationWaveformVisualizer';
 import { TutorVoiceWaveform } from './TutorVoiceWaveform';
+import { WordContextModal } from './WordContextModal';
+import { InteractiveWordText } from './InteractiveWordText';
+import { playSfx } from '../services/soundEffects';
+import { saveFrequentErrorToCloud, auth } from '../services/firebase';
 import { CornerPlus } from './ui/corner-plus';
-import { BorderTrail } from './ui/border-trail';
 import { Button } from './ui/button';
 import { Badge } from './ui/badge';
 import { SectionHeader } from './ui/section-header';
@@ -89,6 +93,12 @@ export const ChatTutor: React.FC<ChatTutorProps> = ({
   const [isLiveModalOpen, setIsLiveModalOpen] = useState(false);
   // Modal de Prática de Pronúncia & Análise Espectral
   const [isPronunciationModalOpen, setIsPronunciationModalOpen] = useState(false);
+  const [practiceWordForModal, setPracticeWordForModal] = useState<string | undefined>(undefined);
+
+  // Modal de Contexto de Palavras & Dicionário Ativo (Word Click)
+  const [selectedWordForContext, setSelectedWordForContext] = useState<string | null>(null);
+  const [contextSentenceForWord, setContextSentenceForWord] = useState<string>('');
+  const [isWordContextOpen, setIsWordContextOpen] = useState(false);
 
   // Estados de Gravação de Voz simples (Single Shot)
   const [isRecording, setIsRecording] = useState(false);
@@ -142,7 +152,7 @@ export const ChatTutor: React.FC<ChatTutorProps> = ({
       unsubscribeSpeech();
       SpeechService.stop();
     };
-  }, []);
+  }, [currentTopic, stats.idioma_ativo]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -162,6 +172,7 @@ export const ChatTutor: React.FC<ChatTutorProps> = ({
     const content = (textToSend || inputText).trim();
     if (!content || isLoading) return;
 
+    playSfx('pop');
     setInputText('');
     setReviewVoiceText(null);
     setReviewVoiceAudioBase64(null);
@@ -205,6 +216,8 @@ export const ChatTutor: React.FC<ChatTutorProps> = ({
       const graphContext = GraphEngine.getRelevantContext(currentTopic, content, 5);
       const recentCorrections = StorageService.getCorrections().slice(0, 3);
       const computedAdaptation = GraphEngine.analyzeStudentComprehension(currentTopic, content);
+      const activePlan = StorageService.getStudyPlan();
+      const currentLanguage = stats.idioma_ativo || activePlan?.idioma || 'Inglês';
 
       // 2. Chama a API do Tutor Pedagógico
       const res = await fetch('/api/chat', {
@@ -217,7 +230,11 @@ export const ChatTutor: React.FC<ChatTutorProps> = ({
             content: m.conteudo,
           })),
           topico_atual: currentTopic,
-          nivel_estudante: studentLevel,
+          idioma_alvo: currentLanguage,
+          nivel_estudante: stats.nivel_cefr || studentLevel,
+          plano_estudo: activePlan,
+          motivo_estudo: activePlan?.motivo_principal,
+          interesses: activePlan?.interesses_principais,
           contexto_grafo: graphContext,
           correcoes_recentes: recentCorrections,
           preferencia_adaptacao:
@@ -257,6 +274,29 @@ export const ChatTutor: React.FC<ChatTutorProps> = ({
           respondido_corretamente: false,
         };
         StorageService.addCorrection(pedagogicalCorrection);
+
+        // Salva automaticamente na lista de Erros Frequentes do Firestore
+        try {
+          const currentAuthUser = auth.currentUser;
+          const targetUid = currentAuthUser ? currentAuthUser.uid : (stats.userId || 'guest_student');
+          saveFrequentErrorToCloud({
+            id: pedagogicalCorrection.id,
+            userId: targetUid,
+            userEmail: currentAuthUser?.email || undefined,
+            userName: currentAuthUser?.displayName || undefined,
+            conceito: pedagogicalCorrection.conceito,
+            erro: pedagogicalCorrection.erro,
+            explicacao: pedagogicalCorrection.explicacao,
+            resposta_corrigida: pedagogicalCorrection.resposta_corrigida,
+            gravidade: pedagogicalCorrection.gravidade,
+            evidencia: pedagogicalCorrection.evidencia,
+            topico: currentTopic,
+            categoria: 'gramatica',
+            data: pedagogicalCorrection.data,
+          });
+        } catch (cloudErr) {
+          console.warn('Erro ao salvar erro frequente no Firestore:', cloudErr);
+        }
       }
 
       // 6. Atribui XP e atualiza gamificação
@@ -273,11 +313,14 @@ export const ChatTutor: React.FC<ChatTutorProps> = ({
       }
 
       if (xpResult.subiu_nivel) {
+        playSfx('level_up');
         confetti({
           particleCount: 80,
           spread: 70,
           origin: { y: 0.6 },
         });
+      } else {
+        playSfx('notification');
       }
 
       // 7. Mensagem de resposta do Tutor com Metadados de Adaptação
@@ -499,6 +542,7 @@ export const ChatTutor: React.FC<ChatTutorProps> = ({
       );
 
       if (acertou) {
+        playSfx('success');
         StorageService.addXP(40);
         onUpdateStats(StorageService.getStats());
         confetti({
@@ -506,6 +550,8 @@ export const ChatTutor: React.FC<ChatTutorProps> = ({
           spread: 60,
           origin: { y: 0.7 },
         });
+      } else {
+        playSfx('error');
       }
 
       // Avalia conquistas (especialmente Detetive de Erros)
@@ -607,12 +653,58 @@ export const ChatTutor: React.FC<ChatTutorProps> = ({
     setIsVoiceLoading(false);
   };
 
-  const quickPrompts = [
-    `Simule um diálogo casual de roleplay sobre ${currentTopic}`,
-    `Quais falsos cognatos e erros de tradução ocorrem em ${currentTopic}?`,
-    `Me dê 3 phrasal verbs ou expressões naturais sobre ${currentTopic}`,
-    `Faça uma pergunta desafiadora em inglês para testar minha resposta`,
-  ];
+  const activePlan = StorageService.getStudyPlan();
+  const currentLang = stats.idioma_ativo || activePlan?.idioma || 'Inglês';
+
+  const getLanguageQuickPrompts = () => {
+    const topicClean = currentTopic.replace(/^(Francês|Inglês|Espanhol|Alemão|Italiano|Japonês):\s*/i, '');
+    if (activePlan) {
+      if (currentLang === 'Francês') {
+        return [
+          `Bonjour ! Comment puis-je me présenter naturellement en français ?`,
+          `Simule um diálogo prático sobre ${topicClean} em francês`,
+          `Quelles sont les expressions clés pour ${topicClean} ?`,
+          `Pode me fazer uma pergunta em francês sobre meu foco (${activePlan.motivo_principal})?`,
+        ];
+      }
+      if (currentLang === 'Espanhol') {
+        return [
+          `¡Hola! ¿Cómo puedo iniciar una conversación natural sobre ${topicClean}?`,
+          `Simule um diálogo casual de roleplay sobre ${topicClean} em espanhol`,
+          `¿Cuáles son los falsos amigos más comunes en ${topicClean}?`,
+          `Hazme una pregunta en español para poner a prueba mi fluidez`,
+        ];
+      }
+      if (currentLang === 'Inglês') {
+        return [
+          `Hello! Let's start our conversation about ${topicClean}`,
+          `Simule um diálogo casual de roleplay sobre ${topicClean}`,
+          `What are the most natural expressions and idioms for ${topicClean}?`,
+          `Ask me a challenging question in English about ${topicClean}`,
+        ];
+      }
+      return [
+        `Olá! Vamos começar nossa prática de ${currentLang} focada em ${topicClean}`,
+        `Simule um diálogo prático sobre ${topicClean} em ${currentLang}`,
+        `Quais expressões essenciais devo saber para ${topicClean}?`,
+        `Faça uma pergunta para testar minha conversação em ${currentLang}`,
+      ];
+    }
+    return [
+      `Simule um diálogo casual de roleplay sobre ${currentTopic}`,
+      `Quais falsos cognatos e erros de tradução ocorrem em ${currentTopic}?`,
+      `Me dê 3 expressões naturais e práticas sobre ${currentTopic}`,
+      `Faça uma pergunta desafiadora em ${currentLang} para testar minha resposta`,
+    ];
+  };
+
+  const quickPrompts = getLanguageQuickPrompts();
+
+  const handleResetToPlan = () => {
+    const updated = StorageService.resetChatToStudyPlan(activePlan || undefined);
+    setMessages(updated);
+    playSfx('success');
+  };
 
   // Coleta todas as métricas de taxa de fala das mensagens faladas do usuário na sessão
   const allSpokenMetrics: SpeechRateMetrics[] = messages
@@ -655,6 +747,29 @@ export const ChatTutor: React.FC<ChatTutorProps> = ({
         allSpokenMetrics={allSpokenMetrics}
       />
 
+      {/* Banner de Plano de Estudos Ativo (se houver) */}
+      {activePlan && (
+        <div className="mb-2.5 p-2.5 sm:px-4 bg-primary/5 border border-primary/20 rounded-xl flex items-center justify-between gap-3 text-xs">
+          <div className="flex items-center gap-2 overflow-hidden">
+            <span className="text-sm">🎯</span>
+            <div className="truncate">
+              <span className="font-bold text-foreground">Plano Ativo:</span>{' '}
+              <span className="font-semibold text-primary">{activePlan.titulo_plano || `${activePlan.idioma} Personalizado`}</span>
+              <span className="hidden md:inline text-muted-foreground ml-2">
+                • Nível {activePlan.nivel_cefr} • Foco: {activePlan.motivo_principal} ({activePlan.meta_diaria_minutos} min/dia)
+              </span>
+            </div>
+          </div>
+          <button
+            onClick={handleResetToPlan}
+            className="shrink-0 text-[11px] font-bold text-primary hover:underline flex items-center gap-1 cursor-pointer bg-primary/10 hover:bg-primary/20 px-2.5 py-1 rounded-full transition"
+            title="Reiniciar a conversa para o tópico inicial do seu plano de estudos"
+          >
+            <span>Reiniciar com o Plano</span>
+          </button>
+        </div>
+      )}
+
       {/* Barra Superior do Chat */}
       <div className="relative bg-card border border-border/80 rounded-2xl p-3.5 sm:p-4 mb-3 shadow-xs flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center space-x-3">
@@ -683,23 +798,23 @@ export const ChatTutor: React.FC<ChatTutorProps> = ({
             variant="outline"
             size="sm"
             onClick={() => setIsSpeechRateCoachOpen(true)}
-            className="gap-1.5 text-xs font-bold cursor-pointer rounded-[9px]"
+            className="gap-1.5 text-xs font-bold cursor-pointer rounded-full"
             title="Abrir treinador e medidor de taxa de fala (palavras por minuto)"
           >
-            <Gauge className="w-3.5 h-3.5 text-[#171719]" />
+            <Gauge className="w-3.5 h-3.5 text-[var(--fg)]" />
             <span className="hidden sm:inline">Taxa de Fala (WPM)</span>
             <span className="sm:hidden">WPM</span>
           </Button>
 
           {/* Botão de Modo Ouvir Apenas (Treinamento Auditivo & Onda Sonora) */}
           <Button
-            variant={isListenOnlyMode ? 'accent' : 'outline'}
+            variant={isListenOnlyMode ? 'default' : 'outline'}
             size="sm"
             onClick={handleToggleListenOnly}
-            className="gap-1.5 text-xs font-bold cursor-pointer rounded-[9px]"
+            className="gap-1.5 text-xs font-bold cursor-pointer rounded-full"
             title="Ativar/desativar modo de treino auditivo (pausa microfone e foca na escuta e ondas sonoras)"
           >
-            <Headphones className={`w-3.5 h-3.5 ${isListenOnlyMode ? 'animate-bounce text-[#171719]' : 'text-[#171719]'}`} />
+            <Headphones className={`w-3.5 h-3.5 ${isListenOnlyMode ? 'animate-bounce text-[var(--accent)]' : 'text-[var(--fg)]'}`} />
             <span className="hidden sm:inline">
               {isListenOnlyMode ? 'Ouvir Apenas: ATIVO' : 'Modo Ouvir Apenas'}
             </span>
@@ -711,10 +826,10 @@ export const ChatTutor: React.FC<ChatTutorProps> = ({
             variant="outline"
             size="sm"
             onClick={() => setIsPronunciationModalOpen(true)}
-            className="gap-1.5 text-xs font-bold cursor-pointer rounded-[9px]"
+            className="gap-1.5 text-xs font-bold cursor-pointer rounded-full"
             title="Praticar pronúncia com visualizador de espectro de áudio em tempo real"
           >
-            <Mic className="w-3.5 h-3.5 text-[#171719]" />
+            <Mic className="w-3.5 h-3.5 text-[var(--fg)]" />
             <span className="hidden sm:inline">Treino de Pronúncia</span>
             <span className="sm:hidden">Pronúncia</span>
           </Button>
@@ -722,23 +837,23 @@ export const ChatTutor: React.FC<ChatTutorProps> = ({
           {/* Botão de Destaque: Gemini Live Voice */}
           <Button
             size="sm"
-            variant="dark"
+            variant="default"
             onClick={() => setIsLiveModalOpen(true)}
-            className="gap-1.5 text-xs font-bold cursor-pointer rounded-[9px]"
+            className="gap-1.5 text-xs font-bold cursor-pointer rounded-full bg-[var(--fg)] text-[var(--bg)] hover:bg-[var(--fg)]/90"
             title="Iniciar conversa por voz em tempo real com o Gemini Live API"
           >
-            <Radio className="w-3.5 h-3.5 animate-pulse text-[#1ff98c]" />
+            <Radio className="w-3.5 h-3.5 animate-pulse text-[var(--accent)]" />
             <span>Voz Live (API)</span>
           </Button>
 
           {/* Seletor de Modo de Adaptação Dinâmica */}
-          <div className="flex items-center space-x-1.5 bg-[#ededed] border border-[#171719]/10 px-2.5 py-1 rounded-[9px] text-xs">
-            <Sliders className="w-3 h-3 text-[#171719]" />
-            <span className="text-[#171719]/70 font-bold text-[10px] uppercase hidden lg:inline">ADAPTAÇÃO:</span>
+          <div className="flex items-center space-x-1.5 bg-[oklch(0.96_0.01_84)] border border-[var(--border)] px-3 py-1 rounded-full text-xs">
+            <Sliders className="w-3 h-3 text-[var(--fg)]" />
+            <span className="text-[var(--muted)] font-extrabold text-[10px] uppercase hidden lg:inline">ADAPTAÇÃO:</span>
             <select
               value={adaptationPreference}
               onChange={(e) => setAdaptationPreference(e.target.value as any)}
-              className="bg-transparent font-bold text-[#171719] focus:outline-none cursor-pointer text-xs"
+              className="bg-transparent font-bold text-[var(--fg)] focus:outline-none cursor-pointer text-xs"
               title="Calibração da complexidade pedagógica"
             >
               <option value="auto">🧠 Auto (Grafo)</option>
@@ -749,17 +864,17 @@ export const ChatTutor: React.FC<ChatTutorProps> = ({
           </div>
 
           {/* Seletor de Voz Neural IA (Gemini 3.1 Flash TTS) */}
-          <div className="flex items-center space-x-1.5 bg-[#ededed] border border-[#171719]/10 px-2.5 py-1 rounded-[9px] text-xs">
-            <Volume2 className="w-3 h-3 text-[#171719]" />
-            <span className="text-[#171719]/70 font-bold text-[10px] uppercase hidden md:inline">VOZ IA:</span>
+          <div className="flex items-center space-x-1.5 bg-[oklch(0.96_0.01_84)] border border-[var(--border)] px-3 py-1 rounded-full text-xs">
+            <Volume2 className="w-3 h-3 text-[var(--fg)]" />
+            <span className="text-[var(--muted)] font-extrabold text-[10px] uppercase hidden md:inline">VOZ IA:</span>
             <select
               value={selectedVoice}
               onChange={(e) => handleVoiceChange(e.target.value)}
-              className="bg-transparent font-bold text-[#171719] focus:outline-none cursor-pointer text-xs"
+              className="bg-transparent font-bold text-[var(--fg)] focus:outline-none cursor-pointer text-xs"
               title="Selecione a persona de voz neural do Gemini para reprodução hiper-realista"
             >
               {NEURAL_VOICES.map((v) => (
-                <option key={v.id} value={v.id} className="bg-white text-[#171719]">
+                <option key={v.id} value={v.id} className="bg-[var(--surface)] text-[var(--fg)]">
                   ✨ {v.name}
                 </option>
               ))}
@@ -769,7 +884,7 @@ export const ChatTutor: React.FC<ChatTutorProps> = ({
           {/* Limpar Histórico */}
           <button
             onClick={handleClearHistory}
-            className="p-2 text-[#71717a] hover:text-[#171719] hover:bg-[#ededed] rounded-[9px] border border-transparent hover:border-[#171719]/10 transition cursor-pointer"
+            className="p-2 text-[var(--muted)] hover:text-[var(--fg)] hover:bg-[oklch(0.96_0.01_84)] rounded-full border border-transparent hover:border-[var(--border)] transition cursor-pointer"
             title="Limpar histórico da conversa"
           >
             <Trash2 className="w-3.5 h-3.5" />
@@ -778,31 +893,20 @@ export const ChatTutor: React.FC<ChatTutorProps> = ({
       </div>
 
       {/* Painel Central de Mensagens */}
-      <div className="relative flex-1 bg-white border border-[#171719]/10 rounded-[25px] p-4 sm:p-6 overflow-y-auto space-y-4 shadow-sm overflow-hidden flex flex-col">
-        <CornerPlus />
-        {(isLoading || isRecording) && (
-          <BorderTrail
-            style={{
-              boxShadow:
-                '0px 0px 60px 30px rgba(31, 249, 140, 0.4), 0 0 100px 60px rgba(8, 186, 97, 0.3)',
-            }}
-            size={100}
-          />
-        )}
-
+      <div className="relative flex-1 bg-[var(--surface)] border border-[var(--border)] rounded-[var(--r-lg)] p-4 sm:p-6 overflow-y-auto space-y-4 shadow-sm overflow-hidden flex flex-col">
         {messages.length === 0 && (
           <div className="h-full flex flex-col items-center justify-center text-center p-6 space-y-4">
-            <div className="w-14 h-14 rounded-[14px] bg-[#1ff98c] border border-[#171719]/20 flex items-center justify-center text-[#171719] shadow-sm">
-              <Sparkles className="w-6 h-6 text-[#171719]" />
+            <div className="w-14 h-14 rounded-2xl bg-[var(--accent)] border border-[var(--border)] flex items-center justify-center text-[var(--fg)] shadow-xs">
+              <Sparkles className="w-6 h-6 text-[var(--fg)]" />
             </div>
             <div className="max-w-md space-y-1.5">
-              <div className="inline-flex items-center rounded-full border border-[#171719]/15 bg-[#ededed] px-3 py-0.5 font-mono text-[10px] font-bold text-[#171719] uppercase tracking-wider">
+              <div className="inline-flex items-center rounded-full border border-[var(--border)] bg-[oklch(0.96_0.01_84)] px-3 py-0.5 font-mono text-[10px] font-extrabold text-[var(--fg)] uppercase tracking-wider">
                 ACTIVE LEARNING SESSION
               </div>
-              <h3 className="text-lg font-extrabold tracking-tight text-[#171719]">
+              <h3 className="text-xl font-display font-bold tracking-tight text-[var(--fg)]">
                 Pronto para iniciar sua sessão de aprendizado ativo!
               </h3>
-              <p className="text-xs text-[#71717a] leading-relaxed">
+              <p className="text-xs text-[var(--muted)] leading-relaxed">
                 Converse com o tutor por texto ou voz. Suas dúvidas, equívocos e domínios serão
                 mapeados dinamicamente no seu Grafo de Conhecimento.
               </p>
@@ -810,16 +914,16 @@ export const ChatTutor: React.FC<ChatTutorProps> = ({
 
             <div className="w-full max-w-lg pt-2 space-y-3">
               {/* Card de Ação Rápida: Gemini Live */}
-              <div className="relative p-4 bg-[#ededed] border border-[#171719]/10 rounded-[20px] flex items-center justify-between shadow-xs gap-3">
+              <div className="relative p-4 bg-[oklch(0.97_0.01_84)] border border-[var(--border)] rounded-[var(--r-md)] flex items-center justify-between shadow-xs gap-3">
                 <div className="flex items-center space-x-3 text-left">
-                  <div className="w-9 h-9 rounded-[9px] bg-[#171719] text-[#1ff98c] flex items-center justify-center shrink-0">
-                    <Radio className="w-4 h-4 animate-pulse" />
+                  <div className="w-10 h-10 rounded-xl bg-[var(--fg)] text-[var(--accent)] flex items-center justify-center shrink-0">
+                    <Radio className="w-5 h-5 animate-pulse" />
                   </div>
                   <div>
-                    <h4 className="text-xs font-bold text-[#171719]">
+                    <h4 className="text-xs font-bold text-[var(--fg)]">
                       Prática Conversacional em Tempo Real
                     </h4>
-                    <p className="text-[11px] text-[#71717a]">
+                    <p className="text-xs text-[var(--muted)]">
                       Converse por voz com o tutor (Gemini Live API) com baixa latência e fala bidirecional.
                     </p>
                   </div>
@@ -828,13 +932,13 @@ export const ChatTutor: React.FC<ChatTutorProps> = ({
                   size="sm"
                   variant="default"
                   onClick={() => setIsLiveModalOpen(true)}
-                  className="font-bold text-xs shrink-0 cursor-pointer"
+                  className="font-bold text-xs shrink-0 cursor-pointer rounded-full"
                 >
                   Falar Agora
                 </Button>
               </div>
 
-              <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-[#71717a] block mb-2 text-center">
+              <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-[var(--muted)] block mb-2 text-center">
                 Ou escolha uma sugestão rápida de prompt:
               </span>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-left">
@@ -842,10 +946,10 @@ export const ChatTutor: React.FC<ChatTutorProps> = ({
                   <button
                     key={idx}
                     onClick={() => handleSendMessage(prompt)}
-                    className="p-3 rounded-[9px] bg-white hover:bg-[#ededed] border border-[#171719]/15 text-xs text-[#171719] font-medium transition-all flex items-center justify-between group shadow-xs cursor-pointer"
+                    className="p-3 rounded-xl bg-[var(--surface)] hover:bg-[oklch(0.96_0.01_84)] border border-[var(--border)] text-xs text-[var(--fg)] font-medium transition-all flex items-center justify-between group shadow-2xs cursor-pointer"
                   >
-                    <span className="truncate mr-2 font-mono text-[11px]">{prompt}</span>
-                    <ChevronRight className="w-3.5 h-3.5 text-[#71717a] group-hover:text-[#171719] shrink-0" />
+                    <span className="truncate mr-2 font-sans text-xs">{prompt}</span>
+                    <ChevronRight className="w-3.5 h-3.5 text-[var(--muted)] group-hover:text-[var(--fg)] shrink-0" />
                   </button>
                 ))}
               </div>
@@ -861,7 +965,7 @@ export const ChatTutor: React.FC<ChatTutorProps> = ({
             return (
               <div
                 key={msg.id}
-                className="max-w-md mx-auto my-2 p-3 bg-rose-500/10 border border-rose-500/30 rounded-lg text-rose-600 dark:text-rose-400 text-xs text-center flex items-center justify-center space-x-2 font-mono"
+                className="max-w-md mx-auto my-2 p-3 bg-rose-500/10 border border-rose-500/30 rounded-xl text-rose-600 text-xs text-center flex items-center justify-center space-x-2 font-mono"
               >
                 <AlertTriangle className="w-4 h-4 text-rose-500 shrink-0" />
                 <span>{msg.conteudo}</span>
@@ -877,21 +981,21 @@ export const ChatTutor: React.FC<ChatTutorProps> = ({
               className={`flex gap-3 ${isUser ? 'justify-end' : 'justify-start'}`}
             >
               {!isUser && (
-                <div className="w-8 h-8 rounded-[9px] bg-[#171719] text-[#1ff98c] flex items-center justify-center flex-shrink-0 text-xs font-bold mt-0.5 shadow-xs border border-[#171719]/20">
+                <div className="w-8 h-8 rounded-full bg-[var(--fg)] text-[var(--accent)] flex items-center justify-center flex-shrink-0 text-xs font-bold mt-0.5 shadow-xs border border-[var(--border)]">
                   AI
                 </div>
               )}
 
               <div
-                className={`max-w-[88%] sm:max-w-[82%] rounded-[20px] p-4 sm:p-4.5 shadow-xs transition-all ${
+                className={`max-w-[88%] sm:max-w-[82%] rounded-[var(--r-md)] p-4 sm:p-4.5 shadow-xs transition-all ${
                   isUser
-                    ? 'bg-[#08ba61] text-white rounded-tr-[4px] border border-[#08ba61]'
-                    : 'bg-[#ededed] text-[#171719] rounded-tl-[4px] border border-[#171719]/10'
+                    ? 'bg-[var(--accent)] text-[var(--fg)] font-medium rounded-tr-xs border border-[var(--border)]'
+                    : 'bg-[oklch(0.97_0.01_84)] text-[var(--fg)] rounded-tl-xs border border-[var(--border)]'
                 }`}
               >
                 {/* Remetente & Badge XP */}
                 <div className="flex items-center justify-between text-[11px] mb-2 space-x-2">
-                  <span className={`font-bold tracking-tight ${isUser ? 'text-white' : 'text-[#171719]'}`}>
+                  <span className="font-bold tracking-tight text-[var(--fg)]">
                     {isUser ? 'Você' : 'Tutor de Línguas'}
                   </span>
                   <div className="flex items-center space-x-1.5">
@@ -901,10 +1005,10 @@ export const ChatTutor: React.FC<ChatTutorProps> = ({
                           onClick={() => handleToggleMessageAudio(msg.id, msg.conteudo)}
                           className={`flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold transition cursor-pointer border ${
                             playingAudioId === msg.id
-                              ? 'bg-[#171719] text-[#1ff98c] border-[#171719] shadow-xs animate-pulse'
+                              ? 'bg-[var(--fg)] text-[var(--accent)] border-[var(--fg)] shadow-xs animate-pulse'
                               : isVoiceLoading && playingAudioId === msg.id
-                              ? 'bg-white text-[#171719] border-[#171719]/20 animate-pulse'
-                              : 'bg-white text-[#171719] hover:bg-[#ededed] border-[#171719]/15'
+                              ? 'bg-[var(--surface)] text-[var(--fg)] border-[var(--border)] animate-pulse'
+                              : 'bg-[var(--surface)] text-[var(--fg)] hover:bg-[oklch(0.95_0.01_84)] border-[var(--border)]'
                           }`}
                           title={
                             playingAudioId === msg.id
@@ -917,13 +1021,13 @@ export const ChatTutor: React.FC<ChatTutorProps> = ({
                               <Square className="w-3 h-3 fill-current" />
                               <span>PARAR</span>
                               <span className="flex h-1.5 w-1.5 relative">
-                                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#1ff98c] opacity-75"></span>
-                                <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-[#1ff98c]"></span>
+                                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[var(--accent)] opacity-75"></span>
+                                <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-[var(--accent)]"></span>
                               </span>
                             </>
                           ) : (
                             <>
-                              <Volume2 className="w-3.5 h-3.5 text-[#171719]" />
+                              <Volume2 className="w-3.5 h-3.5 text-[var(--fg)]" />
                               <span>Ouvir ({selectedVoice})</span>
                             </>
                           )}
@@ -1000,8 +1104,25 @@ export const ChatTutor: React.FC<ChatTutorProps> = ({
                 )}
 
                 {/* Conteúdo da mensagem */}
-                <div className="text-xs sm:text-sm leading-relaxed whitespace-pre-line">
-                  {msg.conteudo}
+                <div className="text-xs sm:text-sm leading-relaxed">
+                  {isUser ? (
+                    <div className="whitespace-pre-line">{msg.conteudo}</div>
+                  ) : (
+                    <div>
+                      <InteractiveWordText
+                        text={msg.conteudo}
+                        onWordClick={(clickedWord, sentence) => {
+                          setSelectedWordForContext(clickedWord);
+                          setContextSentenceForWord(sentence);
+                          setIsWordContextOpen(true);
+                        }}
+                      />
+                      <div className="mt-2 pt-1.5 border-t border-[var(--border)]/40 flex items-center gap-1.5 text-[10px] text-[var(--muted)] font-mono">
+                        <Sparkles className="w-3 h-3 text-[var(--accent-deep)] shrink-0" />
+                        <span>Dica: clique em qualquer palavra acima para ver sinônimos, IPA e contexto</span>
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 {/* Ações & Avaliação de Pronúncia para Mensagens do Usuário */}
@@ -1371,19 +1492,19 @@ export const ChatTutor: React.FC<ChatTutorProps> = ({
 
       {/* Barra de Entrada (Input, Microfone e Ações) */}
       <div
-        className={`relative mt-3 bg-card border rounded-2xl p-2.5 sm:p-3 shadow-xs transition-all ${
+        className={`relative mt-3 bg-[var(--surface)] border rounded-[var(--r-md)] p-2.5 sm:p-3 shadow-xs transition-all ${
           isRecording
-            ? 'border-rose-500/60 ring-2 ring-rose-500/20'
+            ? 'border-rose-500 ring-2 ring-rose-500/20'
             : isInputFocused
-            ? 'border-primary ring-2 ring-primary/20'
-            : 'border-border/80'
+            ? 'border-[var(--fg)] ring-2 ring-[var(--fg)]/10'
+            : 'border-[var(--border)]'
         }`}
       >
         {isRecording ? (
-          <div className="space-y-3 p-3 bg-secondary/60 text-foreground rounded-xl border border-border/60">
+          <div className="space-y-3 p-3 bg-[oklch(0.97_0.01_84)] text-[var(--fg)] rounded-2xl border border-[var(--border)]">
             {/* Header com Botão de Entrada de Voz Ativo */}
             <div className="flex items-center justify-between gap-2 flex-wrap">
-              <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-rose-500/10 border border-rose-500/30 text-xs font-bold text-rose-600 dark:text-rose-400">
+              <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-rose-500/10 border border-rose-500/30 text-xs font-bold text-rose-600">
                 <span className="relative flex h-2 w-2">
                   <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
                   <span className="relative inline-flex rounded-full h-2 w-2 bg-rose-500"></span>
@@ -1396,7 +1517,7 @@ export const ChatTutor: React.FC<ChatTutorProps> = ({
                 <Button
                   size="sm"
                   onClick={handleStopRecording}
-                  className="gap-1.5 text-xs font-semibold cursor-pointer bg-primary text-primary-foreground hover:bg-primary/90 shadow-xs rounded-xl"
+                  className="gap-1.5 text-xs font-bold cursor-pointer bg-[var(--fg)] text-[var(--bg)] hover:bg-[var(--fg)]/90 shadow-xs rounded-full"
                 >
                   <CheckCircle2 className="w-3.5 h-3.5" />
                   <span>Concluir & Enviar</span>
@@ -1406,25 +1527,27 @@ export const ChatTutor: React.FC<ChatTutorProps> = ({
                   size="sm"
                   variant="ghost"
                   onClick={handleCancelRecording}
-                  className="text-xs cursor-pointer text-muted-foreground hover:text-foreground rounded-xl"
+                  className="text-xs cursor-pointer text-[var(--muted)] hover:text-[var(--fg)] rounded-full"
                 >
                   Cancelar
                 </Button>
               </div>
             </div>
 
-            {/* Visualizador de Espectro Reativo em Tempo Real */}
-            <AudioSpectrumVisualizer
+            {/* Visualizador de Onda de Áudio (Waveform) e Espectro Reativo em Tempo Real */}
+            <PronunciationWaveformVisualizer
               stream={recordingStream}
               isActive={isRecording}
-              height={60}
+              height={84}
+              mode="waveform"
               showControls={true}
               showMetrics={true}
+              title="Captação de Microfone & Onda Sonora em Tempo Real"
             />
           </div>
         ) : transcribing ? (
-          <div className="flex items-center justify-center p-3 text-xs text-muted-foreground space-x-2">
-            <div className="w-4 h-4 rounded-full border-2 border-primary border-t-transparent animate-spin" />
+          <div className="flex items-center justify-center p-3 text-xs text-[var(--muted)] space-x-2">
+            <div className="w-4 h-4 rounded-full border-2 border-[var(--fg)] border-t-transparent animate-spin" />
             <span>Processando áudio multimodal e gerando transcrição com Gemini...</span>
           </div>
         ) : (
@@ -1447,7 +1570,7 @@ export const ChatTutor: React.FC<ChatTutorProps> = ({
                   ? `Modo Ouvir Apenas: digite uma dúvida para o tutor falar e gerar onda sonora...`
                   : `Escreva sua dúvida ou explicação sobre ${currentTopic}...`
               }
-              className="flex-1 px-3.5 py-2 text-xs sm:text-sm bg-transparent border-0 focus:outline-none text-foreground placeholder:text-muted-foreground"
+              className="flex-1 px-3.5 py-2 text-xs sm:text-sm bg-transparent border-0 focus:outline-none text-[var(--fg)] placeholder:text-[var(--muted)]"
               disabled={isLoading}
             />
 
@@ -1457,29 +1580,29 @@ export const ChatTutor: React.FC<ChatTutorProps> = ({
               variant="outline"
               size="sm"
               onClick={() => setIsLiveModalOpen(true)}
-              className="text-xs font-semibold gap-1.5 cursor-pointer hidden sm:flex border-border/80 hover:bg-secondary rounded-xl"
+              className="text-xs font-bold gap-1.5 cursor-pointer hidden sm:flex border-[var(--border)] hover:bg-[oklch(0.96_0.01_84)] rounded-full"
               title="Iniciar conversa por voz bidirecional em tempo real (Gemini Live API)"
             >
-              <Radio className="w-3.5 h-3.5 animate-pulse text-foreground" />
+              <Radio className="w-3.5 h-3.5 animate-pulse text-[var(--fg)]" />
               <span>Voz Live</span>
             </Button>
 
             {/* Gravação de Voz Rápida (Single-shot) com Espectro */}
-            <div className="relative overflow-hidden rounded-xl">
+            <div className="relative overflow-hidden rounded-full">
               {isListenOnlyMode ? (
                 <button
                   type="button"
                   onClick={() => setIsListenOnlyMode(false)}
-                  className="p-2 text-muted-foreground hover:text-foreground hover:bg-secondary rounded-xl border border-transparent transition cursor-pointer flex items-center justify-center opacity-60 hover:opacity-100"
+                  className="p-2 text-[var(--muted)] hover:text-[var(--fg)] hover:bg-[oklch(0.96_0.01_84)] rounded-full border border-transparent transition cursor-pointer flex items-center justify-center opacity-60 hover:opacity-100"
                   title="Microfone pausado no modo Ouvir Apenas. Clique para reativar."
                 >
-                  <MicOff className="w-4 h-4 text-muted-foreground" />
+                  <MicOff className="w-4 h-4 text-[var(--muted)]" />
                 </button>
               ) : (
                 <button
                   type="button"
                   onClick={handleStartRecording}
-                  className="p-2 text-muted-foreground hover:text-foreground hover:bg-secondary rounded-xl border border-transparent hover:border-border/60 transition cursor-pointer flex items-center justify-center"
+                  className="p-2 text-[var(--muted)] hover:text-[var(--fg)] hover:bg-[oklch(0.96_0.01_84)] rounded-full border border-transparent hover:border-[var(--border)] transition cursor-pointer flex items-center justify-center"
                   title="Gravar áudio com visualizador de espectro em tempo real"
                 >
                   <Mic className="w-4 h-4" />
@@ -1492,7 +1615,7 @@ export const ChatTutor: React.FC<ChatTutorProps> = ({
               type="submit"
               size="sm"
               disabled={!inputText.trim() || isLoading}
-              className="gap-1.5 text-xs font-semibold cursor-pointer shadow-xs rounded-xl px-3.5"
+              className="gap-1.5 text-xs font-bold cursor-pointer shadow-xs rounded-full px-4"
             >
               <span>Enviar</span>
               <Send className="w-3.5 h-3.5" />
@@ -1504,9 +1627,31 @@ export const ChatTutor: React.FC<ChatTutorProps> = ({
       {/* Modal de Prática de Pronúncia com Espectro Vocal */}
       <PronunciationPracticeModal
         isOpen={isPronunciationModalOpen}
-        onClose={() => setIsPronunciationModalOpen(false)}
+        onClose={() => {
+          setIsPronunciationModalOpen(false);
+          setPracticeWordForModal(undefined);
+        }}
         currentTopic={currentTopic}
         onUpdateStats={onUpdateStats}
+        initialPhrase={practiceWordForModal}
+      />
+
+      {/* Modal de Contexto de Palavras & Dicionário Ativo */}
+      <WordContextModal
+        isOpen={isWordContextOpen}
+        onClose={() => setIsWordContextOpen(false)}
+        word={selectedWordForContext}
+        sentenceContext={contextSentenceForWord}
+        language={stats.idioma_ativo || 'Inglês'}
+        topic={currentTopic}
+        onPracticePronunciation={(wordToPractice) => {
+          setPracticeWordForModal(wordToPractice);
+          setIsPronunciationModalOpen(true);
+        }}
+        onAskTutor={(question) => {
+          setInputText(question);
+          handleSendMessage(question);
+        }}
       />
     </div>
   );

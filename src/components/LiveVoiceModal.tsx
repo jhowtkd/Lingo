@@ -209,42 +209,42 @@ export const LiveVoiceModal: React.FC<LiveVoiceModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-in fade-in duration-200">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
       <div
-        className="relative bg-card border border-border rounded-lg shadow-xl w-full max-w-2xl overflow-hidden flex flex-col max-h-[90vh]"
+        className="relative bg-[var(--surface)] border border-[var(--border)] rounded-[var(--r-lg)] shadow-2xl w-full max-w-2xl overflow-hidden flex flex-col max-h-[90vh]"
         id="gemini-live-modal"
       >
         <CornerPlus />
 
         {/* Cabeçalho do Modal */}
-        <div className="px-6 py-4 border-b border-border bg-muted/40 flex items-center justify-between">
+        <div className="px-6 py-4 border-b border-[var(--border)] bg-[var(--surface-raised)] flex items-center justify-between">
           <div className="flex items-center space-x-3">
-            <div className="w-9 h-9 rounded-lg bg-foreground text-background flex items-center justify-center font-mono font-bold text-xs shadow-2xs">
+            <div className="w-9 h-9 rounded-[var(--r-sm)] bg-[var(--accent)] text-black flex items-center justify-center font-mono font-bold text-xs shadow-2xs">
               LV
             </div>
             <div>
               <div className="flex items-center space-x-2">
-                <h2 className="text-base font-bold tracking-tight text-foreground">
+                <h2 className="text-base font-bold tracking-tight text-[var(--fg)]">
                   Conversa por Voz (Gemini Live API)
                 </h2>
-                <div className="inline-flex items-center rounded border border-border bg-muted/60 px-2 py-0.5 font-mono text-[10px] font-semibold text-foreground uppercase">
+                <div className="inline-flex items-center rounded-full border border-[var(--border)] bg-[var(--surface)] px-2 py-0.5 font-mono text-[10px] font-semibold text-[var(--accent)] uppercase">
                   LIVE STREAM
                 </div>
               </div>
-              <p className="text-xs text-muted-foreground font-mono mt-0.5">
-                TÓPICO: <span className="font-semibold text-foreground">{currentTopic}</span> • NÍVEL: {studentLevel}
+              <p className="text-xs text-[var(--muted)] font-mono mt-0.5">
+                TÓPICO: <span className="font-semibold text-[var(--fg)]">{currentTopic}</span> • NÍVEL: {studentLevel}
               </p>
             </div>
           </div>
 
           <div className="flex items-center space-x-3">
-            <div className="flex items-center space-x-1.5 px-3 py-1 rounded-md bg-background border border-border text-xs font-mono text-foreground">
-              <div className={`w-2 h-2 rounded-full ${connectionState === 'speaking' ? 'bg-foreground animate-ping' : connectionState === 'listening' ? 'bg-emerald-500 animate-pulse' : 'bg-muted-foreground'}`} />
+            <div className="flex items-center space-x-1.5 px-3 py-1 rounded-[var(--r-sm)] bg-[var(--surface)] border border-[var(--border)] text-xs font-mono text-[var(--fg)]">
+              <div className={`w-2 h-2 rounded-full ${connectionState === 'speaking' ? 'bg-[var(--accent)] animate-ping' : connectionState === 'listening' ? 'bg-emerald-500 animate-pulse' : 'bg-muted-foreground'}`} />
               <span>{formatTime(sessionDuration)}</span>
             </div>
             <button
               onClick={onClose}
-              className="p-1.5 text-muted-foreground hover:text-foreground hover:bg-muted rounded-md transition cursor-pointer"
+              className="p-1.5 text-[var(--muted)] hover:text-[var(--fg)] hover:bg-white/5 rounded-md transition cursor-pointer"
               title="Fechar conversa por voz"
             >
               <X className="w-5 h-5" />
@@ -253,7 +253,7 @@ export const LiveVoiceModal: React.FC<LiveVoiceModalProps> = ({
         </div>
 
         {/* Visualizador de Áudio e Status Interativo */}
-        <div className="p-6 bg-card flex flex-col items-center justify-center border-b border-border">
+        <div className="p-6 bg-[var(--surface)] flex flex-col items-center justify-center border-b border-[var(--border)]">
           {activeSpeaker === 'tutor' || connectionState === 'speaking' ? (
             <div className="w-full max-w-md my-1">
               <TutorAudioWaveVisualizer
@@ -278,8 +278,8 @@ export const LiveVoiceModal: React.FC<LiveVoiceModalProps> = ({
                     key={i}
                     className={`w-2 rounded-full transition-all duration-75 ${
                       activeSpeaker === 'user'
-                        ? 'bg-emerald-500'
-                        : 'bg-muted'
+                        ? 'bg-[var(--accent)]'
+                        : 'bg-white/15'
                     }`}
                     style={{ height: `${dynamicHeight}px` }}
                   />
@@ -291,14 +291,14 @@ export const LiveVoiceModal: React.FC<LiveVoiceModalProps> = ({
           {/* Status textual */}
           <div className="text-center mt-2 flex flex-col items-center gap-1.5 font-mono">
             <span
-              className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-medium border ${
+              className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium border ${
                 connectionState === 'speaking'
-                  ? 'bg-muted/80 text-foreground border-border'
+                  ? 'bg-[var(--surface-raised)] text-[var(--fg)] border-[var(--border)]'
                   : connectionState === 'listening'
-                  ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/30'
+                  ? 'bg-[var(--accent)]/10 text-[var(--accent)] border-[var(--accent)]/30'
                   : connectionState === 'connecting'
-                  ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/30'
-                  : 'bg-muted text-muted-foreground border-border'
+                  ? 'bg-amber-500/10 text-amber-300 border-amber-500/30'
+                  : 'bg-[var(--surface-raised)] text-[var(--muted)] border-[var(--border)]'
               }`}
             >
               <Activity className="w-3.5 h-3.5 animate-spin" />
@@ -310,14 +310,14 @@ export const LiveVoiceModal: React.FC<LiveVoiceModalProps> = ({
             </span>
 
             {interruptedNotice && (
-              <span className="text-[11px] font-medium text-amber-600 dark:text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/30">
+              <span className="text-[11px] font-medium text-amber-300 bg-amber-500/10 px-2 py-0.5 rounded-full border border-amber-500/30">
                 ⚡ Interrupção natural detectada — tutor ouviu sua fala.
               </span>
             )}
           </div>
 
           {errorMessage && (
-            <div className="mt-3 text-xs text-rose-600 dark:text-rose-400 bg-rose-500/10 border border-rose-500/30 px-3 py-1.5 rounded-md flex items-center space-x-2 font-mono">
+            <div className="mt-3 text-xs text-rose-400 bg-rose-500/10 border border-rose-500/30 px-3 py-1.5 rounded-[var(--r-sm)] flex items-center space-x-2 font-mono">
               <AlertCircle className="w-4 h-4 flex-shrink-0" />
               <span>{errorMessage}</span>
             </div>
@@ -325,9 +325,9 @@ export const LiveVoiceModal: React.FC<LiveVoiceModalProps> = ({
         </div>
 
         {/* Histórico da Transcrição ao Vivo */}
-        <div className="flex-1 p-5 overflow-y-auto space-y-3 min-h-[220px] max-h-[300px] bg-muted/20 text-sm">
+        <div className="flex-1 p-5 overflow-y-auto space-y-3 min-h-[220px] max-h-[300px] bg-black/20 text-sm font-sans">
           {transcripts.length === 0 ? (
-            <div className="text-center py-8 text-muted-foreground text-xs font-mono space-y-1">
+            <div className="text-center py-8 text-[var(--muted)] text-xs font-mono space-y-1">
               <p>O fluxo de transcrição em tempo real aparecerá aqui conforme você e o tutor conversam.</p>
               <p className="text-[11px]">Dica: fale com clareza ou faça uma pergunta sobre {currentTopic}.</p>
             </div>
@@ -340,15 +340,15 @@ export const LiveVoiceModal: React.FC<LiveVoiceModalProps> = ({
                 }`}
               >
                 <div className="flex items-center space-x-1.5 mb-1 px-1">
-                  <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-muted-foreground">
+                  <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-[var(--muted)]">
                     {item.speaker === 'user' ? 'Você' : 'Tutor (Gemini Live)'}
                   </span>
                 </div>
                 <div
-                  className={`p-3 rounded-lg max-w-[85%] leading-relaxed ${
+                  className={`p-3 rounded-[var(--r-md)] max-w-[85%] leading-relaxed ${
                     item.speaker === 'user'
-                      ? 'bg-foreground text-background shadow-2xs'
-                      : 'bg-card border border-border text-foreground shadow-2xs'
+                      ? 'bg-[var(--accent)] text-black font-medium shadow-2xs'
+                      : 'bg-[var(--surface-raised)] border border-[var(--border)] text-[var(--fg)] shadow-2xs'
                   }`}
                 >
                   {item.text}
@@ -360,14 +360,14 @@ export const LiveVoiceModal: React.FC<LiveVoiceModalProps> = ({
         </div>
 
         {/* Barra de Seleção de Voz e Entrada de Texto */}
-        <div className="p-3 bg-card border-t border-border flex flex-wrap items-center justify-between gap-2">
-          <div className="flex items-center space-x-1.5 text-xs text-muted-foreground font-mono">
-            <Settings2 className="w-3.5 h-3.5 text-muted-foreground" />
+        <div className="p-3 bg-[var(--surface)] border-t border-[var(--border)] flex flex-wrap items-center justify-between gap-2">
+          <div className="flex items-center space-x-1.5 text-xs text-[var(--muted)] font-mono">
+            <Settings2 className="w-3.5 h-3.5 text-[var(--muted)]" />
             <span>VOZ:</span>
             <select
               value={selectedVoice}
               onChange={(e) => handleVoiceChange(e.target.value as any)}
-              className="bg-background border border-border rounded px-2 py-1 text-xs font-medium text-foreground focus:outline-none cursor-pointer"
+              className="bg-[var(--surface-raised)] border border-[var(--border)] rounded-[var(--r-sm)] px-2 py-1 text-xs font-medium text-[var(--fg)] focus:outline-none cursor-pointer"
             >
               <option value="Aoede">Aoede (Feminina)</option>
               <option value="Zephyr">Zephyr (Masculina)</option>
@@ -383,7 +383,7 @@ export const LiveVoiceModal: React.FC<LiveVoiceModalProps> = ({
               value={textInput}
               onChange={(e) => setTextInput(e.target.value)}
               placeholder="Enviar texto alternativo..."
-              className="flex-1 px-3 py-1.5 text-xs bg-background border border-border rounded-md focus:outline-none focus:ring-1 focus:ring-ring text-foreground"
+              className="flex-1 px-3 py-1.5 text-xs bg-[var(--surface-raised)] border border-[var(--border)] rounded-[var(--r-sm)] focus:outline-none focus:border-[var(--accent)] text-[var(--fg)]"
             />
             <Button
               type="submit"
@@ -399,23 +399,23 @@ export const LiveVoiceModal: React.FC<LiveVoiceModalProps> = ({
         </div>
 
         {/* Barra de Controles Inferiores */}
-        <div className="px-6 py-3.5 bg-muted/40 border-t border-border flex items-center justify-between">
+        <div className="px-6 py-3.5 bg-[var(--surface-raised)] border-t border-[var(--border)] flex items-center justify-between">
           <div className="flex items-center space-x-2">
             <Button
               variant={isMuted ? 'outline' : 'default'}
               size="sm"
               onClick={toggleMute}
               className={`gap-2 font-mono text-xs cursor-pointer ${
-                isMuted ? 'border-rose-500/40 text-rose-600 dark:text-rose-400 bg-rose-500/10' : ''
+                isMuted ? 'border-rose-500/40 text-rose-400 bg-rose-500/10' : ''
               }`}
             >
-              {isMuted ? <MicOff className="w-4 h-4 text-rose-600" /> : <Mic className="w-4 h-4" />}
+              {isMuted ? <MicOff className="w-4 h-4 text-rose-400" /> : <Mic className="w-4 h-4" />}
               <span>{isMuted ? 'Desmutar Microfone' : 'Microfone Ativo'}</span>
             </Button>
           </div>
 
           <div className="flex items-center space-x-3">
-            <span className="text-[11px] font-mono text-muted-foreground hidden sm:inline">
+            <span className="text-[11px] font-mono text-[var(--muted)] hidden sm:inline">
               +20 XP/MINUTO CONVERSAÇÃO
             </span>
             <Button

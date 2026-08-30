@@ -19,7 +19,6 @@ import { PronunciationScoreData, PhonemeAccuracy, CEFRLevel } from '../types';
 import { SpeechService } from '../services/speechSynthesisService';
 import { SpeechRateService } from '../services/speechRateService';
 import { SpeechRateVisualizer } from './SpeechRateVisualizer';
-import { CornerPlus } from './ui/corner-plus';
 import { Button } from './ui/button';
 
 interface PronunciationScoreCardProps {
@@ -52,29 +51,29 @@ export const PronunciationScoreCard: React.FC<PronunciationScoreCardProps> = ({
       : null);
 
   const getScoreColor = (score: number) => {
-    if (score >= 85) return 'text-emerald-600 dark:text-emerald-400';
-    if (score >= 70) return 'text-amber-500 dark:text-amber-400';
-    return 'text-rose-500 dark:text-rose-400';
+    if (score >= 85) return 'text-[var(--ok)]';
+    if (score >= 70) return 'text-amber-600';
+    return 'text-rose-600';
   };
 
   const getScoreBg = (score: number) => {
-    if (score >= 85) return 'bg-emerald-500/10 border-emerald-500/30 text-emerald-600 dark:text-emerald-400';
-    if (score >= 70) return 'bg-amber-500/10 border-amber-500/30 text-amber-600 dark:text-amber-400';
-    return 'bg-rose-500/10 border-rose-500/30 text-rose-600 dark:text-rose-400';
+    if (score >= 85) return 'bg-[var(--mint)] border-[var(--ok)]/30 text-[var(--ok)]';
+    if (score >= 70) return 'bg-amber-100 border-amber-300 text-amber-800';
+    return 'bg-rose-100 border-rose-300 text-rose-800';
   };
 
   const getWordStatusBadge = (status: PhonemeAccuracy['status']) => {
     switch (status) {
       case 'perfeito':
-        return 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/40 hover:bg-emerald-500/25';
+        return 'bg-[var(--mint)] text-[var(--ok)] border-[var(--ok)]/40 hover:bg-[var(--mint)]';
       case 'bom':
-        return 'bg-sky-500/15 text-sky-700 dark:text-sky-300 border-sky-500/40 hover:bg-sky-500/25';
+        return 'bg-[var(--sky)] text-sky-800 border-sky-300 hover:bg-[var(--sky)]';
       case 'atencao':
-        return 'bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-500/40 hover:bg-amber-500/25';
+        return 'bg-[var(--sunny)] text-amber-900 border-amber-300 hover:bg-amber-100';
       case 'incorreto':
-        return 'bg-rose-500/15 text-rose-700 dark:text-rose-300 border-rose-500/40 hover:bg-rose-500/25';
+        return 'bg-rose-100 text-rose-800 border-rose-300 hover:bg-rose-200';
       default:
-        return 'bg-muted text-muted-foreground border-border';
+        return 'bg-[oklch(0.96_0.01_84)] text-[var(--muted)] border-[var(--border)]';
     }
   };
 
@@ -107,14 +106,12 @@ export const PronunciationScoreCard: React.FC<PronunciationScoreCardProps> = ({
   ];
 
   return (
-    <div className="relative mt-2 border border-border/80 bg-card/95 rounded-lg p-3 sm:p-4 text-xs font-mono shadow-xs overflow-hidden select-text">
-      <CornerPlus size="size-2" />
-
+    <div className="relative mt-2 border border-[var(--border)] bg-[var(--surface)] rounded-[var(--r-sm)] p-3.5 sm:p-4 text-xs font-sans shadow-xs overflow-hidden select-text text-left">
       {/* Cabeçalho Compacto do Score */}
       <div className="flex items-center justify-between gap-3">
         <div className="flex items-center space-x-3">
           {/* Circular Score Badge */}
-          <div className="relative flex items-center justify-center w-11 h-11 rounded-full border border-border bg-muted/30">
+          <div className="relative flex items-center justify-center w-11 h-11 rounded-full border border-[var(--border)] bg-[oklch(0.96_0.01_84)]">
             <svg className="w-11 h-11 transform -rotate-90">
               <circle
                 cx="22"
@@ -122,7 +119,7 @@ export const PronunciationScoreCard: React.FC<PronunciationScoreCardProps> = ({
                 r="18"
                 stroke="currentColor"
                 strokeWidth="3"
-                className="text-muted/40"
+                className="text-[oklch(0.90_0.02_84)]"
                 fill="transparent"
               />
               <circle
@@ -138,19 +135,19 @@ export const PronunciationScoreCard: React.FC<PronunciationScoreCardProps> = ({
                 fill="transparent"
               />
             </svg>
-            <span className="absolute font-mono font-extrabold text-xs text-foreground">
+            <span className="absolute font-mono font-extrabold text-xs text-[var(--fg)]">
               {scoreData.overall_score}%
             </span>
           </div>
 
           <div>
             <div className="flex items-center space-x-2">
-              <span className="font-bold text-foreground text-xs uppercase tracking-tight flex items-center gap-1">
-                <Activity className="w-3.5 h-3.5 text-foreground" />
+              <span className="font-display font-bold text-[var(--fg)] text-xs uppercase tracking-tight flex items-center gap-1">
+                <Activity className="w-3.5 h-3.5 text-[var(--accent-deep)]" />
                 Score de Pronúncia
               </span>
               <span
-                className={`text-[9px] font-bold px-1.5 py-0.2 rounded border uppercase ${getScoreBg(
+                className={`text-[10px] font-extrabold px-2 py-0.5 rounded-full border uppercase font-mono ${getScoreBg(
                   scoreData.overall_score
                 )}`}
               >
@@ -161,7 +158,7 @@ export const PronunciationScoreCard: React.FC<PronunciationScoreCardProps> = ({
                   : 'Atenção Fonética'}
               </span>
             </div>
-            <p className="text-[11px] text-muted-foreground mt-0.5 line-clamp-1">
+            <p className="text-xs text-[var(--muted)] mt-0.5 line-clamp-1">
               {scoreData.ponto_forte || 'Análise fonética e entonação computadas.'}
             </p>
           </div>
@@ -172,10 +169,10 @@ export const PronunciationScoreCard: React.FC<PronunciationScoreCardProps> = ({
             size="sm"
             variant="outline"
             onClick={handlePlayReference}
-            className="h-7 px-2 text-[10px] font-mono cursor-pointer gap-1"
+            className="h-8 px-3 text-xs font-bold cursor-pointer gap-1.5 rounded-full"
             title="Ouvir pronúncia nativa de referência"
           >
-            <Volume2 className={`w-3 h-3 ${isPlayingReference ? 'text-primary animate-pulse' : ''}`} />
+            <Volume2 className={`w-3.5 h-3.5 ${isPlayingReference ? 'text-[var(--accent-deep)] animate-pulse' : ''}`} />
             <span className="hidden sm:inline">Ouvir Nativo</span>
           </Button>
 
@@ -183,7 +180,7 @@ export const PronunciationScoreCard: React.FC<PronunciationScoreCardProps> = ({
             size="sm"
             variant="ghost"
             onClick={() => setIsExpanded(!isExpanded)}
-            className="h-7 px-1.5 text-muted-foreground hover:text-foreground cursor-pointer"
+            className="h-8 w-8 p-0 rounded-full text-[var(--muted)] hover:text-[var(--fg)] cursor-pointer"
             title={isExpanded ? 'Recolher detalhes' : 'Ver gráfico e IPA'}
           >
             {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
@@ -192,8 +189,8 @@ export const PronunciationScoreCard: React.FC<PronunciationScoreCardProps> = ({
       </div>
 
       {/* Visualizador de Palavras Rápido (Inline) */}
-      <div className="mt-2.5 pt-2.5 border-t border-border flex flex-wrap items-center gap-1.5">
-        <span className="text-[10px] text-muted-foreground uppercase font-bold mr-1">
+      <div className="mt-3 pt-2.5 border-t border-[var(--border)] flex flex-wrap items-center gap-1.5">
+        <span className="text-[10px] text-[var(--muted)] uppercase font-extrabold mr-1">
           Palavras:
         </span>
         {scoreData.words_breakdown?.map((wb, idx) => (
@@ -203,13 +200,13 @@ export const PronunciationScoreCard: React.FC<PronunciationScoreCardProps> = ({
               setSelectedWord(wb);
               setIsExpanded(true);
             }}
-            className={`text-[11px] px-2 py-0.5 rounded-md border font-mono transition-all cursor-pointer ${getWordStatusBadge(
+            className={`text-xs px-2.5 py-1 rounded-full border font-mono transition-all cursor-pointer ${getWordStatusBadge(
               wb.status
-            )} ${selectedWord?.word === wb.word && isExpanded ? 'ring-1 ring-foreground font-bold' : ''}`}
+            )} ${selectedWord?.word === wb.word && isExpanded ? 'ring-2 ring-[var(--fg)] font-bold' : ''}`}
             title={`Acurácia: ${wb.accuracy}% • Clique para detalhes`}
           >
             {wb.word}
-            <span className="text-[9px] opacity-75 ml-1 font-sans">{wb.accuracy}%</span>
+            <span className="text-[10px] opacity-80 ml-1 font-sans font-bold">{wb.accuracy}%</span>
           </button>
         ))}
       </div>
@@ -222,23 +219,23 @@ export const PronunciationScoreCard: React.FC<PronunciationScoreCardProps> = ({
             animate={{ opacity: 1, height: 'auto' }}
             exit={{ opacity: 0, height: 0 }}
             transition={{ duration: 0.25 }}
-            className="mt-3 pt-3 border-t border-border space-y-3.5"
+            className="mt-3 pt-3 border-t border-[var(--border)] space-y-3.5"
           >
             {/* 4 Dimensões de Precisão com Barras Animadas */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
               {metrics.map((m, idx) => (
-                <div key={idx} className="bg-muted/40 p-2 rounded border border-border space-y-1">
-                  <div className="flex items-center justify-between text-[10px] text-muted-foreground">
+                <div key={idx} className="bg-[oklch(0.97_0.01_84)] p-2.5 rounded-xl border border-[var(--border)] space-y-1">
+                  <div className="flex items-center justify-between text-xs text-[var(--muted)]">
                     <span className="truncate">{m.label}</span>
-                    <span className="font-bold text-foreground">{m.score}%</span>
+                    <span className="font-bold text-[var(--fg)] font-mono">{m.score}%</span>
                   </div>
-                  <div className="w-full bg-muted rounded-full h-1.5 overflow-hidden border border-border">
+                  <div className="w-full bg-[oklch(0.92_0.02_84)] rounded-full h-2 overflow-hidden border border-[var(--border)]">
                     <motion.div
                       className={`h-full rounded-full ${
                         m.score >= 85
-                          ? 'bg-emerald-500'
+                          ? 'bg-[var(--ok)]'
                           : m.score >= 70
-                          ? 'bg-amber-500'
+                          ? 'bg-[var(--sunny)]'
                           : 'bg-rose-500'
                       }`}
                       initial={{ width: 0 }}
@@ -251,21 +248,21 @@ export const PronunciationScoreCard: React.FC<PronunciationScoreCardProps> = ({
             </div>
 
             {/* Comparativo Fonético (IPA Esperado vs Transcrito) */}
-            <div className="bg-muted/30 p-2.5 rounded-lg border border-border space-y-1.5">
-              <div className="flex items-center justify-between text-[10px] text-muted-foreground uppercase font-bold">
+            <div className="bg-[oklch(0.97_0.01_84)] p-3 rounded-2xl border border-[var(--border)] space-y-2">
+              <div className="flex items-center justify-between text-[11px] text-[var(--muted)] uppercase font-extrabold">
                 <span>Comparação Fonética (IPA)</span>
                 <span>International Phonetic Alphabet</span>
               </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[11px]">
-                <div className="bg-card p-2 rounded border border-border">
-                  <span className="text-[10px] text-muted-foreground block">Esperado (Padrão):</span>
-                  <code className="text-foreground font-bold tracking-wider">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                <div className="bg-[var(--surface)] p-2.5 rounded-xl border border-[var(--border)]">
+                  <span className="text-[10px] text-[var(--muted)] block">Esperado (Padrão):</span>
+                  <code className="text-[var(--fg)] font-bold tracking-wider font-mono">
                     {scoreData.expected_phonetics_ipa || '/.../'}
                   </code>
                 </div>
-                <div className="bg-card p-2 rounded border border-border">
-                  <span className="text-[10px] text-muted-foreground block">Sua Pronúncia:</span>
-                  <code className={`font-bold tracking-wider ${getScoreColor(scoreData.overall_score)}`}>
+                <div className="bg-[var(--surface)] p-2.5 rounded-xl border border-[var(--border)]">
+                  <span className="text-[10px] text-[var(--muted)] block">Sua Pronúncia:</span>
+                  <code className={`font-bold tracking-wider font-mono ${getScoreColor(scoreData.overall_score)}`}>
                     {scoreData.transcribed_phonetics_ipa || '/.../'}
                   </code>
                 </div>
@@ -274,21 +271,21 @@ export const PronunciationScoreCard: React.FC<PronunciationScoreCardProps> = ({
 
             {/* Detalhe da Palavra Selecionada */}
             {selectedWord && (
-              <div className="bg-card p-2.5 rounded-lg border border-border/80 flex items-start justify-between gap-2">
-                <div className="space-y-1">
+              <div className="bg-[var(--surface)] p-3 rounded-2xl border border-[var(--border)] flex items-start justify-between gap-3">
+                <div className="space-y-1 text-left">
                   <div className="flex items-center space-x-2">
-                    <span className="font-bold text-foreground text-xs">
+                    <span className="font-display font-bold text-[var(--fg)] text-xs">
                       Palavra: "{selectedWord.word}"
                     </span>
-                    <span className="text-[10px] text-muted-foreground font-mono">
+                    <span className="text-[11px] text-[var(--muted)] font-mono">
                       Esperado: <code>{selectedWord.expected_ipa}</code> | Transcrito: <code>{selectedWord.transcribed_ipa}</code>
                     </span>
                   </div>
-                  <p className="text-[11px] text-muted-foreground">
+                  <p className="text-xs text-[var(--muted)]">
                     {selectedWord.feedback || 'Articulação clara e dentro dos parâmetros esperados.'}
                   </p>
                 </div>
-                <span className={`text-[10px] font-bold px-2 py-0.5 rounded border uppercase shrink-0 ${getWordStatusBadge(selectedWord.status)}`}>
+                <span className={`text-[10px] font-extrabold px-2.5 py-0.5 rounded-full border uppercase shrink-0 font-mono ${getWordStatusBadge(selectedWord.status)}`}>
                   {selectedWord.accuracy}%
                 </span>
               </div>
@@ -296,7 +293,7 @@ export const PronunciationScoreCard: React.FC<PronunciationScoreCardProps> = ({
 
             {/* Análise de Taxa de Fala Integrada (WPM) */}
             {speechRate && (
-              <div className="border-t border-border/60 pt-2">
+              <div className="border-t border-[var(--border)] pt-2">
                 <SpeechRateVisualizer
                   metrics={speechRate}
                   variant="compact"
@@ -307,12 +304,12 @@ export const PronunciationScoreCard: React.FC<PronunciationScoreCardProps> = ({
 
             {/* Dica Anatômica de Articulação da Boca & Língua */}
             {scoreData.dica_articulacao_boca && (
-              <div className="bg-foreground text-background p-2.5 rounded-lg space-y-1">
-                <div className="flex items-center space-x-1.5 text-[10px] uppercase font-bold tracking-tight">
-                  <Sparkles className="w-3 h-3 text-amber-300" />
+              <div className="bg-[var(--fg)] text-[oklch(0.97_0.01_84)] p-3.5 rounded-2xl space-y-1 text-left shadow-xs">
+                <div className="flex items-center space-x-1.5 text-xs uppercase font-extrabold tracking-tight text-[var(--sunny)]">
+                  <Sparkles className="w-3.5 h-3.5 fill-current" />
                   <span>Dica Anatômica de Articulação</span>
                 </div>
-                <p className="text-[11px] opacity-90 leading-relaxed font-sans">
+                <p className="text-xs opacity-90 leading-relaxed font-sans">
                   {scoreData.dica_articulacao_boca}
                 </p>
               </div>
@@ -323,3 +320,4 @@ export const PronunciationScoreCard: React.FC<PronunciationScoreCardProps> = ({
     </div>
   );
 };
+

@@ -12,23 +12,32 @@ import {
   ArrowRight,
   Play,
   Zap,
+  Sparkles,
+  Compass,
+  Rocket,
+  Brain,
 } from 'lucide-react';
 import { UserStats } from '../types';
+import { StorageService } from '../services/storage';
 
 interface HomeOverviewProps {
   stats: UserStats;
   currentTopic: string;
   onNavigate: (tab: string) => void;
+  onOpenOnboarding?: () => void;
 }
 
 export const HomeOverview: React.FC<HomeOverviewProps> = ({
   stats,
   currentTopic,
   onNavigate,
+  onOpenOnboarding,
 }) => {
   const goalMinutes = stats.meta_diaria_minutos || 30;
   const currentMinutes = stats.minutos_hoje || 0;
   const progressPercent = Math.min(100, Math.round((currentMinutes / goalMinutes) * 100));
+
+  const studyPlan = StorageService.getStudyPlan();
 
   // Stroke offset math for 120x120 circle with r=50 (perimeter = 2 * PI * 50 = 314.16)
   const circumference = 314.16;
@@ -110,13 +119,135 @@ export const HomeOverview: React.FC<HomeOverviewProps> = ({
   ];
 
   return (
-    <div className="w-full space-y-10 pb-8 animate-fade-in">
+    <div className="w-full space-y-8 pb-8 animate-fade-in">
+      {/* Banner de Assistente de Configuração / Plano Ativo */}
+      {studyPlan ? (
+        <section className="bg-gradient-to-r from-[var(--surface)] via-[oklch(0.97_0.015_84)] to-[var(--surface)] border-2 border-[var(--accent-deep)] rounded-[var(--r-lg)] p-6 sm:p-7 shadow-[var(--shadow-sm)] space-y-4 text-left">
+          <div className="flex items-center justify-between flex-wrap gap-3">
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[var(--accent-soft)] text-[var(--accent-deep)] font-extrabold text-xs">
+              <Sparkles className="w-3.5 h-3.5" />
+              <span>TRILHA PERSONALIZADA ATIVA</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-bold px-2.5 py-0.5 rounded-full bg-[var(--surface)] border border-[var(--border)] text-[var(--muted)]">
+                {studyPlan.idioma} · Nível {studyPlan.nivel_cefr}
+              </span>
+              {onOpenOnboarding && (
+                <button
+                  onClick={onOpenOnboarding}
+                  className="text-xs font-extrabold text-[var(--accent-deep)] hover:underline flex items-center gap-1 cursor-pointer"
+                >
+                  <Compass className="w-3.5 h-3.5" />
+                  <span>Reconfigurar Plano</span>
+                </button>
+              )}
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-center">
+            <div className="lg:col-span-8 space-y-2">
+              <h2 className="text-xl sm:text-2xl font-bold font-display text-[var(--fg)]">
+                {studyPlan.titulo_plano}
+              </h2>
+              <p className="text-xs sm:text-sm text-[var(--muted)] leading-relaxed line-clamp-2">
+                {studyPlan.descricao_plano}
+              </p>
+              <div className="flex flex-wrap items-center gap-2 pt-1">
+                {studyPlan.interesses_principais?.slice(0, 3).map((item, idx) => (
+                  <span
+                    key={idx}
+                    className="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-[oklch(0.95_0.01_84)] text-[var(--fg)]"
+                  >
+                    {item}
+                  </span>
+                ))}
+              </div>
+            </div>
+
+            <div className="lg:col-span-4 flex flex-col sm:flex-row lg:flex-col gap-2.5 w-full">
+              <button
+                onClick={() => onNavigate('chat')}
+                className="w-full inline-flex items-center justify-center gap-2 px-5 py-3 rounded-full font-extrabold text-xs sm:text-sm bg-[var(--accent)] text-[var(--fg)] hover:bg-[var(--accent-deep)] transition shadow-[0_3px_0_oklch(0.55_0.15_48)] cursor-pointer"
+              >
+                <MessageSquare className="w-4 h-4" />
+                <span>Praticar Tópico do Plano</span>
+              </button>
+              {studyPlan.primeiro_material_estudo && (
+                <button
+                  onClick={() => onNavigate('materials')}
+                  className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-full font-bold text-xs bg-[var(--surface)] border border-[var(--border)] hover:border-[var(--fg)] text-[var(--fg)] transition cursor-pointer"
+                >
+                  <BookOpen className="w-3.5 h-3.5" />
+                  <span>Ver Kit de Estudos</span>
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Mini Calendário Semanal da Trilha */}
+          {studyPlan.cronograma_semanal && studyPlan.cronograma_semanal.length > 0 && (
+            <div className="pt-3 border-t border-[var(--border)]">
+              <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2">
+                {studyPlan.cronograma_semanal.map((d, idx) => (
+                  <div
+                    key={idx}
+                    className="p-2.5 rounded-xl bg-[var(--surface)] border border-[var(--border)] text-left space-y-0.5"
+                  >
+                    <span className="text-[10px] font-extrabold text-[var(--accent-deep)] block">
+                      {d.dia_semana.slice(0, 3)}
+                    </span>
+                    <strong className="text-[11px] text-[var(--fg)] block truncate">
+                      {d.foco}
+                    </strong>
+                    <span className="text-[9px] text-[var(--muted)] block">
+                      ⏱️ {d.duracao_minutos} min
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </section>
+      ) : (
+        <section className="bg-gradient-to-r from-[var(--surface)] via-[oklch(0.97_0.015_84)] to-[var(--surface)] border-2 border-[var(--accent-deep)] rounded-[var(--r-lg)] p-6 sm:p-8 shadow-[var(--shadow-sm)] space-y-4 text-left">
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[var(--accent-soft)] text-[var(--accent-deep)] font-extrabold text-xs">
+            <Rocket className="w-3.5 h-3.5" />
+            <span>ASSISTENTE DE CONFIGURAÇÃO DE TRILHA</span>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-center">
+            <div className="lg:col-span-8 space-y-2">
+              <h2 className="text-2xl sm:text-3xl font-bold font-display text-[var(--fg)]">
+                Gere seu Plano de Estudos Sob Medida com IA
+              </h2>
+              <p className="text-sm text-[var(--muted)] leading-relaxed">
+                Responda perguntas rápidas (idioma, nível atual, interesses reais e tempo diário) para que a IA crie seu currículo personalizado, seus primeiros nós no Grafo de Memória e seu primeiro kit de estudos com áudio e diálogo.
+              </p>
+            </div>
+
+            <div className="lg:col-span-4 w-full">
+              <button
+                onClick={onOpenOnboarding}
+                className="w-full inline-flex items-center justify-center gap-2.5 px-6 py-4 rounded-full font-extrabold text-sm sm:text-base bg-[var(--accent)] text-[var(--fg)] hover:bg-[var(--accent-deep)] transition shadow-[0_4px_0_oklch(0.55_0.15_48)] hover:-translate-y-0.5 active:translate-y-0.5 cursor-pointer"
+              >
+                <Sparkles className="w-4.5 h-4.5" />
+                <span>Iniciar Assistente de Configuração</span>
+              </button>
+            </div>
+          </div>
+        </section>
+      )}
+
       {/* Hero Section */}
-      <section className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center pt-4">
+      <section className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center pt-2">
         <div className="lg:col-span-7 space-y-5 text-left">
           <div className="inline-flex items-center gap-2 bg-[var(--surface)] border border-[var(--border)] rounded-full px-4 py-2 text-xs sm:text-sm font-extrabold text-[var(--accent-deep)] shadow-sm">
             <span className="w-2 h-2 rounded-full bg-[var(--accent)] animate-pulse" />
-            <span>Sequência de {stats.sequencia_dias} dias — continue assim</span>
+            <span>
+              {stats.sequencia_dias > 0
+                ? `Sequência de ${stats.sequencia_dias} dias — continue assim`
+                : 'Primeiro dia de estudos — base limpa e pronta para começar!'}
+            </span>
           </div>
 
           <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold font-display text-[var(--fg)] tracking-tight leading-tight">

@@ -364,12 +364,12 @@ export const TutorAudioWaveVisualizer: React.FC<TutorAudioWaveVisualizerProps> =
   return (
     <div
       ref={containerRef}
-      className={`relative w-full rounded-lg bg-card/90 border border-border/80 p-3 shadow-xs font-mono select-none overflow-hidden ${className}`}
+      className={`relative w-full rounded-[var(--r-md)] bg-[var(--surface)] border border-[var(--border)] p-3 shadow-xs font-mono select-none overflow-hidden ${className}`}
     >
       {/* Cabeçalho do Visualizador */}
       <div className="flex items-center justify-between gap-2 mb-2">
         <div className="flex items-center gap-2">
-          <div className="relative flex items-center justify-center w-6 h-6 rounded bg-foreground text-background font-bold text-xs shadow-2xs">
+          <div className="relative flex items-center justify-center w-6 h-6 rounded-[var(--r-sm)] bg-[var(--accent)] text-black font-bold text-xs shadow-2xs">
             {isPlaying ? (
               <Activity className="w-3.5 h-3.5 animate-pulse" />
             ) : (
@@ -378,19 +378,19 @@ export const TutorAudioWaveVisualizer: React.FC<TutorAudioWaveVisualizerProps> =
           </div>
 
           <div>
-            <div className="flex items-center gap-1.5 text-xs font-bold text-foreground">
+            <div className="flex items-center gap-1.5 text-xs font-bold text-[var(--fg)]">
               <span>SAÍDA DE VOZ DO TUTOR</span>
               {isPlaying && (
                 <span className="flex h-1.5 w-1.5 relative">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-foreground opacity-75"></span>
-                  <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-foreground"></span>
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[var(--accent)] opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-[var(--accent)]"></span>
                 </span>
               )}
             </div>
-            <div className="text-[10px] text-muted-foreground flex items-center gap-1">
+            <div className="text-[10px] text-[var(--muted)] flex items-center gap-1">
               <span>{activeVoice.name}</span>
               <span>•</span>
-              <span className="text-foreground/80 font-semibold">{speechState}</span>
+              <span className="text-[var(--fg)]/80 font-semibold">{speechState}</span>
             </div>
           </div>
         </div>
@@ -398,13 +398,13 @@ export const TutorAudioWaveVisualizer: React.FC<TutorAudioWaveVisualizerProps> =
         {/* Seletor de Modo de Visualização */}
         <div className="flex items-center gap-1.5">
           {showModeSwitcher && (
-            <div className="flex items-center bg-muted/60 p-0.5 rounded border border-border/60 text-[10px]">
+            <div className="flex items-center bg-[var(--surface-raised)] p-0.5 rounded-[var(--r-sm)] border border-[var(--border)] text-[10px]">
               <button
                 onClick={() => setCurrentMode('harmonic_waves')}
-                className={`px-1.5 py-0.5 rounded transition cursor-pointer flex items-center gap-1 ${
+                className={`px-1.5 py-0.5 rounded-sm transition cursor-pointer flex items-center gap-1 ${
                   currentMode === 'harmonic_waves'
-                    ? 'bg-foreground text-background font-bold shadow-2xs'
-                    : 'text-muted-foreground hover:text-foreground'
+                    ? 'bg-[var(--accent)] text-black font-bold shadow-2xs'
+                    : 'text-[var(--muted)] hover:text-[var(--fg)]'
                 }`}
                 title="Ondas Harmônicas Contínuas"
               >
@@ -414,10 +414,10 @@ export const TutorAudioWaveVisualizer: React.FC<TutorAudioWaveVisualizerProps> =
 
               <button
                 onClick={() => setCurrentMode('frequency_bars')}
-                className={`px-1.5 py-0.5 rounded transition cursor-pointer flex items-center gap-1 ${
+                className={`px-1.5 py-0.5 rounded-sm transition cursor-pointer flex items-center gap-1 ${
                   currentMode === 'frequency_bars'
-                    ? 'bg-foreground text-background font-bold shadow-2xs'
-                    : 'text-muted-foreground hover:text-foreground'
+                    ? 'bg-[var(--accent)] text-black font-bold shadow-2xs'
+                    : 'text-[var(--muted)] hover:text-[var(--fg)]'
                 }`}
                 title="Barras de Frequência e Formantes"
               >
@@ -427,10 +427,10 @@ export const TutorAudioWaveVisualizer: React.FC<TutorAudioWaveVisualizerProps> =
 
               <button
                 onClick={() => setCurrentMode('voice_orb')}
-                className={`px-1.5 py-0.5 rounded transition cursor-pointer flex items-center gap-1 ${
+                className={`px-1.5 py-0.5 rounded-sm transition cursor-pointer flex items-center gap-1 ${
                   currentMode === 'voice_orb'
-                    ? 'bg-foreground text-background font-bold shadow-2xs'
-                    : 'text-muted-foreground hover:text-foreground'
+                    ? 'bg-[var(--accent)] text-black font-bold shadow-2xs'
+                    : 'text-[var(--muted)] hover:text-[var(--fg)]'
                 }`}
                 title="Pulso de Ressonância e Orb Vocal"
               >
@@ -444,7 +444,7 @@ export const TutorAudioWaveVisualizer: React.FC<TutorAudioWaveVisualizerProps> =
           {isPlaying && onStop && (
             <button
               onClick={onStop}
-              className="px-2 py-1 rounded bg-foreground text-background font-bold text-[10px] hover:opacity-90 transition cursor-pointer flex items-center gap-1 shadow-2xs"
+              className="px-2 py-1 rounded-[var(--r-sm)] bg-[var(--accent)] text-black font-bold text-[10px] hover:opacity-90 transition cursor-pointer flex items-center gap-1 shadow-2xs"
               title="Interromper fala do tutor"
             >
               <Square className="w-2.5 h-2.5 fill-current" />
@@ -455,7 +455,7 @@ export const TutorAudioWaveVisualizer: React.FC<TutorAudioWaveVisualizerProps> =
       </div>
 
       {/* Canvas da Onda Sonora em Alta Resolução */}
-      <div className="relative w-full overflow-hidden rounded bg-muted/30 border border-border/40 flex items-center justify-center">
+      <div className="relative w-full overflow-hidden rounded-[var(--r-sm)] bg-black/20 border border-[var(--border)]/40 flex items-center justify-center">
         <canvas ref={canvasRef} className="block w-full" />
 
         {/* Aura animada ao fundo */}
@@ -465,7 +465,7 @@ export const TutorAudioWaveVisualizer: React.FC<TutorAudioWaveVisualizerProps> =
               initial={{ opacity: 0 }}
               animate={{ opacity: intensity / 100 * 0.15 }}
               exit={{ opacity: 0 }}
-              className="absolute inset-0 pointer-events-none bg-radial from-foreground/20 to-transparent"
+              className="absolute inset-0 pointer-events-none bg-radial from-[var(--accent)]/20 to-transparent"
             />
           )}
         </AnimatePresence>
@@ -473,22 +473,22 @@ export const TutorAudioWaveVisualizer: React.FC<TutorAudioWaveVisualizerProps> =
 
       {/* Métricas de Intensidade Vocal & Formantes em Tempo Real */}
       {showMetrics && (
-        <div className="mt-2 pt-1.5 border-t border-border/50 flex items-center justify-between text-[10px] text-muted-foreground font-mono">
+        <div className="mt-2 pt-1.5 border-t border-[var(--border)] flex items-center justify-between text-[10px] text-[var(--muted)] font-mono">
           <div className="flex items-center gap-3">
             <div className="flex items-center gap-1">
               <span>Intensidade:</span>
-              <span className="font-bold text-foreground">{intensity}%</span>
+              <span className="font-bold text-[var(--fg)]">{intensity}%</span>
             </div>
             {dominantFrequency > 0 && isPlaying && (
               <div className="hidden sm:flex items-center gap-1">
                 <span>Formante:</span>
-                <span className="font-bold text-foreground">{dominantFrequency} Hz</span>
+                <span className="font-bold text-[var(--fg)]">{dominantFrequency} Hz</span>
               </div>
             )}
           </div>
 
           <div className="flex items-center gap-1.5">
-            <Sparkles className="w-3 h-3 text-foreground" />
+            <Sparkles className="w-3 h-3 text-[var(--accent)]" />
             <span>Gemini Neural 24kHz</span>
           </div>
         </div>

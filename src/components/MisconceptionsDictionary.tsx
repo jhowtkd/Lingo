@@ -623,10 +623,10 @@ export const MisconceptionsDictionary: React.FC<MisconceptionsDictionaryProps> =
 
         {/* Grid de Cards Interativos do Dicionário */}
         {filteredItems.length === 0 ? (
-          <div className="text-center py-12 border border-dashed border-border rounded-lg space-y-2">
-            <BookOpen className="w-8 h-8 text-muted-foreground mx-auto" />
-            <p className="text-sm font-semibold text-foreground">Nenhum equívoco encontrado para este filtro.</p>
-            <p className="text-xs text-muted-foreground">
+          <div className="text-center py-12 border border-dashed border-[var(--border)] rounded-[var(--r-md)] space-y-2">
+            <BookOpen className="w-8 h-8 text-[var(--muted)] mx-auto" />
+            <p className="text-sm font-semibold text-[var(--fg)]">Nenhum equívoco encontrado para este filtro.</p>
+            <p className="text-xs text-[var(--muted)]">
               Conforme você conversa com o tutor na aba de Chat, novos desvios e correções serão registrados automaticamente no seu Grafo.
             </p>
           </div>
@@ -643,18 +643,18 @@ export const MisconceptionsDictionary: React.FC<MisconceptionsDictionaryProps> =
                     setSelectedItem(item);
                     resetQuiz();
                   }}
-                  className={`p-4 rounded-lg border transition cursor-pointer text-left flex flex-col justify-between group relative shadow-2xs hover:border-foreground/40 ${
+                  className={`p-4 rounded-[var(--r-md)] border transition cursor-pointer text-left flex flex-col justify-between group relative shadow-xs hover:border-[var(--fg)]/40 ${
                     isNeedReview
                       ? 'bg-rose-500/5 border-rose-500/30'
                       : isMastered
-                      ? 'bg-emerald-500/5 border-emerald-500/30'
-                      : 'bg-card border-border hover:bg-muted/30'
+                      ? 'bg-[var(--mint)] border-[var(--ok)]/30'
+                      : 'bg-[var(--surface)] border-[var(--border)] hover:bg-[oklch(0.96_0.01_84)]'
                   }`}
                 >
                   <div>
                     {/* Topo do Card: Categoria & Badge de Status */}
                     <div className="flex items-center justify-between gap-2 mb-2">
-                      <span className="text-[10px] font-mono font-bold uppercase tracking-wider px-2 py-0.5 rounded border border-border bg-muted/60 text-muted-foreground">
+                      <span className="text-[10px] font-mono font-bold uppercase tracking-wider px-2 py-0.5 rounded border border-[var(--border)] bg-[oklch(0.96_0.01_84)] text-[var(--muted)]">
                         {item.categoriaRotulo}
                       </span>
 
@@ -666,8 +666,8 @@ export const MisconceptionsDictionary: React.FC<MisconceptionsDictionaryProps> =
                         </span>
                       )}
                       {isMastered && (
-                        <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-700 bg-emerald-100/80 px-2 py-0.5 rounded-full">
-                          <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                        <span className="inline-flex items-center gap-1 text-[10px] font-bold text-[var(--ok)] bg-[var(--mint)] px-2 py-0.5 rounded-full">
+                          <CheckCircle2 className="w-3 h-3 text-[var(--ok)]" />
                           Superado
                         </span>
                       )}
@@ -675,9 +675,9 @@ export const MisconceptionsDictionary: React.FC<MisconceptionsDictionaryProps> =
                   </div>
 
                   {/* Título do Equívoco */}
-                  <h4 className="text-sm font-bold text-slate-900 group-hover:text-indigo-600 transition flex items-center justify-between">
+                  <h4 className="text-sm font-display font-bold text-[var(--fg)] group-hover:text-[var(--accent-deep)] transition flex items-center justify-between">
                     <span>{item.titulo}</span>
-                    <ChevronRight className="w-4 h-4 text-slate-400 group-hover:translate-x-1 transition" />
+                    <ChevronRight className="w-4 h-4 text-[var(--muted)] group-hover:translate-x-1 transition" />
                   </h4>
 
                   {/* Comparativo Rápido ❌ vs ✅ */}
@@ -689,8 +689,8 @@ export const MisconceptionsDictionary: React.FC<MisconceptionsDictionaryProps> =
                       </p>
                     </div>
 
-                    <div className="p-2 rounded-lg bg-emerald-50/80 border border-emerald-100/80 text-emerald-900 flex items-start space-x-1.5">
-                      <span className="text-emerald-600 font-bold shrink-0">✅</span>
+                    <div className="p-2 rounded-lg bg-[var(--mint)] border border-[var(--ok)]/30 text-[var(--fg)] flex items-start space-x-1.5">
+                      <span className="text-[var(--ok)] font-bold shrink-0">✅</span>
                       <p className="line-clamp-2 text-[11px] leading-tight font-semibold">
                         {item.usoCorreto}
                       </p>
@@ -699,25 +699,25 @@ export const MisconceptionsDictionary: React.FC<MisconceptionsDictionaryProps> =
                 </div>
 
                 {/* Rodapé do Card: Barra de Domínio & Ação */}
-                <div className="mt-3.5 pt-2.5 border-t border-slate-100/80 flex items-center justify-between text-xs">
+                <div className="mt-3.5 pt-2.5 border-t border-[var(--border)] flex items-center justify-between text-xs">
                   <div className="flex items-center space-x-2">
-                    <span className="text-[11px] text-slate-500 font-medium">Domínio:</span>
-                    <div className="w-16 bg-slate-200 rounded-full h-1.5 overflow-hidden">
+                    <span className="text-[11px] text-[var(--muted)] font-medium">Domínio:</span>
+                    <div className="w-16 bg-[oklch(0.94_0.01_84)] rounded-full h-1.5 overflow-hidden">
                       <div
                         className={`h-full rounded-full ${
                           item.dominioEstimado >= 75
-                            ? 'bg-emerald-500'
+                            ? 'bg-[var(--ok)]'
                             : item.dominioEstimado >= 50
-                            ? 'bg-amber-500'
+                            ? 'bg-[var(--sunny)]'
                             : 'bg-rose-500'
                         }`}
                         style={{ width: `${item.dominioEstimado}%` }}
                       />
                     </div>
-                    <span className="text-[11px] font-bold text-slate-700">{item.dominioEstimado}%</span>
+                    <span className="text-[11px] font-bold font-mono text-[var(--fg)]">{item.dominioEstimado}%</span>
                   </div>
 
-                  <span className="text-[11px] text-indigo-600 font-bold group-hover:underline flex items-center gap-0.5">
+                  <span className="text-[11px] text-[var(--fg)] font-bold group-hover:underline flex items-center gap-0.5">
                     Ver Explicação ➔
                   </span>
                 </div>
@@ -729,37 +729,29 @@ export const MisconceptionsDictionary: React.FC<MisconceptionsDictionaryProps> =
 
       {/* Modal Interativo Detalhado de Explicação Pedagógica & Exemplos de Uso */}
       {selectedItem && (
-        <div className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
-          <div className="bg-white border border-slate-200 rounded-2xl max-w-2xl w-full p-5 sm:p-7 space-y-5 shadow-2xl text-slate-900 max-h-[90vh] overflow-y-auto">
+        <div className="fixed inset-0 z-50 bg-[var(--fg)]/40 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
+          <div className="bg-[var(--surface)] border border-[var(--border)] rounded-[var(--r-lg)] max-w-2xl w-full p-5 sm:p-7 space-y-5 shadow-xl text-[var(--fg)] max-h-[90vh] overflow-y-auto">
             {/* Topo do Modal */}
-            <div className="flex items-start justify-between border-b border-slate-100 pb-4">
+            <div className="flex items-start justify-between border-b border-[var(--border)] pb-4">
               <div>
                 <div className="flex items-center space-x-2">
                   <span
-                    className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md ${
-                      selectedItem.categoria === 'falso_amigo'
-                        ? 'bg-amber-100 text-amber-800'
-                        : selectedItem.categoria === 'vocabulario'
-                        ? 'bg-sky-100 text-sky-800'
-                        : selectedItem.categoria === 'gramatica'
-                        ? 'bg-purple-100 text-purple-800'
-                        : 'bg-rose-100 text-rose-800'
-                    }`}
+                    className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full border border-[var(--border)] bg-[oklch(0.96_0.01_84)] text-[var(--fg)] font-mono"
                   >
                     {selectedItem.categoriaRotulo}
                   </span>
-                  <span className="text-xs text-slate-400 font-medium">
+                  <span className="text-xs text-[var(--muted)] font-medium">
                     Idioma: {selectedItem.idioma}
                   </span>
                 </div>
-                <h3 className="text-lg sm:text-xl font-bold text-slate-900 mt-1">
+                <h3 className="text-lg sm:text-xl font-display font-bold text-[var(--fg)] mt-1">
                   {selectedItem.titulo}
                 </h3>
               </div>
 
               <button
                 onClick={() => setSelectedItem(null)}
-                className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition"
+                className="p-1.5 text-[var(--muted)] hover:text-[var(--fg)] hover:bg-[oklch(0.96_0.01_84)] rounded-full transition cursor-pointer"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -768,7 +760,7 @@ export const MisconceptionsDictionary: React.FC<MisconceptionsDictionaryProps> =
             {/* Comparativo Visual Amplo: ❌ Equívoco vs ✅ Padrão Nativo */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               {/* O Equívoco */}
-              <div className="p-3.5 bg-rose-50 border border-rose-200 rounded-xl space-y-1 text-left">
+              <div className="p-3.5 bg-rose-50 border border-rose-200 rounded-2xl space-y-1 text-left">
                 <span className="text-[11px] uppercase font-bold text-rose-700 flex items-center gap-1">
                   <span>❌</span> Armadilha / Uso Incorreto
                 </span>
@@ -778,11 +770,11 @@ export const MisconceptionsDictionary: React.FC<MisconceptionsDictionaryProps> =
               </div>
 
               {/* A Solução Nativa */}
-              <div className="p-3.5 bg-emerald-50 border border-emerald-200 rounded-xl space-y-1 text-left">
-                <span className="text-[11px] uppercase font-bold text-emerald-700 flex items-center gap-1">
+              <div className="p-3.5 bg-[var(--mint)] border border-[var(--ok)]/30 rounded-2xl space-y-1 text-left">
+                <span className="text-[11px] uppercase font-bold text-[var(--ok)] flex items-center gap-1">
                   <span>✅</span> Forma Correta & Padrão Nativo
                 </span>
-                <p className="text-xs sm:text-sm font-bold text-emerald-950 leading-relaxed">
+                <p className="text-xs sm:text-sm font-bold text-[var(--fg)] leading-relaxed">
                   {selectedItem.usoCorreto}
                 </p>
               </div>
@@ -790,18 +782,18 @@ export const MisconceptionsDictionary: React.FC<MisconceptionsDictionaryProps> =
 
             {/* Explicação Pedagógica & Por Que o Cérebro Confunde */}
             <div className="space-y-3 text-left">
-              <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl space-y-2">
-                <h4 className="text-xs font-bold uppercase tracking-wider text-slate-700 flex items-center gap-1.5">
-                  <Sparkles className="w-3.5 h-3.5 text-indigo-600" />
+              <div className="p-4 bg-[oklch(0.97_0.01_84)] border border-[var(--border)] rounded-2xl space-y-2">
+                <h4 className="text-xs font-bold uppercase tracking-wider text-[var(--fg)] flex items-center gap-1.5 font-mono">
+                  <Sparkles className="w-3.5 h-3.5 text-[var(--accent-deep)]" />
                   Explicação Pedagógica & Modelo Mental
                 </h4>
-                <p className="text-xs sm:text-sm text-slate-700 leading-relaxed">
+                <p className="text-xs sm:text-sm text-[var(--muted)] leading-relaxed">
                   {selectedItem.explicacaoPedagogica}
                 </p>
 
                 {selectedItem.porQueConfunde && (
-                  <div className="pt-2 border-t border-slate-200 text-xs text-slate-600">
-                    <strong className="text-slate-800">Por que ocorre essa confusão? </strong>
+                  <div className="pt-2 border-t border-[var(--border)] text-xs text-[var(--muted)]">
+                    <strong className="text-[var(--fg)]">Por que ocorre essa confusão? </strong>
                     {selectedItem.porQueConfunde}
                   </div>
                 )}
@@ -809,10 +801,10 @@ export const MisconceptionsDictionary: React.FC<MisconceptionsDictionaryProps> =
 
               {/* Dica Mnemônica */}
               {selectedItem.dicaMnemonica && (
-                <div className="p-3 bg-amber-50/70 border border-amber-200 rounded-xl flex items-start space-x-2.5 text-xs text-amber-900">
-                  <Zap className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                <div className="p-3 bg-[var(--sunny)]/15 border border-[var(--sunny)]/40 rounded-2xl flex items-start space-x-2.5 text-xs text-[var(--fg)]">
+                  <Zap className="w-4 h-4 text-[var(--fg)] shrink-0 mt-0.5" />
                   <div>
-                    <strong className="font-bold text-amber-950">Macete / Dica de Ouro: </strong>
+                    <strong className="font-bold">Macete / Dica de Ouro: </strong>
                     <span>{selectedItem.dicaMnemonica}</span>
                   </div>
                 </div>
@@ -822,12 +814,12 @@ export const MisconceptionsDictionary: React.FC<MisconceptionsDictionaryProps> =
             {/* Exemplos Práticos de Uso no Cotidiano (com Áudio TTS) */}
             <div className="space-y-2.5 text-left">
               <div className="flex items-center justify-between">
-                <h4 className="text-xs font-bold uppercase tracking-wider text-slate-700 flex items-center gap-1.5">
-                  <BookOpen className="w-3.5 h-3.5 text-indigo-600" />
+                <h4 className="text-xs font-bold uppercase tracking-wider text-[var(--fg)] flex items-center gap-1.5 font-mono">
+                  <BookOpen className="w-3.5 h-3.5 text-[var(--accent-deep)]" />
                   Exemplos de Uso no Cotidiano
                 </h4>
                 {audioFeedback && (
-                  <span className="text-[11px] text-indigo-600 font-semibold animate-pulse">
+                  <span className="text-[11px] text-[var(--accent-deep)] font-semibold animate-pulse font-mono">
                     {audioFeedback}
                   </span>
                 )}
@@ -837,26 +829,26 @@ export const MisconceptionsDictionary: React.FC<MisconceptionsDictionaryProps> =
                 {selectedItem.exemplos.map((ex, idx) => (
                   <div
                     key={idx}
-                    className="p-3 bg-white border border-slate-200 rounded-xl flex items-center justify-between gap-3 shadow-2xs hover:border-slate-300 transition"
+                    className="p-3 bg-[var(--surface)] border border-[var(--border)] rounded-2xl flex items-center justify-between gap-3 shadow-xs hover:border-[var(--fg)]/30 transition"
                   >
                     <div className="space-y-0.5">
                       <div className="flex items-center space-x-2">
-                        <span className="text-xs sm:text-sm font-bold text-slate-900">
+                        <span className="text-xs sm:text-sm font-bold text-[var(--fg)]">
                           {ex.frase}
                         </span>
                         {ex.ipa && (
-                          <span className="text-[11px] font-mono text-indigo-600 bg-indigo-50 px-1.5 py-0.5 rounded">
+                          <span className="text-[11px] font-mono text-[var(--muted)] bg-[oklch(0.96_0.01_84)] px-1.5 py-0.5 rounded">
                             {ex.ipa}
                           </span>
                         )}
                       </div>
-                      <p className="text-xs text-slate-500">{ex.traducao}</p>
+                      <p className="text-xs text-[var(--muted)]">{ex.traducao}</p>
                     </div>
 
                     <button
                       onClick={() => handleSpeakText(ex.frase)}
                       disabled={isSpeaking}
-                      className="p-2 text-indigo-600 hover:bg-indigo-50 rounded-lg transition cursor-pointer shrink-0"
+                      className="p-2 text-[var(--fg)] hover:bg-[oklch(0.96_0.01_84)] rounded-full transition cursor-pointer shrink-0"
                       title="Ouvir pronúncia nativa com Web Speech TTS"
                     >
                       <Volume2 className="w-4 h-4" />
@@ -868,14 +860,14 @@ export const MisconceptionsDictionary: React.FC<MisconceptionsDictionaryProps> =
 
             {/* Mini-Quiz Interativo de Fixação Rápida */}
             {selectedItem.quiz && (
-              <div className="p-4 bg-indigo-50/60 border border-indigo-200 rounded-xl space-y-3 text-left">
+              <div className="p-4 bg-[oklch(0.97_0.01_84)] border border-[var(--border)] rounded-2xl space-y-3 text-left">
                 <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold text-indigo-950 flex items-center gap-1.5">
-                    <HelpCircle className="w-4 h-4 text-indigo-600" />
+                  <span className="text-xs font-bold text-[var(--fg)] flex items-center gap-1.5 font-mono">
+                    <HelpCircle className="w-4 h-4 text-[var(--accent-deep)]" />
                     Teste Rápido de Fixação (+30 XP)
                   </span>
                   {quizSubmitted && (
-                    <span className="text-xs font-bold text-indigo-700">
+                    <span className="text-xs font-bold text-[var(--fg)] font-mono">
                       {quizSelectedOption === selectedItem.quiz.respostaCorreta
                         ? '🎉 Parabéns! Correto!'
                         : '❌ Quase! Veja a explicação.'}
@@ -883,7 +875,7 @@ export const MisconceptionsDictionary: React.FC<MisconceptionsDictionaryProps> =
                   )}
                 </div>
 
-                <p className="text-xs sm:text-sm font-semibold text-slate-800">
+                <p className="text-xs sm:text-sm font-semibold text-[var(--fg)]">
                   {selectedItem.quiz.pergunta}
                 </p>
 
@@ -891,16 +883,16 @@ export const MisconceptionsDictionary: React.FC<MisconceptionsDictionaryProps> =
                   {selectedItem.quiz.opcoes.map((opcao, idx) => {
                     const isSelected = quizSelectedOption === opcao;
                     const isCorrect = opcao === selectedItem.quiz?.respostaCorreta;
-                    let optionStyle = 'bg-white border-slate-200 hover:bg-slate-50 text-slate-800';
+                    let optionStyle = 'bg-[var(--surface)] border-[var(--border)] hover:bg-[oklch(0.96_0.01_84)] text-[var(--fg)]';
 
                     if (quizSubmitted) {
                       if (isCorrect) {
-                        optionStyle = 'bg-emerald-100 border-emerald-300 text-emerald-900 font-bold';
+                        optionStyle = 'bg-[var(--mint)] border-[var(--ok)] text-[var(--ok)] font-bold';
                       } else if (isSelected && !isCorrect) {
                         optionStyle = 'bg-rose-100 border-rose-300 text-rose-900 line-through';
                       }
                     } else if (isSelected) {
-                      optionStyle = 'bg-indigo-100 border-indigo-400 text-indigo-900 font-semibold';
+                      optionStyle = 'bg-[var(--fg)] text-[var(--accent)] border-[var(--fg)] font-semibold';
                     }
 
                     return (
@@ -908,10 +900,10 @@ export const MisconceptionsDictionary: React.FC<MisconceptionsDictionaryProps> =
                         key={idx}
                         disabled={quizSubmitted}
                         onClick={() => setQuizSelectedOption(opcao)}
-                        className={`w-full p-2.5 rounded-lg border text-left text-xs sm:text-sm transition flex items-center justify-between cursor-pointer ${optionStyle}`}
+                        className={`w-full p-2.5 rounded-full border text-left text-xs sm:text-sm transition flex items-center justify-between cursor-pointer ${optionStyle}`}
                       >
                         <span>{opcao}</span>
-                        {quizSubmitted && isCorrect && <Check className="w-4 h-4 text-emerald-600 shrink-0" />}
+                        {quizSubmitted && isCorrect && <Check className="w-4 h-4 text-[var(--ok)] shrink-0" />}
                       </button>
                     );
                   })}
@@ -921,13 +913,13 @@ export const MisconceptionsDictionary: React.FC<MisconceptionsDictionaryProps> =
                   <button
                     onClick={() => handleQuizSubmit(selectedItem)}
                     disabled={!quizSelectedOption}
-                    className="w-full py-2 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white rounded-lg text-xs font-semibold transition cursor-pointer shadow-2xs"
+                    className="w-full py-2.5 bg-[var(--fg)] hover:bg-[var(--fg)]/90 disabled:opacity-50 text-[var(--bg)] rounded-full text-xs font-semibold transition cursor-pointer shadow-xs"
                   >
                     Confirmar Resposta
                   </button>
                 ) : (
-                  <p className="text-xs text-slate-600 bg-white/80 p-2.5 rounded-lg border border-indigo-100">
-                    <strong>Explicação: </strong>
+                  <p className="text-xs text-[var(--muted)] bg-[var(--surface)] p-2.5 rounded-xl border border-[var(--border)]">
+                    <strong className="text-[var(--fg)]">Explicação: </strong>
                     {selectedItem.quiz.explicacao}
                   </p>
                 )}
@@ -935,13 +927,13 @@ export const MisconceptionsDictionary: React.FC<MisconceptionsDictionaryProps> =
             )}
 
             {/* Rodapé de Ações do Modal */}
-            <div className="flex flex-wrap items-center justify-between gap-3 pt-3 border-t border-slate-100">
+            <div className="flex flex-wrap items-center justify-between gap-3 pt-3 border-t border-[var(--border)]">
               <button
                 onClick={() => {
                   handleMarkAsUnderstood(selectedItem);
                   setSelectedItem(null);
                 }}
-                className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-semibold transition flex items-center space-x-1.5 cursor-pointer shadow-2xs"
+                className="px-4 py-2.5 bg-[var(--ok)] hover:bg-[var(--ok)]/90 text-white rounded-full text-xs font-semibold transition flex items-center space-x-1.5 cursor-pointer shadow-xs"
               >
                 <CheckCircle2 className="w-4 h-4" />
                 <span>Marcar como Superado no Grafo</span>
@@ -952,7 +944,7 @@ export const MisconceptionsDictionary: React.FC<MisconceptionsDictionaryProps> =
                   onPracticeTopic(selectedItem.titulo);
                   setSelectedItem(null);
                 }}
-                className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-semibold transition flex items-center space-x-1.5 cursor-pointer shadow-2xs"
+                className="px-4 py-2.5 bg-[var(--fg)] hover:bg-[var(--fg)]/90 text-[var(--bg)] rounded-full text-xs font-semibold transition flex items-center space-x-1.5 cursor-pointer shadow-xs"
               >
                 <MessageSquare className="w-4 h-4" />
                 <span>Praticar no Chat com Tutor ➔</span>
