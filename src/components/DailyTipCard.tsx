@@ -97,7 +97,7 @@ export const DailyTipCard: React.FC<DailyTipCardProps> = ({
     // Calcula a pontuação de criticidade da lacuna
     const scoredGaps = candidateNodes.map((node) => {
       let score = 0;
-      const mastery = node.dominio_estimado ?? 50;
+      const mastery = node.dominio_estimado ?? 0;
       const errorFreq = node.frequencia_erro ?? 0;
       const difficulty = node.dificuldade ?? 3;
       const isOverdue = node.proxima_revisao ? new Date(node.proxima_revisao) <= now : false;

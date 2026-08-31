@@ -3,7 +3,7 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { DailyTipCard } from '../src/components/DailyTipCard';
 import { StorageService } from '../src/services/storage';
-import { UserStats } from '../src/types';
+import { GraphNode, UserStats } from '../src/types';
 
 const stats: UserStats = {
   xp: 0,
@@ -45,6 +45,37 @@ describe('honest empty learning states', () => {
     expect(html).toContain('Começar conversa');
     expect(html).not.toContain('Actually');
     expect(html).not.toContain('45%');
+  });
+
+  it('keeps an unscored graph node at zero mastery', () => {
+    const unscoredNode = {
+      id: 'node-unscored',
+      tipo: 'vocabulario',
+      titulo: 'bonjour',
+      descricao: 'saudação',
+      dificuldade: 1,
+      frequencia_erro: 0,
+      ultima_revisao: '2026-08-30T00:00:00.000Z',
+      proxima_revisao: '2026-09-02T00:00:00.000Z',
+      evidencias: [],
+      criado_em: '2026-08-30T00:00:00.000Z',
+      atualizado_em: '2026-08-30T00:00:00.000Z',
+      idioma: 'Francês',
+    } as GraphNode;
+    vi.spyOn(StorageService, 'getNodes').mockReturnValue([unscoredNode]);
+    vi.spyOn(StorageService, 'getMaterials').mockReturnValue([]);
+    vi.spyOn(StorageService, 'getCorrections').mockReturnValue([]);
+
+    const html = renderToStaticMarkup(
+      <DailyTipCard
+        stats={stats}
+        onNavigateToMaterials={() => undefined}
+        onNavigateToChat={() => undefined}
+      />
+    );
+
+    expect(html).toContain('domínio de apenas 0%');
+    expect(html).not.toContain('domínio de apenas 50%');
   });
 
   it('clears multi-conversation state during an explicit reset', () => {
