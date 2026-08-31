@@ -349,8 +349,8 @@ export const MisconceptionsDictionary: React.FC<MisconceptionsDictionaryProps> =
           porQueConfunde,
           exemplos,
           dicaMnemonica,
-          frequenciaErro: node.frequencia_erro || 1,
-          dominioEstimado: node.dominio_estimado || 50,
+          frequenciaErro: node.frequencia_erro ?? 0,
+          dominioEstimado: node.dominio_estimado ?? 0,
           proximaRevisao: node.proxima_revisao || new Date().toISOString(),
           status,
           gravidade,
@@ -542,8 +542,9 @@ export const MisconceptionsDictionary: React.FC<MisconceptionsDictionaryProps> =
       </div>
 
         {/* Barra de Busca, Categorias e Filtros */}
-        <div className="space-y-3">
-          <div className="flex flex-col sm:flex-row gap-2.5">
+        {items.length > 0 && (
+          <div className="space-y-3">
+            <div className="flex flex-col sm:flex-row gap-2.5">
             {/* Campo de Busca */}
             <div className="relative flex-1">
               <Search className="w-4 h-4 text-muted-foreground absolute left-3.5 top-1/2 -translate-y-1/2" />
@@ -577,10 +578,10 @@ export const MisconceptionsDictionary: React.FC<MisconceptionsDictionaryProps> =
                 <option value="alfabetica">Ordem Alfabética (A-Z)</option>
               </select>
             </div>
-          </div>
+            </div>
 
-          {/* Chips de Categorias e Filtro de Status */}
-          <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
+            {/* Chips de Categorias e Filtro de Status */}
+            <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
             {/* Categorias */}
             <div className="flex flex-wrap items-center gap-1.5">
               {[
@@ -618,11 +619,29 @@ export const MisconceptionsDictionary: React.FC<MisconceptionsDictionaryProps> =
                 <option value="compreendido">🟢 Superados</option>
               </select>
             </div>
+            </div>
           </div>
-        </div>
+        )}
 
         {/* Grid de Cards Interativos do Dicionário */}
-        {filteredItems.length === 0 ? (
+        {items.length === 0 ? (
+          <div className="text-center py-12 border border-dashed border-[var(--border)] rounded-[var(--r-md)] space-y-3">
+            <BookOpen className="w-8 h-8 text-[var(--muted)] mx-auto" />
+            <p className="text-sm font-semibold text-[var(--fg)]">
+              Nenhum equívoco foi registrado ainda
+            </p>
+            <p className="text-xs text-[var(--muted)] max-w-md mx-auto">
+              As correções aparecem aqui depois que o tutor identifica e registra uma dificuldade real.
+            </p>
+            <button
+              type="button"
+              onClick={() => onPracticeTopic('Conversação livre')}
+              className="rounded-full px-4 py-2 text-xs font-extrabold bg-[var(--accent)] text-[var(--fg)]"
+            >
+              Praticar com o tutor
+            </button>
+          </div>
+        ) : filteredItems.length === 0 ? (
           <div className="text-center py-12 border border-dashed border-[var(--border)] rounded-[var(--r-md)] space-y-2">
             <BookOpen className="w-8 h-8 text-[var(--muted)] mx-auto" />
             <p className="text-sm font-semibold text-[var(--fg)]">Nenhum equívoco encontrado para este filtro.</p>

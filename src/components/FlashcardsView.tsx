@@ -536,14 +536,27 @@ export const FlashcardsView: React.FC<FlashcardsViewProps> = ({
         <div className="flex-1 flex flex-col items-center justify-center p-8 text-center space-y-4">
           <BookOpen className="w-12 h-12 text-[var(--muted)] stroke-1" />
           <h3 className="text-base font-display font-bold text-[var(--fg)]">
-            Nenhum cartão encontrado para este filtro
+            {filterMode !== 'todos' ? 'Nenhum cartão corresponde a este filtro' : 'Você ainda não tem cartões'}
           </h3>
           <p className="text-xs text-[var(--muted)] max-w-md">
-            Experimente selecionar "🎯 Todos" ou interaja no chat para que o Grafo de Memória mapeie novos termos.
+            {filterMode !== 'todos'
+              ? 'Experimente selecionar "🎯 Todos" para revisar todos os cartões disponíveis.'
+              : 'Interaja no chat para que o Grafo de Memória mapeie novos termos.'}
           </p>
-          <Button onClick={() => setFilterMode('todos')} size="sm" variant="default" className="rounded-full font-bold">
-            Mostrar Todos os Cartões
-          </Button>
+          {filterMode !== 'todos' ? (
+            <Button onClick={() => setFilterMode('todos')} size="sm" variant="default" className="rounded-full font-bold">
+              Limpar filtro
+            </Button>
+          ) : onPracticeInChat ? (
+            <Button
+              onClick={() => onPracticeInChat(currentTopic)}
+              size="sm"
+              variant="default"
+              className="rounded-full font-bold"
+            >
+              Criar cartões conversando
+            </Button>
+          ) : null}
         </div>
       ) : (
         /* ÁREA PRINCIPAL DO FLASHCARD INTERATIVO COM FRAMER MOTION */
@@ -844,4 +857,3 @@ export const FlashcardsView: React.FC<FlashcardsViewProps> = ({
     </div>
   );
 };
-

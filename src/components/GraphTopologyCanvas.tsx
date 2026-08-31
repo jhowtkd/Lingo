@@ -3,12 +3,10 @@ import {
   GraphNode,
   GraphRelation,
   NodeType,
-  RelationType,
 } from '../types';
 import { BorderTrail } from './ui/border-trail';
 import {
   Sparkles,
-  Zap,
   ZoomIn,
   ZoomOut,
   RotateCcw,
@@ -35,7 +33,6 @@ interface GraphTopologyCanvasProps {
   onSelectNode: (node: GraphNode | null) => void;
   onUpdateMastery?: (node: GraphNode, delta: number) => void;
   getTypeBadge: (type: NodeType) => { label: string; bg: string };
-  onSimulateNewNode?: () => void;
   onNavigateToChat?: (topic: string) => void;
 }
 
@@ -48,7 +45,6 @@ export const GraphTopologyCanvas: React.FC<GraphTopologyCanvasProps> = ({
   onSelectNode,
   onUpdateMastery,
   getTypeBadge,
-  onSimulateNewNode,
   onNavigateToChat,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -221,17 +217,6 @@ export const GraphTopologyCanvas: React.FC<GraphTopologyCanvasProps> = ({
 
         {/* Zoom e Ações Rápidas */}
         <div className="flex items-center gap-2">
-          {onSimulateNewNode && (
-            <button
-              onClick={onSimulateNewNode}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-[var(--border)] bg-[var(--surface)] hover:border-[var(--fg)] text-xs font-extrabold text-[var(--fg)] transition cursor-pointer shadow-xs"
-              title="Registrar um novo conceito no grafo para visualização em tempo real"
-            >
-              <Zap className="w-3.5 h-3.5 text-amber-600" />
-              <span>Simular Conceito</span>
-            </button>
-          )}
-
           {/* Filtro Todos / Novos */}
           <div className="flex items-center bg-[oklch(0.96_0.01_84)] border border-[var(--border)] rounded-full p-0.5 text-xs">
             <button

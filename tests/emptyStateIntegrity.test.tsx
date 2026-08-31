@@ -3,6 +3,8 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { DailyTipCard } from '../src/components/DailyTipCard';
 import { StorageService } from '../src/services/storage';
+import { VocabDuelEngine } from '../src/services/vocabDuelEngine';
+import { FlashcardsEngine } from '../src/services/flashcardsEngine';
 import { GraphNode, UserStats } from '../src/types';
 
 const stats: UserStats = {
@@ -87,5 +89,41 @@ describe('honest empty learning states', () => {
 
     expect(removeItem).toHaveBeenCalledWith('tutor_conversations_v2');
     expect(removeItem).toHaveBeenCalledWith('tutor_active_conv_id_v2');
+  });
+
+  it('does not synthesize duel questions when the graph is empty', () => {
+    vi.spyOn(StorageService, 'getNodes').mockReturnValue([]);
+
+    expect(VocabDuelEngine.generateDuelQuestions('Francês', 8)).toEqual([]);
+    expect(VocabDuelEngine.getEligibleNodes('Francês')).toEqual([]);
+  });
+
+  it('preserves zero mastery in cards and duel outcomes', () => {
+    const node: GraphNode = {
+      id: 'node-zero',
+      tipo: 'vocabulario',
+      titulo: 'Bonjour',
+      descricao: 'Saudação em francês',
+      dominio_estimado: 0,
+      dificuldade: 1,
+      frequencia_erro: 0,
+      ultima_revisao: '2026-08-30T10:00:00.000Z',
+      proxima_revisao: '2026-08-31T10:00:00.000Z',
+      evidencias: ['Plano local'],
+      criado_em: '2026-08-30T10:00:00.000Z',
+      atualizado_em: '2026-08-30T10:00:00.000Z',
+      idioma: 'Francês',
+    };
+    vi.spyOn(StorageService, 'getNodes').mockReturnValue([node]);
+    vi.spyOn(StorageService, 'saveNodes').mockImplementation(() => undefined);
+
+    expect(FlashcardsEngine.convertNodeToFlashcard(node).dominio_atual).toBe(0);
+
+    VocabDuelEngine.updateNodeWithDuelResult(node.id, true, false);
+    expect(node.dominio_estimado).toBe(8);
+
+    node.dominio_estimado = 0;
+    VocabDuelEngine.updateNodeWithDuelResult(node.id, false, false);
+    expect(node.dominio_estimado).toBe(0);
   });
 });

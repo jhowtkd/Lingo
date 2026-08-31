@@ -52,6 +52,8 @@ export const VocabularyDuelView: React.FC<VocabularyDuelViewProps> = ({
   onPracticeInChat,
 }) => {
   const activeTheme: LanguageThemeConfig = getLanguageTheme(stats.idioma_ativo || currentTopic);
+  const activeLanguage = stats.idioma_ativo || currentTopic;
+  const availableRoundCount = Math.min(8, VocabDuelEngine.getEligibleNodes(activeLanguage).length);
 
   // Estados de Jogo
   const [gameState, setGameState] = useState<'lobby' | 'playing' | 'round_feedback' | 'game_over'>('lobby');
@@ -83,7 +85,8 @@ export const VocabularyDuelView: React.FC<VocabularyDuelViewProps> = ({
 
   // Inicializa o jogo com perguntas do Grafo de Memória
   const handleStartGame = () => {
-    const generated = VocabDuelEngine.generateDuelQuestions(stats.idioma_ativo || currentTopic, 8);
+    const generated = VocabDuelEngine.generateDuelQuestions(activeLanguage, 8);
+    if (generated.length === 0) return;
     setQuestions(generated);
     setCurrentIndex(0);
     setAnswers([]);
@@ -93,7 +96,7 @@ export const VocabularyDuelView: React.FC<VocabularyDuelViewProps> = ({
     setCurrentCombo(0);
     setFinalSession(null);
     setGameState('playing');
-    startQuestionTimer(generated[0]?.tempo_limite_segundos || 12);
+    startQuestionTimer(generated[0].tempo_limite_segundos || 12);
   };
 
   // Gerenciador do Cronômetro
@@ -398,15 +401,30 @@ export const VocabularyDuelView: React.FC<VocabularyDuelViewProps> = ({
             </div>
           </div>
 
-          <Button
-            size="lg"
-            variant="default"
-            onClick={handleStartGame}
-            className="w-full sm:w-auto px-8 py-3 text-sm font-bold tracking-wide cursor-pointer gap-2 rounded-full"
-          >
-            <Zap className="w-4 h-4 text-[var(--accent)]" />
-            <span>INICIAR DUELO (8 RODADAS)</span>
-          </Button>
+          {availableRoundCount === 0 ? (
+            <div className="space-y-3 text-center">
+              <p className="text-sm text-[var(--muted)]">
+                Seu grafo ainda não tem termos em {activeTheme.nome} para montar um duelo.
+              </p>
+              {onPracticeInChat && (
+                <Button onClick={() => onPracticeInChat(currentTopic)} className="rounded-full font-bold">
+                  Criar termos conversando
+                </Button>
+              )}
+            </div>
+          ) : (
+            <Button
+              size="lg"
+              variant="default"
+              onClick={handleStartGame}
+              className="w-full sm:w-auto px-8 py-3 text-sm font-bold tracking-wide rounded-full"
+            >
+              <Zap className="w-4 h-4 text-[var(--accent)]" />
+              <span>
+                INICIAR DUELO ({availableRoundCount} RODADA{availableRoundCount === 1 ? '' : 'S'})
+              </span>
+            </Button>
+          )}
         </div>
       )}
 
