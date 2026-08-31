@@ -96,6 +96,26 @@ describe('honest empty learning states', () => {
 
     expect(VocabDuelEngine.generateDuelQuestions('Francês', 8)).toEqual([]);
     expect(VocabDuelEngine.getEligibleNodes('Francês')).toEqual([]);
+
+    const node: GraphNode = {
+      id: 'node-one',
+      tipo: 'vocabulario',
+      titulo: 'Bonjour',
+      descricao: 'Saudação em francês',
+      dominio_estimado: 0,
+      dificuldade: 1,
+      frequencia_erro: 0,
+      ultima_revisao: '2026-08-30T10:00:00.000Z',
+      proxima_revisao: '2026-08-31T10:00:00.000Z',
+      evidencias: [],
+      criado_em: '2026-08-30T10:00:00.000Z',
+      atualizado_em: '2026-08-30T10:00:00.000Z',
+      idioma: 'Francês',
+    };
+    vi.spyOn(StorageService, 'getNodes').mockReturnValue([node, { ...node, id: 'node-duplicate' }]);
+
+    expect(VocabDuelEngine.generateDuelQuestions('Francês', 8)).toHaveLength(1);
+    expect(VocabDuelEngine.generateDistractors(node)).toEqual([]);
   });
 
   it('preserves zero mastery in cards and duel outcomes', () => {

@@ -53,7 +53,7 @@ export const VocabularyDuelView: React.FC<VocabularyDuelViewProps> = ({
 }) => {
   const activeTheme: LanguageThemeConfig = getLanguageTheme(stats.idioma_ativo || currentTopic);
   const activeLanguage = stats.idioma_ativo || currentTopic;
-  const availableRoundCount = Math.min(8, VocabDuelEngine.getEligibleNodes(activeLanguage).length);
+  const availableRoundCount = VocabDuelEngine.generateDuelQuestions(activeLanguage, 8).length;
 
   // Estados de Jogo
   const [gameState, setGameState] = useState<'lobby' | 'playing' | 'round_feedback' | 'game_over'>('lobby');

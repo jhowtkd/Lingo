@@ -72,7 +72,7 @@ export const VocabDuelEngine = {
         dica_contextual: 'Atenção ao falso cognato! Não traduza pela semelhança gráfica.',
         resposta_esperada: node.traducao || node.descricao,
         respostas_alternativas: this.extractKeywords(node.traducao || node.descricao),
-        opcoes_multipla_escolha: this.generateDistractors(node, 'falso_amigo'),
+        opcoes_multipla_escolha: this.generateDistractors(node),
         tempo_limite_segundos: 14,
         pontos_base: 120,
         nivel_dificuldade: Math.min(5, (node.dificuldade || 3) + 1),
@@ -92,7 +92,7 @@ export const VocabDuelEngine = {
         dica_contextual: node.descricao,
         resposta_esperada: node.traducao || node.titulo,
         respostas_alternativas: this.extractKeywords(node.traducao || node.descricao),
-        opcoes_multipla_escolha: this.generateDistractors(node, 'vocabulario'),
+        opcoes_multipla_escolha: this.generateDistractors(node),
         tempo_limite_segundos: 12,
         pontos_base: 100,
         nivel_dificuldade: node.dificuldade || 2,
@@ -137,40 +137,17 @@ export const VocabDuelEngine = {
     };
   },
 
-  // Gera opções de múltipla escolha com distratores convincentes
-  generateDistractors(targetNode: GraphNode, tipo: string): string[] {
-    const allNodes = StorageService.getNodes();
-    const correct = targetNode.traducao || targetNode.titulo;
-    const distractors: string[] = [correct];
+  // Gera alternativas somente de termos já registrados no mesmo idioma.
+  generateDistractors(targetNode: GraphNode): string[] {
+    const correct = targetNode.traducao || targetNode.descricao || targetNode.titulo;
+    const targetLanguage = getLanguageConfig(targetNode.idioma || 'ingles');
+    const alternatives = StorageService.getNodes()
+      .filter((node) => node.id !== targetNode.id && getLanguageConfig(node.idioma || 'ingles').id === targetLanguage.id)
+      .map((node) => node.traducao || node.descricao || node.titulo)
+      .filter((value) => value && value !== correct);
 
-    if (tipo === 'falso_amigo') {
-      if (targetNode.titulo.includes('Actually')) {
-        distractors.push('Atualmente / Nos dias de hoje', 'Acontecer de repente', 'Atuar no teatro');
-      } else if (targetNode.titulo.includes('Pretend')) {
-        distractors.push('Pretender / Ter a intenção de fazer', 'Proteger contra perigos', 'Apresentar um projeto');
-      } else if (targetNode.titulo.includes('Push')) {
-        distractors.push('Puxar para si', 'Pousar um objeto', 'Pintar uma parede');
-      } else if (targetNode.titulo.includes('Borrow')) {
-        distractors.push('Emprestar para alguém', 'Comprar fiado', 'Alugar uma casa');
-      } else {
-        distractors.push('Significado literal aparente', 'Opção inversa de sentido', 'Termo gramatical falso');
-      }
-    } else {
-      // Pega traduções de outros nós do grafo
-      const otherNodes = allNodes.filter((n) => n.id !== targetNode.id && n.traducao);
-      for (const on of otherNodes) {
-        if (distractors.length >= 4) break;
-        if (on.traducao && !distractors.includes(on.traducao)) {
-          distractors.push(on.traducao);
-        }
-      }
-      while (distractors.length < 4) {
-        distractors.push(`Definição contextual ${distractors.length}`);
-      }
-    }
-
-    // Embaralha as 4 opções
-    return distractors.sort(() => Math.random() - 0.5);
+    if (alternatives.length === 0) return [];
+    return Array.from(new Set([correct, ...alternatives])).slice(0, 4).sort(() => Math.random() - 0.5);
   },
 
   extractKeywords(text: string): string[] {
