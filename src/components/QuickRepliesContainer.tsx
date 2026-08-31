@@ -22,7 +22,7 @@ export const QuickRepliesContainer: React.FC<QuickRepliesContainerProps> = ({
   onApplyStarter,
   disabled = false,
 }) => {
-  const [isCollapsed, setIsCollapsed] = useState(false);
+  const [isCollapsed, setIsCollapsed] = useState(true);
 
   if (!tips || tips.length === 0) return null;
 
@@ -47,6 +47,8 @@ export const QuickRepliesContainer: React.FC<QuickRepliesContainerProps> = ({
         <button
           type="button"
           onClick={() => setIsCollapsed(!isCollapsed)}
+          aria-expanded={!isCollapsed}
+          aria-controls="reply-guide-options"
           className="text-xs font-bold text-[var(--muted)] hover:text-[var(--fg)] px-2 py-1 rounded-md border border-[var(--border)] bg-[var(--surface)] hover:bg-[oklch(0.97_0.01_84)] flex items-center space-x-1 cursor-pointer transition"
           title={isCollapsed ? 'Mostrar modelos de frase' : 'Ocultar modelos de frase'}
         >
@@ -57,7 +59,7 @@ export const QuickRepliesContainer: React.FC<QuickRepliesContainerProps> = ({
 
       {/* Grid com Modelos Didáticos de Frase */}
       {!isCollapsed && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-0.5">
+        <div id="reply-guide-options" className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-0.5">
           {tips.map((tip) => (
             <button
               key={tip.id}

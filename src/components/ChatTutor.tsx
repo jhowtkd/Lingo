@@ -158,11 +158,13 @@ export const ChatTutor: React.FC<ChatTutorProps> = ({
 
   // Modo Foco (Imersão Total sem Distrações)
   const [isFocusMode, setIsFocusMode] = useState<boolean>(false);
+  const [mobileToolsOpen, setMobileToolsOpen] = useState(false);
+  const [expandedMessageActionsId, setExpandedMessageActionsId] = useState<string | null>(null);
 
   // Dicas Pedagógicas de Como Responder (Modelos de Frase para Aprendizado Ativo)
   const [replyTips, setReplyTips] = useState<ReplyTipOption[]>([]);
 
-  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const messagesScrollRef = useRef<HTMLDivElement>(null);
   const audioRecorderRef = useRef<AudioRecorderService | null>(null);
   const timerIntervalRef = useRef<any>(null);
 
@@ -281,7 +283,9 @@ export const ChatTutor: React.FC<ChatTutorProps> = ({
   };
 
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    const panel = messagesScrollRef.current;
+    if (!panel) return;
+    panel.scrollTo({ top: panel.scrollHeight, behavior: 'smooth' });
   }, [messages, isLoading, reviewVoiceText]);
 
   // Envio de mensagem com suporte a áudio, score de pronúncia e taxa de fala
@@ -821,7 +825,7 @@ export const ChatTutor: React.FC<ChatTutorProps> = ({
       className={`flex flex-col transition-all duration-300 ${
         isFocusMode
           ? 'fixed inset-0 z-50 bg-[var(--bg)] p-3 sm:p-6 overflow-hidden h-screen max-w-none shadow-2xl backdrop-blur-md'
-          : 'h-[calc(100vh-4.5rem)] max-w-5xl w-full mx-auto p-2 sm:p-4'
+          : 'h-[calc(100dvh-7rem)] min-h-0 max-w-5xl w-full mx-auto p-2 sm:p-4 overflow-hidden'
       }`}
     >
       {/* Banner de Modo Foco Ativo (se ativado) */}
@@ -904,7 +908,21 @@ export const ChatTutor: React.FC<ChatTutorProps> = ({
         </div>
       )}
 
-      {/* Barra Superior Compacta e Unificada do Chat */}
+      <button
+        type="button"
+        onClick={() => setMobileToolsOpen((open) => !open)}
+        aria-expanded={mobileToolsOpen}
+        aria-controls="chat-studio-controls"
+        className="sm:hidden shrink-0 mb-2 rounded-full border border-[var(--border)] px-3 py-2 text-xs font-bold text-[var(--fg)]"
+      >
+        {mobileToolsOpen ? 'Ocultar ferramentas' : 'Ferramentas da conversa'}
+      </button>
+
+      <div
+        id="chat-studio-controls"
+        className={`${mobileToolsOpen ? 'block' : 'hidden'} sm:block shrink-0 max-h-[34dvh] overflow-y-auto sm:max-h-none sm:overflow-visible`}
+      >
+        {/* Barra Superior Compacta e Unificada do Chat */}
       <div className="relative bg-[var(--surface)] border border-[var(--border)] rounded-2xl p-2.5 sm:p-3.5 mb-2 shadow-xs shrink-0">
         <div className="flex flex-wrap items-center justify-between gap-2.5">
           {/* Lado Esquerdo: Identificação do Tópico e Seletor de Conversa */}
@@ -1144,6 +1162,7 @@ export const ChatTutor: React.FC<ChatTutorProps> = ({
             isFocusMode={isFocusMode}
           />
         </div>
+        </div>
       </div>
 
       {/* Modal de Criação de Nova Conversa (Livre ou por Lição) */}
@@ -1333,7 +1352,11 @@ export const ChatTutor: React.FC<ChatTutorProps> = ({
       )}
 
       {/* Painel Central de Mensagens */}
-      <div className="relative flex-1 bg-[var(--surface)] border border-[var(--border)] rounded-[var(--r-lg)] p-4 sm:p-6 overflow-y-auto space-y-4 shadow-sm overflow-hidden flex flex-col">
+      <div
+        ref={messagesScrollRef}
+        data-testid="chat-message-panel"
+        className="relative flex-1 min-h-0 bg-[var(--surface)] border border-[var(--border)] rounded-[var(--r-lg)] p-4 sm:p-6 overflow-y-auto space-y-4 shadow-sm flex flex-col"
+      >
         {messages.length === 0 && (
           <div className="h-full flex flex-col items-center justify-center text-center p-6 space-y-4">
             <div className="w-14 h-14 rounded-2xl bg-[var(--accent)] border border-[var(--border)] flex items-center justify-center text-[var(--fg)] shadow-xs">
@@ -1645,40 +1668,31 @@ export const ChatTutor: React.FC<ChatTutorProps> = ({
 
                 {/* Botões de Ação Rápida de Reformulação Pedagógica (Tutor) */}
                 {!isUser && (
-                  <div className="mt-3 pt-2 border-t border-border/80 flex flex-wrap gap-1.5">
+                  <div className="mt-3 pt-2 border-t border-border/80 space-y-2">
                     <button
-                      onClick={() =>
-                        handleSendMessage(
-                          `Poderia explicar novamente esse ponto sobre ${currentTopic} usando uma analogia intuitiva do cotidiano?`
-                        )
-                      }
-                      className="px-2 py-0.5 rounded bg-background hover:bg-muted border border-border text-[10px] font-mono text-muted-foreground hover:text-foreground transition cursor-pointer"
-                      title="Pedir simplificação com metáfora"
+                      type="button"
+                      onClick={() => setExpandedMessageActionsId((current) =>
+                        current === msg.id ? null : msg.id
+                      )}
+                      aria-expanded={expandedMessageActionsId === msg.id}
+                      aria-controls={`message-actions-${msg.id}`}
+                      className="text-[10px] font-bold text-muted-foreground hover:text-foreground"
                     >
-                      🌱 Simplificar com Analogia
+                      Mais ações
                     </button>
-                    <button
-                      onClick={() =>
-                        handleSendMessage(
-                          `Poderia aprofundar esse conceito com maior rigor técnico, propriedades formais e casos de borda?`
-                        )
-                      }
-                      className="px-2 py-0.5 rounded bg-background hover:bg-muted border border-border text-[10px] font-mono text-muted-foreground hover:text-foreground transition cursor-pointer"
-                      title="Pedir explicação técnica avançada"
-                    >
-                      🔬 Aprofundar Rigor Técnico
-                    </button>
-                    <button
-                      onClick={() =>
-                        handleSendMessage(
-                          `Poderia me mostrar um exemplo prático passo a passo de aplicação desse conceito em ${currentTopic}?`
-                        )
-                      }
-                      className="px-2 py-0.5 rounded bg-background hover:bg-muted border border-border text-[10px] font-mono text-muted-foreground hover:text-foreground transition cursor-pointer"
-                      title="Pedir exemplo aplicado"
-                    >
-                      💡 Ver Exemplo Prático
-                    </button>
+                    {expandedMessageActionsId === msg.id && (
+                      <div id={`message-actions-${msg.id}`} className="flex flex-wrap gap-1.5">
+                        <button type="button" onClick={() => handleSendMessage(`Poderia explicar novamente esse ponto sobre ${currentTopic} usando uma analogia intuitiva do cotidiano?`)} className="px-2 py-0.5 rounded border border-border text-[10px]">
+                          🌱 Simplificar com analogia
+                        </button>
+                        <button type="button" onClick={() => handleSendMessage(`Poderia aprofundar esse conceito com maior rigor técnico e exemplos adequados ao meu nível?`)} className="px-2 py-0.5 rounded border border-border text-[10px]">
+                          🔬 Aprofundar
+                        </button>
+                        <button type="button" onClick={() => handleSendMessage(`Poderia me mostrar um exemplo prático passo a passo sobre ${currentTopic}?`)} className="px-2 py-0.5 rounded border border-border text-[10px]">
+                          💡 Ver exemplo
+                        </button>
+                      </div>
+                    )}
                   </div>
                 )}
 
@@ -1818,7 +1832,6 @@ export const ChatTutor: React.FC<ChatTutorProps> = ({
           </div>
         )}
 
-        <div ref={messagesEndRef} />
       </div>
 
       {/* Caixa de Revisão de Transcrição de Áudio com Análise em Tempo Real de Taxa de Fala */}
@@ -1938,7 +1951,8 @@ export const ChatTutor: React.FC<ChatTutorProps> = ({
 
       {/* Barra de Entrada (Input, Microfone e Ações) */}
       <div
-        className={`relative mt-3 bg-[var(--surface)] border rounded-[var(--r-md)] p-2.5 sm:p-3 shadow-xs transition-all ${
+        data-testid="chat-composer"
+        className={`relative mt-3 shrink-0 bg-[var(--surface)] border rounded-[var(--r-md)] p-2.5 sm:p-3 shadow-xs transition-all ${
           isRecording
             ? 'border-rose-500 ring-2 ring-rose-500/20'
             : isInputFocused
