@@ -274,7 +274,7 @@ export default function App() {
               />
             )}
 
-            {activeTab === 'admin' && currentUser && (
+            {activeTab === 'admin' && currentUser?.role === 'admin' && (
               <AdminView
                 currentUser={currentUser}
                 onImportPackToCurrentBase={() => setStats(StorageService.getStats())}

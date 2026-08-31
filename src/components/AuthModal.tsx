@@ -19,7 +19,6 @@ import {
   LogOut,
   CheckCircle2,
   AlertCircle,
-  KeyRound,
   Compass,
 } from 'lucide-react';
 
@@ -108,38 +107,6 @@ export function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps) {
       console.error(err);
       setErrorMsg('Erro ao entrar como convidado.');
       playSfx('error');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  // Login de Demonstração como Administrador
-  const handleDemoAdminLogin = async () => {
-    setIsLoading(true);
-    setErrorMsg(null);
-    playSfx('level_up');
-    try {
-      const demoAdminProfile: UserProfile = {
-        uid: 'adm-demo-master',
-        email: 'jhonatan.marcela@gmail.com',
-        displayName: 'Jhonatan (Administrador)',
-        photoURL: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
-        role: 'admin',
-        createdAt: new Date().toISOString(),
-        lastLoginAt: new Date().toISOString(),
-        statsSummary: {
-          level: 5,
-          xp: 1850,
-          streak: 14,
-          nodesCount: 42,
-          materialsCount: 8,
-        },
-      };
-      onSuccess(demoAdminProfile);
-      onClose();
-    } catch (err: any) {
-      console.error(err);
-      setErrorMsg('Erro no login rápido de administrador.');
     } finally {
       setIsLoading(false);
     }
@@ -379,21 +346,6 @@ export function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps) {
             </button>
           </div>
         )}
-
-        {/* Atalho Rápido para Administrador de Demonstração */}
-        <div className="pt-3 border-t border-[var(--border)] flex flex-col gap-2">
-          <div className="flex items-center justify-between text-[11px] text-[var(--muted)]">
-            <span className="font-bold">Acesso de Gestão:</span>
-            <span>Conta com Privilégios ADM</span>
-          </div>
-          <button
-            onClick={handleDemoAdminLogin}
-            className="w-full py-2 px-3 rounded-xl border border-amber-400/40 bg-amber-500/10 hover:bg-amber-500/20 text-amber-900 font-extrabold text-xs flex items-center justify-center gap-2 transition cursor-pointer"
-          >
-            <KeyRound className="w-3.5 h-3.5 text-amber-700" />
-            <span>Testar como Administrador (jhonatan.marcela@gmail.com)</span>
-          </button>
-        </div>
       </div>
     </div>
   );

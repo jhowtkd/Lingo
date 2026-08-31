@@ -2,30 +2,56 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     
-    // Helper functions
     function isAuthenticated() {
       return request.auth != null;
     }
-    
+
     function isOwner(userId) {
       return isAuthenticated() && request.auth.uid == userId;
     }
-    
+
+    function isTrustedAdminEmail() {
+      return isAuthenticated() && request.auth.token.email in [
+        'jhonatan.marcela@gmail.com',
+        'admin@lingo.app',
+        'adm@lingo.com'
+      ];
+    }
+
     function isAdmin() {
       return isAuthenticated() && (
-        request.auth.token.email == 'jhonatan.marcela@gmail.com' ||
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin'
+        isTrustedAdminEmail() ||
+        (
+          exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin'
+        )
       );
     }
 
-    // User profiles & Roles
     match /users/{userId} {
-      allow read: if isAuthenticated();
-      allow create: if isAuthenticated() && (request.auth.uid == userId || isAdmin());
-      allow update: if isAuthenticated() && (request.auth.uid == userId || isAdmin());
+      allow read: if isOwner(userId) || isAdmin();
+      allow create: if isOwner(userId) &&
+        request.resource.data.uid == request.auth.uid &&
+        (
+          request.resource.data.role == 'user' ||
+          (isTrustedAdminEmail() && request.resource.data.role == 'admin')
+        );
+      allow update: if isAdmin() || (
+        isOwner(userId) &&
+        request.resource.data.uid == resource.data.uid &&
+        request.resource.data.role == resource.data.role &&
+        request.resource.data.createdAt == resource.data.createdAt &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'email',
+          'displayName',
+          'photoURL',
+          'lastLoginAt',
+          'isAnonymous',
+          'statsSummary'
+        ])
+      );
       allow delete: if isAdmin();
 
-      // Subcollections inside user document for personal knowledge base
       match /{subcollection}/{docId} {
         allow read, write: if isOwner(userId) || isAdmin();
       }
