@@ -1163,7 +1163,7 @@ export const StorageService = {
   // =========================================================================
   // SISTEMA DE MULTI-CONVERSAS & SESSÕES POR LIÇÃO (ChatConversation)
   // =========================================================================
-  getConversations(): ChatConversation[] {
+  getConversations(initialize = true): ChatConversation[] {
     const raw = localStorage.getItem(this.getKey(STORAGE_KEYS.CONVERSATIONS));
     if (raw) {
       try {
@@ -1175,6 +1175,8 @@ export const StorageService = {
         console.warn('Erro ao carregar conversas do storage:', e);
       }
     }
+
+    if (!initialize) return [];
 
     // Migração ou inicialização padrão: cria a primeira conversa a partir do histórico antigo ou plano
     const stats = this.getStats();
@@ -1824,6 +1826,8 @@ export const StorageService = {
     localStorage.removeItem(this.getKey(STORAGE_KEYS.RELATIONS));
     localStorage.removeItem(this.getKey(STORAGE_KEYS.CORRECTIONS));
     localStorage.removeItem(this.getKey(STORAGE_KEYS.CHATS));
+    localStorage.removeItem(this.getKey(STORAGE_KEYS.CONVERSATIONS));
+    localStorage.removeItem(this.getKey(STORAGE_KEYS.ACTIVE_CONVERSATION_ID));
     localStorage.removeItem(this.getKey(STORAGE_KEYS.STATS));
     localStorage.removeItem(this.getKey(STORAGE_KEYS.ACHIEVEMENTS));
     localStorage.removeItem(this.getKey(STORAGE_KEYS.SESSIONS));

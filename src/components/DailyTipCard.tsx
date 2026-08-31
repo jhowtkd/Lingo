@@ -173,16 +173,16 @@ export const DailyTipCard: React.FC<DailyTipCardProps> = ({
     // Ordena pelo maior score de criticidade
     scoredGaps.sort((a, b) => b.urgencyScore - a.urgencyScore);
 
-    // Se nenhum nó for encontrado, retorna uma lista padrão robusta
+    // Sem evidência no grafo, não há lacuna a sugerir.
     if (scoredGaps.length === 0) {
-      return [getDefaultGapInsight(activeLanguage)];
+      return [];
     }
 
     return scoredGaps;
   }, [stats, langConfig.id, activeLanguage]);
 
   // Garante que o índice atual é válido
-  const currentGap = learningGaps[selectedGapIndex] || learningGaps[0];
+  const currentGap: LearningGapInsight | null = learningGaps[selectedGapIndex] ?? null;
 
   // Reseta estado local ao trocar de lacuna
   useEffect(() => {
@@ -206,7 +206,7 @@ export const DailyTipCard: React.FC<DailyTipCardProps> = ({
 
   // Submissão do Micro-Quiz da Dica
   const handleAnswerOption = (index: number) => {
-    if (hasAnswered) return;
+    if (!currentGap || hasAnswered) return;
     setSelectedOption(index);
     setHasAnswered(true);
 
@@ -240,8 +240,8 @@ export const DailyTipCard: React.FC<DailyTipCardProps> = ({
       const nodes = StorageService.getNodes();
       const targetNode = nodes.find((n) => n.id === currentGap.node.id);
       if (targetNode) {
-        targetNode.dominio_estimado = Math.min(100, (targetNode.dominio_estimado || 50) + 12);
-        targetNode.frequencia_erro = Math.max(0, (targetNode.frequencia_erro || 1) - 1);
+        targetNode.dominio_estimado = Math.min(100, (targetNode.dominio_estimado ?? 0) + 12);
+        targetNode.frequencia_erro = Math.max(0, (targetNode.frequencia_erro ?? 0) - 1);
         targetNode.ultima_revisao = new Date().toISOString();
         targetNode.proxima_revisao = new Date(Date.now() + 3 * 86400000).toISOString();
         StorageService.saveNodes(nodes);
@@ -251,11 +251,12 @@ export const DailyTipCard: React.FC<DailyTipCardProps> = ({
 
   // Marcar como assimilado / compreendido
   const handleMarkAsUnderstood = () => {
+    if (!currentGap) return;
     setIsMarkedUnderstood(true);
     const nodes = StorageService.getNodes();
     const targetNode = nodes.find((n) => n.id === currentGap.node.id);
     if (targetNode) {
-      targetNode.dominio_estimado = Math.min(100, (targetNode.dominio_estimado || 50) + 15);
+      targetNode.dominio_estimado = Math.min(100, (targetNode.dominio_estimado ?? 0) + 15);
       targetNode.proxima_revisao = new Date(Date.now() + 4 * 86400000).toISOString();
       StorageService.saveNodes(nodes);
     }
@@ -265,7 +266,36 @@ export const DailyTipCard: React.FC<DailyTipCardProps> = ({
     setSelectedGapIndex((prev) => (prev + 1) % learningGaps.length);
   };
 
-  if (!currentGap) return null;
+  if (!currentGap) {
+    return (
+      <section className="view-card p-6 sm:p-8 text-left space-y-4">
+        <div className="space-y-1">
+          <h2 className="font-display font-bold text-lg text-[var(--fg)]">
+            Ainda não há uma lacuna detectada
+          </h2>
+          <p className="text-sm text-[var(--muted)]">
+            Converse com o tutor ou adicione um material. Quando houver evidências no grafo, sua próxima revisão aparecerá aqui.
+          </p>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <button
+            type="button"
+            onClick={() => onNavigateToChat(currentTopic)}
+            className="rounded-full px-4 py-2 text-xs font-extrabold bg-[var(--accent)] text-[var(--fg)]"
+          >
+            Começar conversa
+          </button>
+          <button
+            type="button"
+            onClick={() => onNavigateToMaterials()}
+            className="rounded-full px-4 py-2 text-xs font-extrabold border border-[var(--border)] text-[var(--fg)]"
+          >
+            Adicionar material
+          </button>
+        </div>
+      </section>
+    );
+  }
 
   return (
     <section
@@ -315,7 +345,7 @@ export const DailyTipCard: React.FC<DailyTipCardProps> = ({
           {/* Indicador de Domínio Atual */}
           <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[oklch(0.96_0.01_84)] border border-[var(--border)] text-xs font-bold text-[var(--fg)]">
             <Brain className="w-3.5 h-3.5 text-[var(--accent-deep)]" />
-            <span>{currentGap.node.dominio_estimado || 45}% domínio</span>
+            <span>{currentGap.node.dominio_estimado ?? 0}% domínio</span>
           </div>
         </div>
       </div>
@@ -779,55 +809,6 @@ function buildCuratedContentForNode(
       ],
       correctIndex: 0,
       explanation: `Aprender por contexto relacional no grafo acelera a assimilação duradoura.`,
-    },
-  };
-}
-
-// Fallback Padrão se o grafo estiver vazio
-function getDefaultGapInsight(language = 'Inglês'): LearningGapInsight {
-  return {
-    node: {
-      id: 'default-gap-1',
-      tipo: 'falso_amigo',
-      titulo: 'Actually vs Currently',
-      descricao: '"Actually" significa na verdade, enquanto "Currently" significa atualmente.',
-      dominio_estimado: 45,
-      dificuldade: 3,
-      frequencia_erro: 2,
-      ultima_revisao: new Date().toISOString(),
-      proxima_revisao: new Date().toISOString(),
-      evidencias: ['Confusão recorrente em reuniões e diálogos livres.'],
-      criado_em: new Date().toISOString(),
-      atualizado_em: new Date().toISOString(),
-      idioma: language,
-    },
-    urgencyScore: 90,
-    gapReason: 'Falso Cognato / Armadilha Crítica',
-    gapDiagnosis: 'Grafo identificou interferência direta do português em palavras similares.',
-    curatedContent: {
-      formatType: 'video',
-      headline: 'Actually vs Currently: Pare de Confundir em Reuniões e Conversas',
-      mediaSource:
-        '"Actually" em inglês NÃO significa atualmente. Significa "na verdade / para ser exato". Para expressar o que você está fazendo no presente, use "currently".',
-      youtubeId: 'kpv2B883bH4',
-      readOrWatchTime: '3 min',
-      coreRule: 'Actually = "Na verdade" | Currently = "Atualmente".',
-      contrastExample: {
-        incorrect: 'Actually I am working at Google.',
-        correct: 'Currently, I am working at Google. (Actually, I started last month!)',
-        explanation: 'Use "Currently" para falar do momento presente.',
-      },
-      audioPhrase: 'Currently, I am studying English. Actually, I love the method!',
-      quiz: {
-        question: 'Como dizer "Atualmente moro em São Paulo" corretamente?',
-        options: [
-          'Actually I live in São Paulo.',
-          'Currently I live in São Paulo.',
-          'Presently I pretend to live in São Paulo.',
-        ],
-        correctIndex: 1,
-        explanation: '"Currently" é o termo temporal correto.',
-      },
     },
   };
 }
