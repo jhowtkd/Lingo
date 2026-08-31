@@ -24,7 +24,9 @@ import {
   MessageSquare,
   RefreshCw,
   ArrowRight,
+  ArrowDownRight,
   ArrowUpRight,
+  Minus,
 } from 'lucide-react';
 import { WeeklyMetrics, PriorityTopicSuggestion } from '../types';
 import { GraphEngine } from '../services/graphEngine';
@@ -34,12 +36,19 @@ import {
   buildMilestones,
   buildWeeklyTrend,
   DailyTrendPoint,
+  hasRecordedNodeEvidence,
 } from '../services/progressMetrics';
 import { MisconceptionsDictionary } from './MisconceptionsDictionary';
 
 interface WeeklyDashboardProps {
   onStartReview: (topic: string) => void;
 }
+
+const getDeltaVisual = (delta?: number) => {
+  if (delta && delta > 0) return { Icon: ArrowUpRight, className: 'text-[var(--ok)]' };
+  if (delta && delta < 0) return { Icon: ArrowDownRight, className: 'text-rose-600 dark:text-rose-400' };
+  return { Icon: Minus, className: 'text-[var(--muted)]' };
+};
 
 export const WeeklyDashboard: React.FC<WeeklyDashboardProps> = ({ onStartReview }) => {
   const [metrics, setMetrics] = useState<WeeklyMetrics | null>(null);
@@ -151,7 +160,7 @@ export const WeeklyDashboard: React.FC<WeeklyDashboardProps> = ({ onStartReview 
     metrics.sessoes_realizadas > 0 ||
     metrics.total_respostas > 0 ||
     metrics.minutos_estudados > 0 ||
-    StorageService.getNodes().length > 0;
+    StorageService.getNodes().some((node) => hasRecordedNodeEvidence(node));
 
   const metricCardsData = [
     {
@@ -161,6 +170,7 @@ export const WeeklyDashboard: React.FC<WeeklyDashboardProps> = ({ onStartReview 
       value: `${metrics.minutos_estudados}`,
       unit: 'min',
       badge: `${minutesDelta > 0 ? '+' : ''}${minutesDelta}% vs. semana anterior`,
+      delta: minutesDelta,
     },
     {
       id: 'metric-precisao',
@@ -168,6 +178,7 @@ export const WeeklyDashboard: React.FC<WeeklyDashboardProps> = ({ onStartReview 
       icon: CheckCircle2,
       value: `${metrics.taxa_acerto}%`,
       badge: `${accuracyDelta > 0 ? '+' : ''}${accuracyDelta}% vs. semana anterior`,
+      delta: accuracyDelta,
     },
     {
       id: 'metric-correcoes',
@@ -247,6 +258,8 @@ export const WeeklyDashboard: React.FC<WeeklyDashboardProps> = ({ onStartReview 
       <section className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3.5">
         {metricCardsData.map((m) => {
           const IconComp = m.icon;
+          const deltaVisual = getDeltaVisual(m.delta);
+          const DeltaIcon = deltaVisual.Icon;
           return (
             <div
               key={m.id}
@@ -271,8 +284,8 @@ export const WeeklyDashboard: React.FC<WeeklyDashboardProps> = ({ onStartReview 
               </div>
 
               {m.badge ? (
-                <div className="flex items-center text-[10px] font-extrabold text-[var(--ok)]">
-                  <ArrowUpRight className="w-3 h-3 mr-0.5" />
+                <div className={`flex items-center text-[10px] font-extrabold ${deltaVisual.className}`}>
+                  <DeltaIcon className="w-3 h-3 mr-0.5" />
                   <span>{m.badge}</span>
                 </div>
               ) : m.actionText ? (

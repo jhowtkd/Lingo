@@ -23,6 +23,7 @@ import { GraphNode, PedagogicalCorrection } from '../types';
 import { StorageService } from '../services/storage';
 import { GraphEngine } from '../services/graphEngine';
 import { SpeechService } from '../services/speechSynthesisService';
+import { getLanguageConfig } from '../config/languages';
 import { CornerPlus } from './ui/corner-plus';
 
 interface MisconceptionItem {
@@ -416,12 +417,12 @@ export const MisconceptionsDictionary: React.FC<MisconceptionsDictionaryProps> =
   }, [items]);
 
   // Síntese de voz para pronúncia correta de exemplos
-  const handleSpeakText = (text: string) => {
+  const handleSpeakText = (text: string, language?: string) => {
     setIsSpeaking(true);
     setAudioFeedback('Reproduzindo pronúncia nativa natural...');
 
     const success = SpeechService.speak(text, {
-      lang: 'en-US',
+      lang: getLanguageConfig(language || StorageService.getStats().idioma_ativo).ttsLocale,
       rate: 0.88,
       onStart: () => {
         setIsSpeaking(true);
@@ -865,7 +866,7 @@ export const MisconceptionsDictionary: React.FC<MisconceptionsDictionaryProps> =
                     </div>
 
                     <button
-                      onClick={() => handleSpeakText(ex.frase)}
+                      onClick={() => handleSpeakText(ex.frase, selectedItem.idioma)}
                       disabled={isSpeaking}
                       className="p-2 text-[var(--fg)] hover:bg-[oklch(0.96_0.01_84)] rounded-full transition cursor-pointer shrink-0"
                       title="Ouvir pronúncia nativa com Web Speech TTS"

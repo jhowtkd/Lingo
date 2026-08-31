@@ -101,4 +101,16 @@ describe('AchievementEngine integrity', () => {
 
     expect(source).not.toContain('adaptacao: data.adaptacao');
   });
+
+  it('publishes stats after recording every successful tutor answer', () => {
+    const source = readFileSync(
+      new URL('../src/components/ChatTutor.tsx', import.meta.url),
+      'utf8'
+    );
+    const recordedAnswer = source.indexOf('StorageService.recordAnswer(!data.possui_erro);');
+    const publishedStats = source.indexOf('onUpdateStats(StorageService.getStats());', recordedAnswer);
+
+    expect(recordedAnswer).toBeGreaterThan(-1);
+    expect(publishedStats).toBeGreaterThan(recordedAnswer);
+  });
 });

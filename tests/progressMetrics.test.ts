@@ -3,6 +3,7 @@ import {
   buildDailyGoals,
   buildMilestones,
   buildWeeklyTrend,
+  hasRecordedNodeEvidence,
   ProgressMetricsInput,
 } from '../src/services/progressMetrics';
 import { GraphEngine } from '../src/services/graphEngine';
@@ -89,6 +90,33 @@ describe('progress metrics', () => {
       taxaConsistencia: 67,
     });
   });
+
+  it('keeps plan-only terms out of activity until practice records evidence', () => {
+    const input = cleanInput();
+    const planNode = {
+      id: 'plan-node',
+      tipo: 'vocabulario' as const,
+      titulo: 'bonjour',
+      descricao: 'saudação inicial',
+      dominio_estimado: 0,
+      dificuldade: 1,
+      frequencia_erro: 0,
+      ultima_revisao: '2026-08-30T10:00:00.000Z',
+      proxima_revisao: '2026-09-02T10:00:00.000Z',
+      evidencias: ['Plano Personalizado de Aprendizado'],
+      criado_em: '2026-08-30T10:00:00.000Z',
+      atualizado_em: '2026-08-30T10:00:00.000Z',
+      idioma: 'Francês',
+    };
+    input.nodes = [planNode];
+
+    expect(hasRecordedNodeEvidence(planNode)).toBe(false);
+    expect(buildWeeklyTrend(input).at(-1)?.vocabulario).toBe(0);
+
+    planNode.evidencias.unshift('Acertou no Duelo de Vocabulário com resposta precisa');
+    expect(hasRecordedNodeEvidence(planNode)).toBe(true);
+    expect(buildWeeklyTrend(input).at(-1)?.vocabulario).toBe(1);
+  });
 });
 
 afterEach(() => vi.restoreAllMocks());
@@ -118,6 +146,32 @@ describe('GraphEngine dashboard integrity', () => {
       taxa_acerto_delta_pct: 0,
       xp_delta_pct: 0,
     });
+    expect(GraphEngine.getPriorityTopicsFromMemoryGraph(3)).toEqual([]);
+  });
+
+  it('keeps starter-plan nodes out of dashboard reviews and priorities', () => {
+    const planNode = {
+      id: 'plan-node',
+      tipo: 'vocabulario' as const,
+      titulo: 'bonjour',
+      descricao: 'saudação inicial',
+      dominio_estimado: 0,
+      dificuldade: 1,
+      frequencia_erro: 0,
+      ultima_revisao: '2026-08-30T10:00:00.000Z',
+      proxima_revisao: '2020-08-30T10:00:00.000Z',
+      evidencias: ['Plano Personalizado de Aprendizado'],
+      criado_em: '2026-08-30T10:00:00.000Z',
+      atualizado_em: '2026-08-30T10:00:00.000Z',
+      idioma: 'Francês',
+    };
+    vi.spyOn(StorageService, 'getNodes').mockReturnValue([planNode]);
+    vi.spyOn(StorageService, 'getRelations').mockReturnValue([]);
+    vi.spyOn(StorageService, 'getSessions').mockReturnValue([]);
+    vi.spyOn(StorageService, 'getCorrections').mockReturnValue([]);
+    vi.spyOn(StorageService, 'getStats').mockReturnValue(cleanInput().stats);
+
+    expect(GraphEngine.calculateWeeklyMetrics().revisoes_pendentes).toBe(0);
     expect(GraphEngine.getPriorityTopicsFromMemoryGraph(3)).toEqual([]);
   });
 });

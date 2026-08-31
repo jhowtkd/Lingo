@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { getLanguageConfig } from '../src/config/languages';
+import { getLanguageTheme } from '../src/services/languageThemes';
 import {
   buildListenOnlyPrompts,
   buildQuickPrompts,
@@ -29,5 +30,11 @@ describe('language practice prompts', () => {
   it('keeps Spanish prompts in the Spanish path', () => {
     expect(buildQuickPrompts('Espanhol', 'Viagens')[0]).toContain('¡Hola!');
     expect(getLanguageConfig('Espanhol').ttsLocale).toBe('es-ES');
+  });
+
+  it('derives theme voice locales from the language registry', () => {
+    for (const language of ['Inglês', 'Espanhol', 'Francês', 'Alemão', 'Italiano', 'Japonês']) {
+      expect(getLanguageTheme(language).codigo_voz).toBe(getLanguageConfig(language).ttsLocale);
+    }
   });
 });

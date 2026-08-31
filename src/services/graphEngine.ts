@@ -10,6 +10,7 @@ import {
 } from '../types';
 import { StorageService } from './storage';
 import { normalizeUnicodeText, getLanguageConfig } from '../config/languages';
+import { hasRecordedNodeEvidence } from './progressMetrics';
 
 export const GraphEngine = {
   // Normaliza strings para busca e deduplicação preservando alfabetos internacionais
@@ -282,6 +283,7 @@ export const GraphEngine = {
   // Métricas Semanais Computadas dos Dados Reais
   calculateWeeklyMetrics(): WeeklyMetrics {
     const nodes = StorageService.getNodes();
+    const recordedNodes = nodes.filter(hasRecordedNodeEvidence);
     const sessions = StorageService.getSessions().filter((session) => session.concluida);
     const corrections = StorageService.getCorrections();
     const stats = StorageService.getStats();
@@ -356,10 +358,10 @@ export const GraphEngine = {
         correction.estado_posterior === 'precisa_revisar' ||
         correction.gravidade === 'critica'
     ).length;
-    const revisoesPendentes = nodes.filter(
+    const revisoesPendentes = recordedNodes.filter(
       (node) => new Date(node.proxima_revisao) <= now
     ).length;
-    const topicosDificeis = nodes
+    const topicosDificeis = recordedNodes
       .filter(
         (node) =>
           node.tipo === 'dificuldade' ||
@@ -417,7 +419,7 @@ export const GraphEngine = {
       },
       recomendacao_objetiva: topicosDificeis.length > 0
         ? `Dedique a próxima sessão para revisar ${topicosDificeis[0].topico}, o ponto com mais equívocos registrados.`
-        : sessoesUltimos7Dias.length === 0 && nodes.length === 0
+        : sessoesUltimos7Dias.length === 0 && recordedNodes.length === 0
           ? 'Conclua uma prática para que o painel identifique prioridades com base em evidências.'
           : 'Nenhuma prioridade específica foi identificada nas evidências registradas.',
     };
@@ -425,7 +427,7 @@ export const GraphEngine = {
 
   // NOVO: Analisa profundamente a topologia do Grafo de Memória e extrai os 3 tópicos prioritários para a próxima sessão de chat
   getPriorityTopicsFromMemoryGraph(limit = 3): PriorityTopicSuggestion[] {
-    const nodes = StorageService.getNodes();
+    const nodes = StorageService.getNodes().filter(hasRecordedNodeEvidence);
     const relations = StorageService.getRelations();
     const corrections = StorageService.getCorrections();
     const now = new Date();

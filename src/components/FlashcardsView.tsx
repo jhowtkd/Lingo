@@ -277,7 +277,7 @@ export const FlashcardsView: React.FC<FlashcardsViewProps> = ({
 
     try {
       const result = await audioRecorderRef.current.stopRecordingAndTranscribe(
-        activeTheme.codigo_voz || 'en-US'
+        activeTheme.codigo_voz
       );
       setVoiceTranscribing(false);
       if (result.text) {

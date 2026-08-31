@@ -36,6 +36,7 @@ import {
 import { StorageService } from '../services/storage';
 import { GraphEngine } from '../services/graphEngine';
 import { SpeechService } from '../services/speechSynthesisService';
+import { getLanguageConfig } from '../config/languages';
 import { CornerPlus } from './ui/corner-plus';
 import { Button } from './ui/button';
 import { Badge } from './ui/badge';
@@ -97,16 +98,7 @@ export const MaterialsView: React.FC<MaterialsViewProps> = ({ onPracticeInChat, 
 
   // Reprodução de Áudio TTS via SpeechService Inteligente
   const speakText = (text: string, lang?: string) => {
-    const langMap: Record<string, string> = {
-      Inglês: 'en-US',
-      Espanhol: 'es-ES',
-      Francês: 'fr-FR',
-      Alemão: 'de-DE',
-      Italiano: 'it-IT',
-      Japonês: 'ja-JP',
-      Mandarim: 'zh-CN',
-    };
-    const targetLang = lang || langMap[targetLanguage] || 'en-US';
+    const targetLang = lang || getLanguageConfig(targetLanguage).ttsLocale;
     SpeechService.speak(text, {
       lang: targetLang,
       rate: 0.88,

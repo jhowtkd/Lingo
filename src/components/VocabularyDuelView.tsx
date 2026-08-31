@@ -227,7 +227,7 @@ export const VocabularyDuelView: React.FC<VocabularyDuelViewProps> = ({
     setAudioTranscribing(true);
 
     try {
-      const langCode = activeTheme.codigo_voz || 'en-US';
+      const langCode = activeTheme.codigo_voz;
       const result = await audioRecorderRef.current.stopRecordingAndTranscribe(langCode);
       setAudioTranscribing(false);
 

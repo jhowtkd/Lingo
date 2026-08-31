@@ -197,7 +197,7 @@ export const DailyTipCard: React.FC<DailyTipCardProps> = ({
     if (isPlayingAudio) return;
     setIsPlayingAudio(true);
     SpeechService.speak(text, {
-      lang: langConfig.voiceCode || 'en-US',
+      lang: langConfig.voiceCode,
       rate: 0.88,
       onEnd: () => setIsPlayingAudio(false),
       onError: () => setIsPlayingAudio(false),

@@ -444,7 +444,7 @@ export const ChatTutor: React.FC<ChatTutorProps> = ({
       const xpAmount = data.xp_ganho || (data.possui_erro ? 15 : 25);
       const xpResult = StorageService.addXP(xpAmount);
       StorageService.recordAnswer(!data.possui_erro);
-      onUpdateStats(xpResult.stats);
+      onUpdateStats(StorageService.getStats());
 
       // Avalia conquistas desbloqueadas
       const evalRes = AchievementEngine.evaluateAll();

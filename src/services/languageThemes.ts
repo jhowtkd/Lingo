@@ -1,4 +1,5 @@
 import { LanguageThemeConfig, LanguageThemeId } from '../types';
+import { getLanguageConfig } from '../config/languages';
 
 export type { LanguageThemeConfig, LanguageThemeId };
 
@@ -8,7 +9,7 @@ export const LANGUAGE_THEMES: Record<LanguageThemeId, LanguageThemeConfig> = {
     id: 'ingles',
     nome: 'Inglês',
     bandeira: '🇺🇸 / 🇬🇧',
-    codigo_voz: 'en-US',
+    codigo_voz: getLanguageConfig('ingles').ttsLocale,
     slogan: 'Connected speech, phrasal verbs & fluência global',
     cor_primaria: 'blue',
     badge_class: 'bg-blue-500/10 text-blue-600 border-blue-200 dark:bg-blue-950/40 dark:text-blue-400 dark:border-blue-800',
@@ -23,7 +24,7 @@ export const LANGUAGE_THEMES: Record<LanguageThemeId, LanguageThemeConfig> = {
     id: 'espanhol',
     nome: 'Espanhol',
     bandeira: '🇪🇸 / 🇲🇽',
-    codigo_voz: 'es-ES',
+    codigo_voz: getLanguageConfig('espanhol').ttsLocale,
     slogan: 'Ritmo hispânico, falsos cognatos & entonação viva',
     cor_primaria: 'rose',
     badge_class: 'bg-rose-500/10 text-rose-600 border-rose-200 dark:bg-rose-950/40 dark:text-rose-400 dark:border-rose-800',
@@ -38,7 +39,7 @@ export const LANGUAGE_THEMES: Record<LanguageThemeId, LanguageThemeConfig> = {
     id: 'frances',
     nome: 'Francês',
     bandeira: '🇫🇷',
-    codigo_voz: 'fr-FR',
+    codigo_voz: getLanguageConfig('frances').ttsLocale,
     slogan: 'Liaisons, vogais nasais & elegância parisiense',
     cor_primaria: 'purple',
     badge_class: 'bg-purple-500/10 text-purple-600 border-purple-200 dark:bg-purple-950/40 dark:text-purple-400 dark:border-purple-800',
@@ -53,7 +54,7 @@ export const LANGUAGE_THEMES: Record<LanguageThemeId, LanguageThemeConfig> = {
     id: 'alemao',
     nome: 'Alemão',
     bandeira: '🇩🇪',
-    codigo_voz: 'de-DE',
+    codigo_voz: getLanguageConfig('alemao').ttsLocale,
     slogan: 'Declinações, palavras compostas & precisão analítica',
     cor_primaria: 'amber',
     badge_class: 'bg-amber-500/10 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-400 dark:border-amber-800',
@@ -68,7 +69,7 @@ export const LANGUAGE_THEMES: Record<LanguageThemeId, LanguageThemeConfig> = {
     id: 'italiano',
     nome: 'Italiano',
     bandeira: '🇮🇹',
-    codigo_voz: 'it-IT',
+    codigo_voz: getLanguageConfig('italiano').ttsLocale,
     slogan: 'Consoantes duplas, melodia e gestualidade vocal',
     cor_primaria: 'emerald',
     badge_class: 'bg-emerald-500/10 text-emerald-600 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-400 dark:border-emerald-800',
@@ -83,7 +84,7 @@ export const LANGUAGE_THEMES: Record<LanguageThemeId, LanguageThemeConfig> = {
     id: 'japones',
     nome: 'Japonês',
     bandeira: '🇯🇵',
-    codigo_voz: 'ja-JP',
+    codigo_voz: getLanguageConfig('japones').ttsLocale,
     slogan: 'Hiragana, Kanji, partículas & respeito contextual',
     cor_primaria: 'red',
     badge_class: 'bg-red-500/10 text-red-600 border-red-200 dark:bg-red-950/40 dark:text-red-400 dark:border-red-800',

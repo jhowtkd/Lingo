@@ -23,6 +23,13 @@ export interface ProgressMetricsInput {
   now?: Date;
 }
 
+const PLAN_NODE_EVIDENCE = 'Plano Personalizado de Aprendizado';
+
+/** A node becomes progress only after an interaction adds evidence beyond its plan seed. */
+export function hasRecordedNodeEvidence(node: GraphNode): boolean {
+  return (node.evidencias ?? []).some((evidence) => evidence !== PLAN_NODE_EVIDENCE);
+}
+
 export function buildDailyGoals({ stats }: ProgressMetricsInput): DailyGoal[] {
   const accuracy = stats.total_respostas > 0
     ? Math.round((stats.respostas_corretas / stats.total_respostas) * 100)
@@ -133,11 +140,18 @@ export function buildWeeklyTrend(input: ProgressMetricsInput): DailyTrendPoint[]
     const minutes = date === today
       ? Math.max(sessionMinutes, Math.max(0, input.stats.minutos_hoje))
       : sessionMinutes;
-    const vocabulary = input.nodes.filter(
-      (node) =>
+    const vocabulary = input.nodes.filter((node) => {
+      if (!hasRecordedNodeEvidence(node)) return false;
+
+      const recordedAt = (node.evidencias ?? []).includes(PLAN_NODE_EVIDENCE)
+        ? node.atualizado_em
+        : node.criado_em;
+
+      return (
         ['vocabulario', 'expressao_idiomatica', 'falso_amigo'].includes(node.tipo) &&
-        node.criado_em.slice(0, 10) <= date
-    ).length;
+        recordedAt.slice(0, 10) <= date
+      );
+    }).length;
 
     return {
       dia: dayNames[targetDate.getUTCDay()],
