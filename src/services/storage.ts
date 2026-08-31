@@ -1899,7 +1899,7 @@ export const StorageService = {
     const stats = this.getStats();
     stats.idioma_ativo = plan.idioma;
     stats.nivel_cefr = plan.nivel_cefr;
-    stats.meta_diaria_minutos = plan.meta_diaria_minutos || 30;
+    stats.meta_diaria_minutos = plan.meta_diaria_minutos ?? 30;
     this.saveStats(stats);
 
     // 3. Adiciona nós iniciais ao Grafo de Conhecimento
@@ -1917,9 +1917,9 @@ export const StorageService = {
             tipo: (newNode.tipo || 'vocabulario') as any,
             titulo: newNode.titulo,
             descricao: newNode.descricao || '',
-            dominio_estimado: newNode.dominio_estimado || 45,
-            dificuldade: newNode.dificuldade || 2,
-            frequencia_erro: 0,
+            dominio_estimado: newNode.dominio_estimado ?? 0,
+            dificuldade: newNode.dificuldade ?? 2,
+            frequencia_erro: newNode.frequencia_erro ?? 0,
             ultima_revisao: new Date().toISOString(),
             proxima_revisao: new Date(Date.now() + 86400000).toISOString(),
             idioma: plan.idioma,
