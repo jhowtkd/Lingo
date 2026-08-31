@@ -1,25 +1,54 @@
-import React, { useState, useEffect } from 'react';
+import React, { lazy, Suspense, useEffect, useState } from 'react';
 import { Navbar } from './components/Navbar';
 import { HomeOverview } from './components/HomeOverview';
-import { ChatTutor } from './components/ChatTutor';
-import { FlashcardsView } from './components/FlashcardsView';
-import { VocabularyDuelView } from './components/VocabularyDuelView';
-import { GraphMemoryView } from './components/GraphMemoryView';
-import { MaterialsView } from './components/MaterialsView';
-import { MisconceptionsDictionary } from './components/MisconceptionsDictionary';
-import { WeeklyDashboard } from './components/WeeklyDashboard';
-import { AchievementsView } from './components/AchievementsView';
 import { LanguageThemeSelector } from './components/LanguageThemeSelector';
 import { ScreenCaptureModal } from './components/ScreenCaptureModal';
 import { AuthModal } from './components/AuthModal';
 import { SharedPacksModal } from './components/SharedPacksModal';
-import { AdminView } from './components/AdminView';
 import { OnboardingWizardModal } from './components/OnboardingWizardModal';
 import { UserStats, LanguageThemeId, UserProfile, GeneratedStudyPlan } from './types';
 import { StorageService } from './services/storage';
 import { getLanguageTheme, detectLanguageTheme } from './services/languageThemes';
 import { onAuthChange, syncUserProfile } from './services/firebase';
 import { useModalFocusTrap } from './hooks/useModalFocusTrap';
+
+const ChatTutor = lazy(() =>
+  import('./components/ChatTutor').then((module) => ({ default: module.ChatTutor }))
+);
+const FlashcardsView = lazy(() =>
+  import('./components/FlashcardsView').then((module) => ({ default: module.FlashcardsView }))
+);
+const VocabularyDuelView = lazy(() =>
+  import('./components/VocabularyDuelView').then((module) => ({ default: module.VocabularyDuelView }))
+);
+const GraphMemoryView = lazy(() =>
+  import('./components/GraphMemoryView').then((module) => ({ default: module.GraphMemoryView }))
+);
+const MaterialsView = lazy(() =>
+  import('./components/MaterialsView').then((module) => ({ default: module.MaterialsView }))
+);
+const MisconceptionsDictionary = lazy(() =>
+  import('./components/MisconceptionsDictionary').then((module) => ({ default: module.MisconceptionsDictionary }))
+);
+const WeeklyDashboard = lazy(() =>
+  import('./components/WeeklyDashboard').then((module) => ({ default: module.WeeklyDashboard }))
+);
+const AchievementsView = lazy(() =>
+  import('./components/AchievementsView').then((module) => ({ default: module.AchievementsView }))
+);
+const AdminView = lazy(() =>
+  import('./components/AdminView').then((module) => ({ default: module.AdminView }))
+);
+
+const ViewLoadingFallback = () => (
+  <div
+    role="status"
+    aria-live="polite"
+    className="flex min-h-64 items-center justify-center text-sm font-semibold text-[var(--muted)]"
+  >
+    Carregando área de estudo…
+  </div>
+);
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<string>('home');
@@ -185,6 +214,7 @@ export default function App() {
       <div className="flex-1 flex flex-col max-w-6xl w-full mx-auto px-4 sm:px-6 py-6 pb-24 lg:pb-0">
         <main className="flex-1 flex flex-col">
           <div id="main-app-content" className="w-full flex-1 flex flex-col">
+            <Suspense fallback={<ViewLoadingFallback />}>
             {activeTab === 'home' && (
               <HomeOverview
                 stats={stats}
@@ -285,6 +315,7 @@ export default function App() {
                 onImportPackToCurrentBase={() => setStats(StorageService.getStats())}
               />
             )}
+            </Suspense>
           </div>
         </main>
       </div>
