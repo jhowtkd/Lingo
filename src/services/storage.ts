@@ -21,6 +21,7 @@ import {
   fetchPersonalKnowledgeFromCloud,
   updateUserStatsSummary,
 } from './firebase';
+import { PLAN_NODE_EVIDENCE } from './progressMetrics';
 
 const STORAGE_KEYS = {
   NODES: 'tutor_graph_nodes_v1',
@@ -1163,7 +1164,7 @@ export const StorageService = {
   // =========================================================================
   // SISTEMA DE MULTI-CONVERSAS & SESSÕES POR LIÇÃO (ChatConversation)
   // =========================================================================
-  getConversations(): ChatConversation[] {
+  getConversations(initialize = true): ChatConversation[] {
     const raw = localStorage.getItem(this.getKey(STORAGE_KEYS.CONVERSATIONS));
     if (raw) {
       try {
@@ -1175,6 +1176,8 @@ export const StorageService = {
         console.warn('Erro ao carregar conversas do storage:', e);
       }
     }
+
+    if (!initialize) return [];
 
     // Migração ou inicialização padrão: cria a primeira conversa a partir do histórico antigo ou plano
     const stats = this.getStats();
@@ -1217,21 +1220,6 @@ export const StorageService = {
           timestamp: new Date().toISOString(),
           idioma: lang,
           conceitos_chave: plan?.interesses_principais,
-          adaptacao: plan
-            ? {
-                nivel:
-                  plan.nivel_cefr === 'A1' || plan.nivel_cefr === 'A2'
-                    ? 'fundamental_analogico'
-                    : plan.nivel_cefr === 'B1' || plan.nivel_cefr === 'B2'
-                    ? 'intermediario_aplicado'
-                    : 'avancado_analitico',
-                rotulo: `Nível ${plan.nivel_cefr} (${plan.motivo_principal})`,
-                dominio_avaliado:
-                  plan.nivel_cefr === 'A1' ? 35 : plan.nivel_cefr === 'A2' ? 50 : plan.nivel_cefr === 'B1' ? 65 : 85,
-                justificativa: `Início calibrado com base no plano de estudos gerado para ${plan.idioma}.`,
-                estrategia_pedagogica: plan.estrategia_pedagogica || 'Imersão conversacional adaptativa.',
-              }
-            : undefined,
         },
       ];
     }
@@ -1379,13 +1367,6 @@ export const StorageService = {
       timestamp: new Date().toISOString(),
       idioma: lang,
       conceitos_chave: materialItem ? materialItem.vocabulario?.slice(0, 4).map((v) => v.termo) : undefined,
-      adaptacao: {
-        nivel: cefr === 'A1' || cefr === 'A2' ? 'fundamental_analogico' : cefr === 'B1' || cefr === 'B2' ? 'intermediario_aplicado' : 'avancado_analitico',
-        rotulo: `Nível ${cefr} • ${options.materialTitulo || options.topico}`,
-        dominio_avaliado: cefr === 'A1' ? 40 : cefr === 'A2' ? 55 : cefr === 'B1' ? 70 : 85,
-        justificativa: materialItem ? `Sessão dedicada ao material de estudo "${materialItem.titulo}".` : `Nova conversa sobre ${options.topico}.`,
-        estrategia_pedagogica: 'Imersão conversacional orientada à lição.',
-      },
     };
 
     const newConv: ChatConversation = {
@@ -1494,21 +1475,6 @@ export const StorageService = {
         timestamp: new Date().toISOString(),
         idioma: lang,
         conceitos_chave: activePlan?.interesses_principais,
-        adaptacao: activePlan
-          ? {
-              nivel:
-                activePlan.nivel_cefr === 'A1' || activePlan.nivel_cefr === 'A2'
-                  ? 'fundamental_analogico'
-                  : activePlan.nivel_cefr === 'B1' || activePlan.nivel_cefr === 'B2'
-                  ? 'intermediario_aplicado'
-                  : 'avancado_analitico',
-              rotulo: `Nível ${activePlan.nivel_cefr} (${activePlan.motivo_principal})`,
-              dominio_avaliado:
-                activePlan.nivel_cefr === 'A1' ? 35 : activePlan.nivel_cefr === 'A2' ? 50 : activePlan.nivel_cefr === 'B1' ? 65 : 85,
-              justificativa: `Início calibrado com base no plano de estudos gerado para ${activePlan.idioma}.`,
-              estrategia_pedagogica: activePlan.estrategia_pedagogica || 'Imersão conversacional adaptativa.',
-            }
-          : undefined,
       },
     ];
 
@@ -1633,13 +1599,47 @@ export const StorageService = {
     return { stats, subiu_nivel: subiuNivel, novo_nivel: novoNivel };
   },
 
-  recordAnswer(correta: boolean) {
+  recordAnswer(correta: boolean, activity?: { topico?: string; xp?: number }) {
     const stats = this.getStats();
     stats.total_respostas += 1;
     if (correta) {
       stats.respostas_corretas += 1;
     }
     this.saveStats(stats);
+
+    const now = new Date();
+    const date = now.toISOString().slice(0, 10);
+    const sessionId = `activity-${date}`;
+    const sessions = this.getSessions();
+    const existing = sessions.find((session) => session.id === sessionId);
+
+    if (existing) {
+      existing.fim = now.toISOString();
+      existing.respostas_totais += 1;
+      existing.respostas_corretas += correta ? 1 : 0;
+      existing.erros_identificados += correta ? 0 : 1;
+      existing.xp_obtido += Math.max(0, activity?.xp ?? 0);
+      if (activity?.topico && !existing.conceitos_trabalhados.includes(activity.topico)) {
+        existing.conceitos_trabalhados.push(activity.topico);
+      }
+      this.saveSessions(sessions);
+      return;
+    }
+
+    this.addSession({
+      id: sessionId,
+      titulo: 'Prática registrada',
+      topico: activity?.topico || 'Prática com o tutor',
+      inicio: now.toISOString(),
+      fim: now.toISOString(),
+      duracao_minutos: 0,
+      respostas_totais: 1,
+      respostas_corretas: correta ? 1 : 0,
+      conceitos_trabalhados: activity?.topico ? [activity.topico] : [],
+      erros_identificados: correta ? 0 : 1,
+      xp_obtido: Math.max(0, activity?.xp ?? 0),
+      concluida: true,
+    });
   },
 
   recordMinutesStudied(minutos: number) {
@@ -1861,6 +1861,8 @@ export const StorageService = {
     localStorage.removeItem(this.getKey(STORAGE_KEYS.RELATIONS));
     localStorage.removeItem(this.getKey(STORAGE_KEYS.CORRECTIONS));
     localStorage.removeItem(this.getKey(STORAGE_KEYS.CHATS));
+    localStorage.removeItem(this.getKey(STORAGE_KEYS.CONVERSATIONS));
+    localStorage.removeItem(this.getKey(STORAGE_KEYS.ACTIVE_CONVERSATION_ID));
     localStorage.removeItem(this.getKey(STORAGE_KEYS.STATS));
     localStorage.removeItem(this.getKey(STORAGE_KEYS.ACHIEVEMENTS));
     localStorage.removeItem(this.getKey(STORAGE_KEYS.SESSIONS));
@@ -1932,7 +1934,7 @@ export const StorageService = {
     const stats = this.getStats();
     stats.idioma_ativo = plan.idioma;
     stats.nivel_cefr = plan.nivel_cefr;
-    stats.meta_diaria_minutos = plan.meta_diaria_minutos || 30;
+    stats.meta_diaria_minutos = plan.meta_diaria_minutos ?? 30;
     this.saveStats(stats);
 
     // 3. Adiciona nós iniciais ao Grafo de Conhecimento
@@ -1950,16 +1952,16 @@ export const StorageService = {
             tipo: (newNode.tipo || 'vocabulario') as any,
             titulo: newNode.titulo,
             descricao: newNode.descricao || '',
-            dominio_estimado: newNode.dominio_estimado || 45,
-            dificuldade: newNode.dificuldade || 2,
-            frequencia_erro: 0,
+            dominio_estimado: newNode.dominio_estimado ?? 0,
+            dificuldade: newNode.dificuldade ?? 2,
+            frequencia_erro: newNode.frequencia_erro ?? 0,
             ultima_revisao: new Date().toISOString(),
             proxima_revisao: new Date(Date.now() + 86400000).toISOString(),
             idioma: plan.idioma,
             pronuncia_ipa: newNode.pronuncia_ipa,
             traducao: newNode.traducao,
             exemplo_uso: newNode.exemplo_uso,
-            evidencias: ['Plano Personalizado de Aprendizado'],
+            evidencias: [PLAN_NODE_EVIDENCE],
             criado_em: new Date().toISOString(),
             atualizado_em: new Date().toISOString(),
           };

@@ -1,24 +1,54 @@
-import React, { useState, useEffect } from 'react';
+import React, { lazy, Suspense, useEffect, useState } from 'react';
 import { Navbar } from './components/Navbar';
 import { HomeOverview } from './components/HomeOverview';
-import { ChatTutor } from './components/ChatTutor';
-import { FlashcardsView } from './components/FlashcardsView';
-import { VocabularyDuelView } from './components/VocabularyDuelView';
-import { GraphMemoryView } from './components/GraphMemoryView';
-import { MaterialsView } from './components/MaterialsView';
-import { MisconceptionsDictionary } from './components/MisconceptionsDictionary';
-import { WeeklyDashboard } from './components/WeeklyDashboard';
-import { AchievementsView } from './components/AchievementsView';
 import { LanguageThemeSelector } from './components/LanguageThemeSelector';
 import { ScreenCaptureModal } from './components/ScreenCaptureModal';
 import { AuthModal } from './components/AuthModal';
 import { SharedPacksModal } from './components/SharedPacksModal';
-import { AdminView } from './components/AdminView';
 import { OnboardingWizardModal } from './components/OnboardingWizardModal';
 import { UserStats, LanguageThemeId, UserProfile, GeneratedStudyPlan } from './types';
 import { StorageService } from './services/storage';
 import { getLanguageTheme, detectLanguageTheme } from './services/languageThemes';
 import { onAuthChange, syncUserProfile } from './services/firebase';
+import { useModalFocusTrap } from './hooks/useModalFocusTrap';
+
+const ChatTutor = lazy(() =>
+  import('./components/ChatTutor').then((module) => ({ default: module.ChatTutor }))
+);
+const FlashcardsView = lazy(() =>
+  import('./components/FlashcardsView').then((module) => ({ default: module.FlashcardsView }))
+);
+const VocabularyDuelView = lazy(() =>
+  import('./components/VocabularyDuelView').then((module) => ({ default: module.VocabularyDuelView }))
+);
+const GraphMemoryView = lazy(() =>
+  import('./components/GraphMemoryView').then((module) => ({ default: module.GraphMemoryView }))
+);
+const MaterialsView = lazy(() =>
+  import('./components/MaterialsView').then((module) => ({ default: module.MaterialsView }))
+);
+const MisconceptionsDictionary = lazy(() =>
+  import('./components/MisconceptionsDictionary').then((module) => ({ default: module.MisconceptionsDictionary }))
+);
+const WeeklyDashboard = lazy(() =>
+  import('./components/WeeklyDashboard').then((module) => ({ default: module.WeeklyDashboard }))
+);
+const AchievementsView = lazy(() =>
+  import('./components/AchievementsView').then((module) => ({ default: module.AchievementsView }))
+);
+const AdminView = lazy(() =>
+  import('./components/AdminView').then((module) => ({ default: module.AdminView }))
+);
+
+const ViewLoadingFallback = () => (
+  <div
+    role="status"
+    aria-live="polite"
+    className="flex min-h-64 items-center justify-center text-sm font-semibold text-[var(--muted)]"
+  >
+    Carregando área de estudo…
+  </div>
+);
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<string>('home');
@@ -33,6 +63,10 @@ export default function App() {
   const [showOnboardingModal, setShowOnboardingModal] = useState(() => !StorageService.hasCompletedOnboarding());
   const [customTopicInput, setCustomTopicInput] = useState('');
   const [targetMaterialId, setTargetMaterialId] = useState<string | undefined>(undefined);
+  const topicDialogRef = useModalFocusTrap<HTMLDivElement>(
+    showTopicModal,
+    () => setShowTopicModal(false)
+  );
 
   // Identificação do Tema do Idioma Ativo
   const activeLanguageTheme = getLanguageTheme(stats.idioma_ativo || currentTopic);
@@ -177,9 +211,10 @@ export default function App() {
       />
 
       {/* Main View Container */}
-      <div className="flex-1 flex flex-col max-w-6xl w-full mx-auto px-4 sm:px-6 py-6">
+      <div className="flex-1 flex flex-col max-w-6xl w-full mx-auto px-4 sm:px-6 py-6 pb-24 lg:pb-0">
         <main className="flex-1 flex flex-col">
           <div id="main-app-content" className="w-full flex-1 flex flex-col">
+            <Suspense fallback={<ViewLoadingFallback />}>
             {activeTab === 'home' && (
               <HomeOverview
                 stats={stats}
@@ -274,18 +309,19 @@ export default function App() {
               />
             )}
 
-            {activeTab === 'admin' && currentUser && (
+            {activeTab === 'admin' && currentUser?.role === 'admin' && (
               <AdminView
                 currentUser={currentUser}
                 onImportPackToCurrentBase={() => setStats(StorageService.getStats())}
               />
             )}
+            </Suspense>
           </div>
         </main>
       </div>
 
       {/* Footer */}
-      <footer className="max-w-6xl mx-auto w-full px-6 py-6 text-xs sm:text-sm text-[var(--muted)] flex items-center justify-between gap-4 flex-wrap border-t border-[var(--border)] mt-auto">
+      <footer className="max-w-6xl mx-auto w-full px-6 py-6 pb-24 lg:pb-0 text-xs sm:text-sm text-[var(--muted)] flex items-center justify-between gap-4 flex-wrap border-t border-[var(--border)] mt-auto">
         <span>
           <strong className="font-display text-[var(--fg)]">Lingo</strong> · tutor de idiomas com memória relacional em grafo & bases compartilhadas
         </span>
@@ -308,13 +344,20 @@ export default function App() {
       {/* Modal para Alteração de Tópico & Idioma */}
       {showTopicModal && (
         <div className="fixed inset-0 z-50 bg-[oklch(0.32_0.07_285_/_0.42)] backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="relative bg-[var(--surface)] border border-[var(--border)] rounded-[var(--r-lg)] max-w-2xl w-full p-6 sm:p-8 space-y-6 shadow-[var(--shadow)] text-[var(--fg)] max-h-[90vh] overflow-y-auto">
+          <div
+            ref={topicDialogRef}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="topic-dialog-title"
+            tabIndex={-1}
+            className="relative bg-[var(--surface)] border border-[var(--border)] rounded-[var(--r-lg)] max-w-2xl w-full p-6 sm:p-8 space-y-6 shadow-[var(--shadow)] text-[var(--fg)] max-h-[90vh] overflow-y-auto"
+          >
             <div className="flex items-center justify-between border-b border-[var(--border)] pb-4">
               <div className="space-y-1">
                 <div className="inline-flex items-center rounded-full bg-[var(--sunny)] px-2.5 py-0.5 text-[11px] font-extrabold text-[var(--fg)]">
                   IDIOMA & FOCO
                 </div>
-                <h3 className="text-xl font-bold font-display text-[var(--fg)] flex items-center gap-2">
+                <h3 id="topic-dialog-title" className="text-xl font-bold font-display text-[var(--fg)] flex items-center gap-2">
                   <span>Alterar Idioma & Tópico</span>
                   <span className="text-xs px-2.5 py-0.5 rounded-full border border-[var(--border)] bg-[oklch(0.965_0.01_84)] font-bold">
                     {activeLanguageTheme.bandeira} {activeLanguageTheme.nome}
@@ -323,6 +366,7 @@ export default function App() {
               </div>
               <button
                 onClick={() => setShowTopicModal(false)}
+                aria-label="Fechar seleção de idioma e tópico"
                 className="text-[var(--muted)] hover:text-[var(--fg)] p-2 rounded-full hover:bg-[oklch(0.955_0.012_84)] transition cursor-pointer"
               >
                 ✕

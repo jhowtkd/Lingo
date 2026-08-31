@@ -1,18 +1,12 @@
 import React, { useState } from 'react';
 import {
-  Activity,
   Gauge,
-  Info,
   ChevronDown,
   ChevronUp,
   Sparkles,
-  Zap,
-  Clock,
-  MessageSquare,
-  HelpCircle,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { CEFRLevel, SpeechRateMetrics } from '../types';
+import { SpeechRateMetrics } from '../types';
 import {
   SpeechRateService,
   CEFR_SPEECH_RATE_TARGETS,
@@ -21,31 +15,17 @@ import {
 interface SpeechRateVisualizerProps {
   metrics: SpeechRateMetrics;
   variant?: 'compact' | 'full' | 'inline-badge';
-  allowLevelChange?: boolean;
-  onLevelChange?: (level: CEFRLevel) => void;
   className?: string;
 }
 
 export const SpeechRateVisualizer: React.FC<SpeechRateVisualizerProps> = ({
   metrics: initialMetrics,
   variant = 'compact',
-  allowLevelChange = true,
-  onLevelChange,
   className = '',
 }) => {
-  const [activeLevel, setActiveLevel] = useState<CEFRLevel>(initialMetrics.cefrLevel || 'B1');
   const [isExpanded, setIsExpanded] = useState(false);
-
-  // Recalcula se o usuário alternar o nível CEFR para comparação didática
-  const currentMetrics =
-    activeLevel === initialMetrics.cefrLevel
-      ? initialMetrics
-      : SpeechRateService.calculateSpeechRate(
-          // simula texto com a mesma contagem de palavras
-          Array(initialMetrics.wordsCount).fill('word').join(' '),
-          initialMetrics.durationSeconds,
-          activeLevel
-        );
+  const currentMetrics = initialMetrics;
+  const activeLevel = initialMetrics.cefrLevel || 'B1';
 
   const badgeProps = SpeechRateService.getPacingBadgeProps(currentMetrics.pacing);
   const targetConfig = CEFR_SPEECH_RATE_TARGETS[activeLevel] || CEFR_SPEECH_RATE_TARGETS.B1;
@@ -59,13 +39,6 @@ export const SpeechRateVisualizer: React.FC<SpeechRateVisualizerProps> = ({
   const targetMinPercent = (targetConfig.minWpm / maxScaleWpm) * 100;
   const targetMaxPercent = (targetConfig.maxWpm / maxScaleWpm) * 100;
   const targetWidthPercent = targetMaxPercent - targetMinPercent;
-
-  const handleSelectLevel = (lvl: CEFRLevel) => {
-    setActiveLevel(lvl);
-    if (onLevelChange) {
-      onLevelChange(lvl);
-    }
-  };
 
   // 1. Variante Inline Badge (Ultra compacta para cabeçalhos / review)
   if (variant === 'inline-badge') {
@@ -182,48 +155,6 @@ export const SpeechRateVisualizer: React.FC<SpeechRateVisualizerProps> = ({
                 </p>
               </div>
 
-              {/* Seletor Comparativo de Níveis CEFR */}
-              {allowLevelChange && (
-                <div>
-                  <div className="flex items-center justify-between mb-1.5">
-                    <span className="text-[10px] text-muted-foreground uppercase font-bold">
-                      Comparar Ritmo em outros Níveis CEFR:
-                    </span>
-                    <span className="text-[10px] text-foreground font-bold">
-                      {targetConfig.ritmoEsperado}
-                    </span>
-                  </div>
-                  <div className="grid grid-cols-6 gap-1">
-                    {(['A1', 'A2', 'B1', 'B2', 'C1', 'C2'] as CEFRLevel[]).map((lvl) => {
-                      const isSelected = lvl === activeLevel;
-                      const lvlTarget = CEFR_SPEECH_RATE_TARGETS[lvl];
-                      const isIdealForLvl =
-                        currentMetrics.wpm >= lvlTarget.minWpm &&
-                        currentMetrics.wpm <= lvlTarget.maxWpm;
-
-                      return (
-                        <button
-                          key={lvl}
-                          onClick={() => handleSelectLevel(lvl)}
-                          className={`px-1.5 py-1 rounded text-[10px] font-mono font-bold transition flex flex-col items-center justify-center border cursor-pointer ${
-                            isSelected
-                              ? 'bg-foreground text-background border-foreground shadow-2xs'
-                              : isIdealForLvl
-                              ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border-emerald-500/40 hover:bg-emerald-500/20'
-                              : 'bg-background text-muted-foreground border-border hover:text-foreground hover:bg-muted'
-                          }`}
-                          title={`${lvlTarget.nome}: ${lvlTarget.minWpm}-${lvlTarget.maxWpm} PPM`}
-                        >
-                          <span>{lvl}</span>
-                          <span className="text-[8px] font-normal opacity-80">
-                            {lvlTarget.minWpm}-{lvlTarget.maxWpm}
-                          </span>
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
             </motion.div>
           )}
         </AnimatePresence>
@@ -362,48 +293,6 @@ export const SpeechRateVisualizer: React.FC<SpeechRateVisualizerProps> = ({
         </div>
       </div>
 
-      {/* Seletor de Níveis CEFR para Simulação / Treino */}
-      {allowLevelChange && (
-        <div className="mt-4 pt-3 border-t border-border">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-xs text-foreground font-bold">
-              Simular em outros níveis CEFR:
-            </span>
-            <span className="text-[11px] text-muted-foreground">
-              {targetConfig.descricao}
-            </span>
-          </div>
-
-          <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
-            {(['A1', 'A2', 'B1', 'B2', 'C1', 'C2'] as CEFRLevel[]).map((lvl) => {
-              const isSelected = lvl === activeLevel;
-              const lvlTarget = CEFR_SPEECH_RATE_TARGETS[lvl];
-              const isIdealForLvl =
-                currentMetrics.wpm >= lvlTarget.minWpm &&
-                currentMetrics.wpm <= lvlTarget.maxWpm;
-
-              return (
-                <button
-                  key={lvl}
-                  onClick={() => handleSelectLevel(lvl)}
-                  className={`p-2 rounded-lg text-xs font-mono transition flex flex-col items-center justify-center border cursor-pointer ${
-                    isSelected
-                      ? 'bg-foreground text-background border-foreground shadow-2xs font-bold'
-                      : isIdealForLvl
-                      ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border-emerald-500/40 hover:bg-emerald-500/20'
-                      : 'bg-background text-muted-foreground border-border hover:text-foreground hover:bg-muted'
-                  }`}
-                >
-                  <span className="text-xs">{lvl}</span>
-                  <span className="text-[10px] opacity-80">
-                    {lvlTarget.minWpm}-{lvlTarget.maxWpm} PPM
-                  </span>
-                </button>
-              );
-            })}
-          </div>
-        </div>
-      )}
     </div>
   );
 };

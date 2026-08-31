@@ -297,7 +297,6 @@ export const PronunciationScoreCard: React.FC<PronunciationScoreCardProps> = ({
                 <SpeechRateVisualizer
                   metrics={speechRate}
                   variant="compact"
-                  allowLevelChange={true}
                 />
               </div>
             )}
@@ -320,4 +319,3 @@ export const PronunciationScoreCard: React.FC<PronunciationScoreCardProps> = ({
     </div>
   );
 };
-

@@ -16,9 +16,8 @@ import {
   Eye,
   Info,
   LayoutGrid,
-  Zap,
 } from 'lucide-react';
-import { GraphNode, GraphRelation, NodeType, RelationType } from '../types';
+import { GraphNode, GraphRelation, NodeType } from '../types';
 import { StorageService } from '../services/storage';
 import { CornerPlus } from './ui/corner-plus';
 import { Button } from './ui/button';
@@ -67,11 +66,6 @@ export const GraphMemoryView: React.FC = () => {
           recentIds.add(n.id);
         }
       });
-      // Garante que pelo menos 1-2 nós recentes tenham o destaque ativo como demonstração
-      if (recentIds.size === 0 && loadedNodes.length > 0) {
-        recentIds.add(loadedNodes[0].id);
-        if (loadedNodes.length > 1) recentIds.add(loadedNodes[1].id);
-      }
       setSessionNewNodeIds(recentIds);
     }
   };
@@ -141,73 +135,6 @@ export const GraphMemoryView: React.FC = () => {
     setIsCreatingNode(false);
     setNewTitle('');
     setNewDesc('');
-  };
-
-  // Simular adição de um conceito descoberto em tempo real para demonstrar o BorderTrail
-  const handleSimulateDiscoveredConcept = () => {
-    const concepts = [
-      {
-        titulo: 'Pronúncia de /θ/ vs /s/ (Think vs Sink)',
-        tipo: 'dificuldade' as NodeType,
-        descricao: 'Posicionamento interdental da língua para o som "th" surdo em inglês.',
-        dominio: 62,
-        relTipo: 'dificuldade_em' as RelationType,
-      },
-      {
-        titulo: 'Collocation: Make an effort (vs Do an effort)',
-        tipo: 'vocabulario' as NodeType,
-        descricao: 'Uso natural do verbo "make" acompanhando substantivos de criação e tentativa.',
-        dominio: 80,
-        relTipo: 'relacionado_a' as RelationType,
-      },
-      {
-        titulo: 'Falso Cognato: Realize vs Realizar',
-        tipo: 'falso_amigo' as NodeType,
-        descricao: '"Realize" significa perceber/dar-se conta. Para realizar um evento, usa-se "carry out" ou "hold".',
-        dominio: 50,
-        relTipo: 'confundido_com' as RelationType,
-      },
-    ];
-
-    const pick = concepts[Math.floor(Math.random() * concepts.length)];
-    const now = new Date().toISOString();
-    const newId = `node-sim-${Date.now()}`;
-
-    const created: GraphNode = {
-      id: newId,
-      tipo: pick.tipo,
-      titulo: `${pick.titulo} [Sessão]`,
-      descricao: pick.descricao,
-      dominio_estimado: pick.dominio,
-      dificuldade: 3,
-      frequencia_erro: 1,
-      ultima_revisao: now,
-      proxima_revisao: new Date(Date.now() + 2 * 86400000).toISOString(),
-      evidencias: ['Descoberto e registrado automaticamente na sessão de conversação ativa'],
-      criado_em: now,
-      atualizado_em: now,
-    };
-
-    StorageService.addOrUpdateNode(created);
-
-    // Conecta ao primeiro tópico disponível
-    const topicNode = nodes.find((n) => n.tipo === 'topico') || nodes[0];
-    if (topicNode) {
-      const newRelId = `rel-sim-${Date.now()}`;
-      const newRel: GraphRelation = {
-        id: newRelId,
-        origem_id: newId,
-        destino_id: topicNode.id,
-        tipo: pick.relTipo,
-        peso: 0.9,
-        criado_em: now,
-      };
-      StorageService.addRelation(newRel);
-      setSessionNewRelationIds((prev) => new Set([...prev, newRelId]));
-    }
-
-    setSessionNewNodeIds((prev) => new Set([...prev, newId]));
-    loadGraph();
   };
 
   const handleUpdateMastery = (node: GraphNode, delta: number) => {
@@ -310,17 +237,6 @@ export const GraphMemoryView: React.FC = () => {
           </div>
 
           <Button
-            onClick={handleSimulateDiscoveredConcept}
-            variant="outline"
-            size="sm"
-            className="gap-1.5 font-mono text-xs cursor-pointer"
-            title="Simula a descoberta de um novo conceito em tempo real com BorderTrail"
-          >
-            <Zap className="w-3.5 h-3.5 text-amber-500" />
-            <span className="hidden sm:inline">Simular Conceito</span>
-          </Button>
-
-          <Button
             onClick={() => setIsCreatingNode(true)}
             size="sm"
             className="gap-1.5 font-mono text-xs cursor-pointer shadow-2xs"
@@ -342,7 +258,6 @@ export const GraphMemoryView: React.FC = () => {
           onSelectNode={setSelectedNode}
           onUpdateMastery={handleUpdateMastery}
           getTypeBadge={getTypeBadge}
-          onSimulateNewNode={handleSimulateDiscoveredConcept}
         />
       ) : (
         <div className="space-y-4">

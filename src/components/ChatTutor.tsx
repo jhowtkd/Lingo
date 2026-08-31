@@ -43,7 +43,6 @@ import {
   StudyMaterialItem,
   PedagogicalCorrection,
   UserStats,
-  ExplanationAdaptation,
   PronunciationScoreData,
   CEFRLevel,
   SpeechRateMetrics,
@@ -76,6 +75,11 @@ import { CornerPlus } from './ui/corner-plus';
 import { Button } from './ui/button';
 import { Badge } from './ui/badge';
 import { SectionHeader } from './ui/section-header';
+import { getLanguageConfig } from '../config/languages';
+import {
+  buildListenOnlyPrompts,
+  buildQuickPrompts,
+} from '../services/languagePracticePrompts';
 
 interface ChatTutorProps {
   currentTopic: string;
@@ -154,11 +158,13 @@ export const ChatTutor: React.FC<ChatTutorProps> = ({
 
   // Modo Foco (Imersão Total sem Distrações)
   const [isFocusMode, setIsFocusMode] = useState<boolean>(false);
+  const [mobileToolsOpen, setMobileToolsOpen] = useState(false);
+  const [expandedMessageActionsId, setExpandedMessageActionsId] = useState<string | null>(null);
 
   // Dicas Pedagógicas de Como Responder (Modelos de Frase para Aprendizado Ativo)
   const [replyTips, setReplyTips] = useState<ReplyTipOption[]>([]);
 
-  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const messagesScrollRef = useRef<HTMLDivElement>(null);
   const audioRecorderRef = useRef<AudioRecorderService | null>(null);
   const timerIntervalRef = useRef<any>(null);
 
@@ -206,12 +212,6 @@ export const ChatTutor: React.FC<ChatTutorProps> = ({
     const unsubscribeSpeech = SpeechService.subscribe((isPlaying, id) => {
       setPlayingAudioId(isPlaying ? id : null);
     });
-
-    // Avalia conquistas ao iniciar
-    const evalRes = AchievementEngine.evaluateAll();
-    if (evalRes.newlyUnlocked.length > 0) {
-      onUpdateStats(StorageService.getStats());
-    }
 
     return () => {
       unsubscribeSpeech();
@@ -283,7 +283,9 @@ export const ChatTutor: React.FC<ChatTutorProps> = ({
   };
 
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    const panel = messagesScrollRef.current;
+    if (!panel) return;
+    panel.scrollTo({ top: panel.scrollHeight, behavior: 'smooth' });
   }, [messages, isLoading, reviewVoiceText]);
 
   // Envio de mensagem com suporte a áudio, score de pronúncia e taxa de fala
@@ -341,11 +343,15 @@ export const ChatTutor: React.FC<ChatTutorProps> = ({
 
     try {
       // 1. Recupera memórias contextuais relevantes do grafo e analisa adaptação recomendada
-      const graphContext = GraphEngine.getRelevantContext(currentTopic, content, 5);
-      const recentCorrections = StorageService.getCorrections().slice(0, 3);
-      const computedAdaptation = GraphEngine.analyzeStudentComprehension(currentTopic, content);
       const activePlan = StorageService.getStudyPlan();
       const currentLanguage = stats.idioma_ativo || activePlan?.idioma || 'Inglês';
+      const graphContext = GraphEngine.getRelevantContext(
+        currentTopic,
+        content,
+        5,
+        currentLanguage
+      );
+      const recentCorrections = StorageService.getCorrections().slice(0, 3);
 
       // 2. Chama a API do Tutor Pedagógico
       const res = await fetch('/api/chat', {
@@ -378,12 +384,18 @@ export const ChatTutor: React.FC<ChatTutorProps> = ({
 
       // 3. Processa nós novos ou atualizados no Grafo
       if (data.novos_nos_grafo && data.novos_nos_grafo.length > 0) {
-        GraphEngine.processNewNodesFromTutor(data.novos_nos_grafo, content);
+        GraphEngine.processNewNodesFromTutor(data.novos_nos_grafo, content, currentLanguage);
       }
 
       // 4. Registra adaptação nos nós do grafo para rastreabilidade
-      const effectiveAdaptation: ExplanationAdaptation = data.adaptacao || computedAdaptation;
-      GraphEngine.recordAdaptationUsed(currentTopic, effectiveAdaptation);
+      const effectiveAdaptation = GraphEngine.analyzeStudentComprehension(
+        currentTopic,
+        content,
+        currentLanguage
+      );
+      if (effectiveAdaptation) {
+        GraphEngine.recordAdaptationUsed(currentTopic, effectiveAdaptation, currentLanguage);
+      }
 
       // 5. Registra correção pedagógica estruturada, se houver
       let pedagogicalCorrection: PedagogicalCorrection | undefined = undefined;
@@ -406,22 +418,23 @@ export const ChatTutor: React.FC<ChatTutorProps> = ({
         // Salva automaticamente na lista de Erros Frequentes do Firestore
         try {
           const currentAuthUser = auth.currentUser;
-          const targetUid = currentAuthUser ? currentAuthUser.uid : (stats.userId || 'guest_student');
-          saveFrequentErrorToCloud({
-            id: pedagogicalCorrection.id,
-            userId: targetUid,
-            userEmail: currentAuthUser?.email || undefined,
-            userName: currentAuthUser?.displayName || undefined,
-            conceito: pedagogicalCorrection.conceito,
-            erro: pedagogicalCorrection.erro,
-            explicacao: pedagogicalCorrection.explicacao,
-            resposta_corrigida: pedagogicalCorrection.resposta_corrigida,
-            gravidade: pedagogicalCorrection.gravidade,
-            evidencia: pedagogicalCorrection.evidencia,
-            topico: currentTopic,
-            categoria: 'gramatica',
-            data: pedagogicalCorrection.data,
-          });
+          if (currentAuthUser) {
+            await saveFrequentErrorToCloud({
+              id: pedagogicalCorrection.id,
+              userId: currentAuthUser.uid,
+              userEmail: currentAuthUser.email || undefined,
+              userName: currentAuthUser.displayName || undefined,
+              conceito: pedagogicalCorrection.conceito,
+              erro: pedagogicalCorrection.erro,
+              explicacao: pedagogicalCorrection.explicacao,
+              resposta_corrigida: pedagogicalCorrection.resposta_corrigida,
+              gravidade: pedagogicalCorrection.gravidade,
+              evidencia: pedagogicalCorrection.evidencia,
+              topico: currentTopic,
+              categoria: 'gramatica',
+              data: pedagogicalCorrection.data,
+            });
+          }
         } catch (cloudErr) {
           console.warn('Erro ao salvar erro frequente no Firestore:', cloudErr);
         }
@@ -430,9 +443,8 @@ export const ChatTutor: React.FC<ChatTutorProps> = ({
       // 6. Atribui XP e atualiza gamificação
       const xpAmount = data.xp_ganho || (data.possui_erro ? 15 : 25);
       const xpResult = StorageService.addXP(xpAmount);
-      StorageService.recordAnswer(!data.possui_erro);
-      StorageService.recordMinutesStudied(3); // 3 minutos de estudo ativo por interação
-      onUpdateStats(xpResult.stats);
+      StorageService.recordAnswer(!data.possui_erro, { topico: currentTopic, xp: xpAmount });
+      onUpdateStats(StorageService.getStats());
 
       // Avalia conquistas desbloqueadas
       const evalRes = AchievementEngine.evaluateAll();
@@ -460,7 +472,7 @@ export const ChatTutor: React.FC<ChatTutorProps> = ({
         correcao: pedagogicalCorrection,
         conceitos_chave: data.conceitos_chave,
         xp_ganho: xpAmount,
-        adaptacao: effectiveAdaptation,
+        adaptacao: effectiveAdaptation ?? undefined,
       };
 
       const finalMessages = [...updatedMessages, tutorMsg];
@@ -469,7 +481,7 @@ export const ChatTutor: React.FC<ChatTutorProps> = ({
 
       // Se o usuário está no modo Ouvir Apenas, auto-reproduz com foco auditivo
       if (isListenOnlyMode && data.resposta_tutor) {
-        handlePlayPhraseAudio(tutorMsg.id, data.resposta_tutor, 'en-US');
+        handlePlayPhraseAudio(tutorMsg.id, data.resposta_tutor);
       }
     } catch (err: any) {
       console.error('Erro ao enviar mensagem:', err);
@@ -501,7 +513,7 @@ export const ChatTutor: React.FC<ChatTutorProps> = ({
         body: JSON.stringify({
           texto_falado: text,
           audio_base64: audioBase64,
-          idioma: 'Inglês',
+          idioma: currentLang,
           topico: currentTopic,
         }),
       });
@@ -594,7 +606,7 @@ export const ChatTutor: React.FC<ChatTutorProps> = ({
     setAudioError(null);
 
     try {
-      const result = await audioRecorderRef.current.stopRecordingAndTranscribe('pt-BR');
+      const result = await audioRecorderRef.current.stopRecordingAndTranscribe(targetLocale);
       if (result.text && result.text.trim()) {
         const measuredDuration = result.durationSeconds || Math.max(1, finalRecTime);
         setReviewVoiceDuration(measuredDuration);
@@ -692,7 +704,6 @@ export const ChatTutor: React.FC<ChatTutorProps> = ({
         conteudo: data.resposta_tutor,
         timestamp: new Date().toISOString(),
         xp_ganho: acertou ? 40 : 10,
-        adaptacao: data.adaptacao,
       };
 
       setMessages([...newMsgs, tutorConfirmMsg]);
@@ -728,6 +739,7 @@ export const ChatTutor: React.FC<ChatTutorProps> = ({
         await SpeechService.speak(
           text,
           {
+            lang: targetLocale,
             voice: selectedVoice,
             rate: speechSpeed,
             useNeuralAI: true,
@@ -742,7 +754,11 @@ export const ChatTutor: React.FC<ChatTutorProps> = ({
     }
   };
 
-  const handlePlayPhraseAudio = async (phraseId: string, phrase: string, lang = 'en-US') => {
+  const handlePlayPhraseAudio = async (
+    phraseId: string,
+    phrase: string,
+    lang = targetLocale
+  ) => {
     if (playingAudioId === phraseId) {
       SpeechService.stop();
       setPlayingAudioId(null);
@@ -784,50 +800,10 @@ export const ChatTutor: React.FC<ChatTutorProps> = ({
 
   const activePlan = StorageService.getStudyPlan();
   const currentLang = stats.idioma_ativo || activePlan?.idioma || 'Inglês';
-
-  const getLanguageQuickPrompts = () => {
-    const topicClean = currentTopic.replace(/^(Francês|Inglês|Espanhol|Alemão|Italiano|Japonês):\s*/i, '');
-    if (activePlan) {
-      if (currentLang === 'Francês') {
-        return [
-          `Bonjour ! Comment puis-je me présenter naturellement en français ?`,
-          `Simule um diálogo prático sobre ${topicClean} em francês`,
-          `Quelles sont les expressions clés pour ${topicClean} ?`,
-          `Pode me fazer uma pergunta em francês sobre meu foco (${activePlan.motivo_principal})?`,
-        ];
-      }
-      if (currentLang === 'Espanhol') {
-        return [
-          `¡Hola! ¿Cómo puedo iniciar una conversación natural sobre ${topicClean}?`,
-          `Simule um diálogo casual de roleplay sobre ${topicClean} em espanhol`,
-          `¿Cuáles son los falsos amigos más comunes en ${topicClean}?`,
-          `Hazme una pregunta en español para poner a prueba mi fluidez`,
-        ];
-      }
-      if (currentLang === 'Inglês') {
-        return [
-          `Hello! Let's start our conversation about ${topicClean}`,
-          `Simule um diálogo casual de roleplay sobre ${topicClean}`,
-          `What are the most natural expressions and idioms for ${topicClean}?`,
-          `Ask me a challenging question in English about ${topicClean}`,
-        ];
-      }
-      return [
-        `Olá! Vamos começar nossa prática de ${currentLang} focada em ${topicClean}`,
-        `Simule um diálogo prático sobre ${topicClean} em ${currentLang}`,
-        `Quais expressões essenciais devo saber para ${topicClean}?`,
-        `Faça uma pergunta para testar minha conversação em ${currentLang}`,
-      ];
-    }
-    return [
-      `Simule um diálogo casual de roleplay sobre ${currentTopic}`,
-      `Quais falsos cognatos e erros de tradução ocorrem em ${currentTopic}?`,
-      `Me dê 3 expressões naturais e práticas sobre ${currentTopic}`,
-      `Faça uma pergunta desafiadora em ${currentLang} para testar minha resposta`,
-    ];
-  };
-
-  const quickPrompts = getLanguageQuickPrompts();
+  const languageConfig = getLanguageConfig(currentLang);
+  const targetLocale = languageConfig.ttsLocale;
+  const quickPrompts = buildQuickPrompts(currentLang, currentTopic, activePlan);
+  const listenOnlyPrompts = buildListenOnlyPrompts(currentLang, currentTopic);
 
   const handleResetToPlan = () => {
     const updated = StorageService.resetChatToStudyPlan(activePlan || undefined);
@@ -849,7 +825,7 @@ export const ChatTutor: React.FC<ChatTutorProps> = ({
       className={`flex flex-col transition-all duration-300 ${
         isFocusMode
           ? 'fixed inset-0 z-50 bg-[var(--bg)] p-3 sm:p-6 overflow-hidden h-screen max-w-none shadow-2xl backdrop-blur-md'
-          : 'h-[calc(100vh-4.5rem)] max-w-5xl w-full mx-auto p-2 sm:p-4'
+          : 'h-[calc(100dvh-10rem)] lg:h-[calc(100dvh-7rem)] min-h-0 max-w-5xl w-full mx-auto p-2 sm:p-4 overflow-hidden'
       }`}
     >
       {/* Banner de Modo Foco Ativo (se ativado) */}
@@ -932,7 +908,21 @@ export const ChatTutor: React.FC<ChatTutorProps> = ({
         </div>
       )}
 
-      {/* Barra Superior Compacta e Unificada do Chat */}
+      <button
+        type="button"
+        onClick={() => setMobileToolsOpen((open) => !open)}
+        aria-expanded={mobileToolsOpen}
+        aria-controls="chat-studio-controls"
+        className="sm:hidden shrink-0 mb-2 rounded-full border border-[var(--border)] px-3 py-2 text-xs font-bold text-[var(--fg)]"
+      >
+        {mobileToolsOpen ? 'Ocultar ferramentas' : 'Ferramentas da conversa'}
+      </button>
+
+      <div
+        id="chat-studio-controls"
+        className={`${mobileToolsOpen ? 'block' : 'hidden'} sm:block shrink-0 max-h-[34dvh] overflow-y-auto sm:max-h-none sm:overflow-visible`}
+      >
+        {/* Barra Superior Compacta e Unificada do Chat */}
       <div className="relative bg-[var(--surface)] border border-[var(--border)] rounded-2xl p-2.5 sm:p-3.5 mb-2 shadow-xs shrink-0">
         <div className="flex flex-wrap items-center justify-between gap-2.5">
           {/* Lado Esquerdo: Identificação do Tópico e Seletor de Conversa */}
@@ -1172,6 +1162,7 @@ export const ChatTutor: React.FC<ChatTutorProps> = ({
             isFocusMode={isFocusMode}
           />
         </div>
+        </div>
       </div>
 
       {/* Modal de Criação de Nova Conversa (Livre ou por Lição) */}
@@ -1361,7 +1352,11 @@ export const ChatTutor: React.FC<ChatTutorProps> = ({
       )}
 
       {/* Painel Central de Mensagens */}
-      <div className="relative flex-1 bg-[var(--surface)] border border-[var(--border)] rounded-[var(--r-lg)] p-4 sm:p-6 overflow-y-auto space-y-4 shadow-sm overflow-hidden flex flex-col">
+      <div
+        ref={messagesScrollRef}
+        data-testid="chat-message-panel"
+        className="relative flex-1 min-h-0 bg-[var(--surface)] border border-[var(--border)] rounded-[var(--r-lg)] p-4 sm:p-6 overflow-y-auto space-y-4 shadow-sm flex flex-col"
+      >
         {messages.length === 0 && (
           <div className="h-full flex flex-col items-center justify-center text-center p-6 space-y-4">
             <div className="w-14 h-14 rounded-2xl bg-[var(--accent)] border border-[var(--border)] flex items-center justify-center text-[var(--fg)] shadow-xs">
@@ -1644,7 +1639,6 @@ export const ChatTutor: React.FC<ChatTutorProps> = ({
                     <SpeechRateVisualizer
                       metrics={msg.speech_rate}
                       variant="compact"
-                      allowLevelChange={true}
                     />
                   </div>
                 )}
@@ -1654,7 +1648,7 @@ export const ChatTutor: React.FC<ChatTutorProps> = ({
                   <div className="mt-3">
                     <PronunciationScoreCard
                       scoreData={msg.pronunciation_score}
-                      targetLang={msg.idioma || 'en-US'}
+                      targetLang={msg.idioma || targetLocale}
                     />
                   </div>
                 )}
@@ -1673,40 +1667,31 @@ export const ChatTutor: React.FC<ChatTutorProps> = ({
 
                 {/* Botões de Ação Rápida de Reformulação Pedagógica (Tutor) */}
                 {!isUser && (
-                  <div className="mt-3 pt-2 border-t border-border/80 flex flex-wrap gap-1.5">
+                  <div className="mt-3 pt-2 border-t border-border/80 space-y-2">
                     <button
-                      onClick={() =>
-                        handleSendMessage(
-                          `Poderia explicar novamente esse ponto sobre ${currentTopic} usando uma analogia intuitiva do cotidiano?`
-                        )
-                      }
-                      className="px-2 py-0.5 rounded bg-background hover:bg-muted border border-border text-[10px] font-mono text-muted-foreground hover:text-foreground transition cursor-pointer"
-                      title="Pedir simplificação com metáfora"
+                      type="button"
+                      onClick={() => setExpandedMessageActionsId((current) =>
+                        current === msg.id ? null : msg.id
+                      )}
+                      aria-expanded={expandedMessageActionsId === msg.id}
+                      aria-controls={`message-actions-${msg.id}`}
+                      className="text-[10px] font-bold text-muted-foreground hover:text-foreground"
                     >
-                      🌱 Simplificar com Analogia
+                      Mais ações
                     </button>
-                    <button
-                      onClick={() =>
-                        handleSendMessage(
-                          `Poderia aprofundar esse conceito com maior rigor técnico, propriedades formais e casos de borda?`
-                        )
-                      }
-                      className="px-2 py-0.5 rounded bg-background hover:bg-muted border border-border text-[10px] font-mono text-muted-foreground hover:text-foreground transition cursor-pointer"
-                      title="Pedir explicação técnica avançada"
-                    >
-                      🔬 Aprofundar Rigor Técnico
-                    </button>
-                    <button
-                      onClick={() =>
-                        handleSendMessage(
-                          `Poderia me mostrar um exemplo prático passo a passo de aplicação desse conceito em ${currentTopic}?`
-                        )
-                      }
-                      className="px-2 py-0.5 rounded bg-background hover:bg-muted border border-border text-[10px] font-mono text-muted-foreground hover:text-foreground transition cursor-pointer"
-                      title="Pedir exemplo aplicado"
-                    >
-                      💡 Ver Exemplo Prático
-                    </button>
+                    {expandedMessageActionsId === msg.id && (
+                      <div id={`message-actions-${msg.id}`} className="flex flex-wrap gap-1.5">
+                        <button type="button" onClick={() => handleSendMessage(`Poderia explicar novamente esse ponto sobre ${currentTopic} usando uma analogia intuitiva do cotidiano?`)} className="px-2 py-0.5 rounded border border-border text-[10px]">
+                          🌱 Simplificar com analogia
+                        </button>
+                        <button type="button" onClick={() => handleSendMessage(`Poderia aprofundar esse conceito com maior rigor técnico e exemplos adequados ao meu nível?`)} className="px-2 py-0.5 rounded border border-border text-[10px]">
+                          🔬 Aprofundar
+                        </button>
+                        <button type="button" onClick={() => handleSendMessage(`Poderia me mostrar um exemplo prático passo a passo sobre ${currentTopic}?`)} className="px-2 py-0.5 rounded border border-border text-[10px]">
+                          💡 Ver exemplo
+                        </button>
+                      </div>
+                    )}
                   </div>
                 )}
 
@@ -1749,7 +1734,7 @@ export const ChatTutor: React.FC<ChatTutorProps> = ({
                             handlePlayPhraseAudio(
                               `corr-${msg.correcao!.id || msg.id}`,
                               msg.correcao!.resposta_corrigida,
-                              'en-US'
+                              targetLocale
                             )
                           }
                           className={`flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-mono transition cursor-pointer border ${
@@ -1846,7 +1831,6 @@ export const ChatTutor: React.FC<ChatTutorProps> = ({
           </div>
         )}
 
-        <div ref={messagesEndRef} />
       </div>
 
       {/* Caixa de Revisão de Transcrição de Áudio com Análise em Tempo Real de Taxa de Fala */}
@@ -1899,7 +1883,6 @@ export const ChatTutor: React.FC<ChatTutorProps> = ({
                 SpeechRateService.mapStudentLevelToCEFR(studentLevel)
               )}
               variant="compact"
-              allowLevelChange={true}
             />
           </div>
         </div>
@@ -1925,28 +1908,16 @@ export const ChatTutor: React.FC<ChatTutorProps> = ({
             </div>
           </div>
           <div className="flex items-center gap-1.5 flex-wrap">
-            <button
-              type="button"
-              onClick={() =>
-                handleSendMessage(
-                  `Por favor, fale um exemplo em inglês com connected speech sobre ${currentTopic} e explique os fonemas ligados.`
-                )
-              }
-              className="px-2 py-0.5 rounded bg-background hover:bg-muted border border-border text-[10px] text-foreground transition cursor-pointer"
-            >
-              🎧 Treinar Linking Sounds
-            </button>
-            <button
-              type="button"
-              onClick={() =>
-                handleSendMessage(
-                  `Faça um desafio de ditado auditivo em inglês sobre ${currentTopic}: diga uma frase para eu tentar compreender.`
-                )
-              }
-              className="px-2 py-0.5 rounded bg-background hover:bg-muted border border-border text-[10px] text-foreground transition cursor-pointer"
-            >
-              📝 Desafio de Ditado
-            </button>
+            {listenOnlyPrompts.map((item) => (
+              <button
+                key={item.label}
+                type="button"
+                onClick={() => handleSendMessage(item.prompt)}
+                className="px-2 py-0.5 rounded bg-background hover:bg-muted border border-border text-[10px] text-foreground transition cursor-pointer"
+              >
+                {item.label}
+              </button>
+            ))}
             <button
               type="button"
               onClick={() => setIsListenOnlyMode(false)}
@@ -1978,7 +1949,8 @@ export const ChatTutor: React.FC<ChatTutorProps> = ({
 
       {/* Barra de Entrada (Input, Microfone e Ações) */}
       <div
-        className={`relative mt-3 bg-[var(--surface)] border rounded-[var(--r-md)] p-2.5 sm:p-3 shadow-xs transition-all ${
+        data-testid="chat-composer"
+        className={`relative mt-3 shrink-0 bg-[var(--surface)] border rounded-[var(--r-md)] p-2.5 sm:p-3 shadow-xs transition-all ${
           isRecording
             ? 'border-rose-500 ring-2 ring-rose-500/20'
             : isInputFocused
@@ -2117,7 +2089,7 @@ export const ChatTutor: React.FC<ChatTutorProps> = ({
           setIsPronunciationModalOpen(false);
           setPracticeWordForModal(undefined);
         }}
-        currentTopic={currentTopic}
+        language={currentLang}
         onUpdateStats={onUpdateStats}
         initialPhrase={practiceWordForModal}
       />

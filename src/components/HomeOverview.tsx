@@ -45,6 +45,16 @@ export const HomeOverview: React.FC<HomeOverviewProps> = ({
   const progressPercent = Math.min(100, Math.round((currentMinutes / goalMinutes) * 100));
 
   const studyPlan = StorageService.getStudyPlan();
+  const graphNodes = StorageService.getNodes();
+  const materials = StorageService.getMaterials();
+  const resumableConversation = StorageService.getConversations(false).find((conversation) =>
+    conversation.mensagens.some((message) => message.remetente === 'user')
+  );
+  const hasResumeContext = Boolean(resumableConversation || materials.length > 0);
+  const resumeDestination = resumableConversation ? 'chat' : 'materials';
+  const resumeDescription = resumableConversation
+    ? `${resumableConversation.topico} · ${graphNodes.length} termos no grafo`
+    : `${materials[0]?.titulo} · ${graphNodes.length} termos no grafo`;
 
   // Stroke offset math for 120x120 circle with r=50 (perimeter = 2 * PI * 50 = 314.16)
   const circumference = 314.16;
@@ -382,7 +392,8 @@ export const HomeOverview: React.FC<HomeOverviewProps> = ({
           {studySpaces.map((tile) => {
             const Icon = tile.icon;
             return (
-              <div
+              <button
+                type="button"
                 key={tile.id}
                 onClick={() => onNavigate(tile.id)}
                 className="group bg-[var(--surface)] border border-[var(--border)] rounded-[var(--r-sm)] p-5 sm:p-6 shadow-xs flex flex-col gap-3.5 transition-all duration-200 hover:-translate-y-1 hover:shadow-[var(--shadow-depth)] cursor-pointer text-left"
@@ -406,40 +417,35 @@ export const HomeOverview: React.FC<HomeOverviewProps> = ({
                   <span>{tile.action}</span>
                   <ArrowRight className="w-4 h-4" />
                 </div>
-              </div>
+              </button>
             );
           })}
         </div>
       </section>
 
       {/* Continuar de onde parou Card */}
-      <section className="bg-[var(--fg)] text-[oklch(0.95_0.01_84)] rounded-[var(--r-lg)] p-6 sm:p-8 shadow-[var(--shadow-view)] flex flex-col md:flex-row items-center gap-6 text-left">
-        <div className="w-18 h-18 rounded-2xl bg-[var(--accent)] flex items-center justify-center shrink-0 shadow-[inset_0_-4px_0_oklch(0.55_0.15_48)]">
-          <Play className="w-8 h-8 text-[var(--fg)] fill-[var(--fg)] ml-1" />
-        </div>
-
-        <div className="space-y-1.5 flex-1 w-full">
-          <h3 className="font-display text-xl sm:text-2xl font-bold text-white">
-            Continuar de onde parou
-          </h3>
-          <p className="text-xs sm:text-sm text-[oklch(0.80_0.03_285)]">
-            {currentTopic} · 4 vocabulários no grafo de memória
-          </p>
-          <div className="w-full max-w-sm h-2.5 rounded-full bg-[oklch(0.42_0.06_285)] overflow-hidden mt-2">
-            <div
-              className="h-full rounded-full bg-gradient-to-r from-[var(--accent)] to-[var(--sunny)]"
-              style={{ width: '42%' }}
-            />
+      {hasResumeContext && (
+        <section className="bg-[var(--fg)] text-[oklch(0.95_0.01_84)] rounded-[var(--r-lg)] p-6 sm:p-8 shadow-[var(--shadow-view)] flex flex-col md:flex-row items-center gap-6 text-left">
+          <div className="w-18 h-18 rounded-2xl bg-[var(--accent)] flex items-center justify-center shrink-0">
+            <Play className="w-8 h-8 text-[var(--fg)] fill-[var(--fg)] ml-1" />
           </div>
-        </div>
-
-        <button
-          onClick={() => onNavigate('materials')}
-          className="w-full md:w-auto inline-flex items-center justify-center gap-2 rounded-full px-6 py-3.5 font-extrabold text-sm bg-[var(--accent)] text-[var(--fg)] hover:bg-[var(--accent-deep)] transition shadow-[0_4px_0_oklch(0.5_0.13_46)] hover:-translate-y-0.5 cursor-pointer shrink-0"
-        >
-          <span>Retomar aula</span>
-        </button>
-      </section>
+          <div className="space-y-1.5 flex-1 w-full">
+            <h3 className="font-display text-xl sm:text-2xl font-bold text-white">
+              Continuar de onde parou
+            </h3>
+            <p className="text-xs sm:text-sm text-[oklch(0.80_0.03_285)]">
+              {resumeDescription}
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => onNavigate(resumeDestination)}
+            className="w-full md:w-auto inline-flex items-center justify-center gap-2 rounded-full px-6 py-3.5 font-extrabold text-sm bg-[var(--accent)] text-[var(--fg)]"
+          >
+            <span>{resumableConversation ? 'Retomar conversa' : 'Abrir material'}</span>
+          </button>
+        </section>
+      )}
     </div>
   );
 };

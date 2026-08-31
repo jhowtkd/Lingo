@@ -7,6 +7,7 @@ import {
 import { UserStats, CEFRLevel } from '../types';
 import { StorageService } from '../services/storage';
 import { GraphEngine } from '../services/graphEngine';
+import { getLanguageConfig } from '../config/languages';
 
 interface TopicProficiencyBarProps {
   currentTopic: string;
@@ -26,10 +27,14 @@ export const TopicProficiencyBar: React.FC<TopicProficiencyBarProps> = ({
   // Consulta nós do grafo relacionados ao idioma ou tópico atual
   const allNodes = StorageService.getNodes();
   const normTopic = GraphEngine.normalize(currentTopic);
+  const activeLanguage = getLanguageConfig(stats.idioma_ativo || currentTopic);
+  const languageNodes = allNodes.filter(
+    (node) => getLanguageConfig(node.idioma || 'ingles').id === activeLanguage.id
+  );
 
-  const topicNodes = allNodes.filter((n) => {
-    const normTitle = GraphEngine.normalize(n.titulo);
-    const normDesc = GraphEngine.normalize(n.descricao);
+  const topicNodes = languageNodes.filter((node) => {
+    const normTitle = GraphEngine.normalize(node.titulo);
+    const normDesc = GraphEngine.normalize(node.descricao);
     return (
       normTitle.includes(normTopic) ||
       normTopic.includes(normTitle) ||
@@ -37,32 +42,43 @@ export const TopicProficiencyBar: React.FC<TopicProficiencyBarProps> = ({
     );
   });
 
-  const relevantNodes = topicNodes.length > 0 ? topicNodes : allNodes.slice(0, 10);
-  const masteredNodes = relevantNodes.filter((n) => (n.dominio_estimado || 0) >= 70);
+  const relevantNodes = topicNodes.length > 0 ? topicNodes : languageNodes.slice(0, 10);
+  const hasProficiencyEvidence =
+    stats.total_respostas > 0 ||
+    relevantNodes.some((node) => node.dominio_estimado > 0 || node.frequencia_erro > 0);
+  const masteredNodes = relevantNodes.filter((node) => (node.dominio_estimado ?? 0) >= 70);
 
   // Cálculo de proficiência ponderado
   const avgNodeMastery =
     relevantNodes.length > 0
-      ? relevantNodes.reduce((acc, n) => acc + (n.dominio_estimado || 50), 0) /
+      ? relevantNodes.reduce((sum, node) => sum + Math.max(0, node.dominio_estimado ?? 0), 0) /
         relevantNodes.length
-      : 50;
+      : 0;
 
   const interactionScore = Math.min(100, Math.round((messagesCount / 12) * 100));
 
   const accuracyRate =
     stats.total_respostas > 0
       ? Math.round((stats.respostas_corretas / stats.total_respostas) * 100)
-      : 75;
+      : 0;
 
-  const calculatedProficiency = Math.min(
-    100,
-    Math.max(
-      15,
-      Math.round(
-        avgNodeMastery * 0.5 + interactionScore * 0.3 + accuracyRate * 0.2
+  const calculatedProficiency = hasProficiencyEvidence
+    ? Math.min(
+        100,
+        Math.round(avgNodeMastery * 0.5 + interactionScore * 0.3 + accuracyRate * 0.2)
       )
-    )
-  );
+    : 0;
+
+  if (!hasProficiencyEvidence) {
+    return (
+      <div className="shrink-0 mb-2 bg-[var(--surface)] border border-[var(--border)] rounded-xl px-3 py-2 shadow-2xs flex items-center justify-between gap-2">
+        <span className="text-xs font-bold text-[var(--fg)]">Proficiência no tópico</span>
+        <span className="text-[10px] font-bold text-[var(--muted)]">
+          Aguardando evidências da primeira prática
+        </span>
+      </div>
+    );
+  }
 
   // Mapeamento de Nível CEFR e Título
   const getProficiencyStage = (pct: number): { cefr: CEFRLevel; title: string; badgeBg: string } => {

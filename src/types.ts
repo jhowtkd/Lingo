@@ -632,6 +632,7 @@ export interface GeneratedStudyPlan {
   meta_diaria_minutos: number;
   motivo_principal: string;
   interesses_principais: string[];
+  estilo_aprendizado: OnboardingAnswers['estilo_aprendizado'];
   topico_inicial_recomendado: string;
   mensagem_boas_vindas_tutor: string;
   estrategia_pedagogica: string;
@@ -641,7 +642,6 @@ export interface GeneratedStudyPlan {
   dicas_personalizadas: string[];
   criado_em: string;
 }
-
 
 
 

@@ -32,6 +32,8 @@ import confetti from 'canvas-confetti';
 import { CEFRLevel, GeneratedStudyPlan, OnboardingAnswers, UserStats } from '../types';
 import { StorageService } from '../services/storage';
 import { LANGUAGE_THEMES } from '../services/languageThemes';
+import { createFallbackStudyPlan } from '../services/studyPlanFallback';
+import { useModalFocusTrap } from '../hooks/useModalFocusTrap';
 
 interface OnboardingWizardModalProps {
   isOpen: boolean;
@@ -107,10 +109,7 @@ export const OnboardingWizardModal: React.FC<OnboardingWizardModalProps> = ({
   const [selectedLevel, setSelectedLevel] = useState<CEFRLevel>(currentStats.nivel_cefr || 'B1');
   const [selectedMotive, setSelectedMotive] = useState<string>('Trabalho & Carreira');
   const [customMotiveDetail, setCustomMotiveDetail] = useState<string>('');
-  const [selectedInterests, setSelectedInterests] = useState<string[]>([
-    'Tecnologia, IA & Programação',
-    'Negócios, Startups & Liderança',
-  ]);
+  const [selectedInterests, setSelectedInterests] = useState<string[]>([]);
   const [customInterestInput, setCustomInterestInput] = useState<string>('');
   const [dailyMinutes, setDailyMinutes] = useState<number>(currentStats.meta_diaria_minutos || 30);
   const [learningStyle, setLearningStyle] = useState<
@@ -120,14 +119,14 @@ export const OnboardingWizardModal: React.FC<OnboardingWizardModalProps> = ({
   const [isGenerating, setIsGenerating] = useState<boolean>(false);
   const [generationStepText, setGenerationStepText] = useState<string>('Analisando preferências...');
   const [generatedPlan, setGeneratedPlan] = useState<GeneratedStudyPlan | null>(null);
+  const [generationSource, setGenerationSource] = useState<'api' | 'local' | null>(null);
+  const dialogRef = useModalFocusTrap<HTMLDivElement>(isOpen, onClose);
 
   if (!isOpen) return null;
 
   const toggleInterest = (interest: string) => {
     if (selectedInterests.includes(interest)) {
-      if (selectedInterests.length > 1) {
-        setSelectedInterests(selectedInterests.filter((i) => i !== interest));
-      }
+      setSelectedInterests(selectedInterests.filter((i) => i !== interest));
     } else {
       if (selectedInterests.length < 5) {
         setSelectedInterests([...selectedInterests, interest]);
@@ -137,13 +136,19 @@ export const OnboardingWizardModal: React.FC<OnboardingWizardModalProps> = ({
 
   const handleAddCustomInterest = (e: React.FormEvent) => {
     e.preventDefault();
-    if (customInterestInput.trim() && !selectedInterests.includes(customInterestInput.trim())) {
+    if (
+      selectedInterests.length < 5 &&
+      customInterestInput.trim() &&
+      !selectedInterests.includes(customInterestInput.trim())
+    ) {
       setSelectedInterests([...selectedInterests, customInterestInput.trim()]);
       setCustomInterestInput('');
     }
   };
 
   const handleGeneratePlan = async () => {
+    if (selectedInterests.length === 0) return;
+
     setIsGenerating(true);
     setGenerationStepText(`Calibrando currículo de ${selectedLanguage} para nível ${selectedLevel}...`);
 
@@ -176,14 +181,19 @@ export const OnboardingWizardModal: React.FC<OnboardingWizardModalProps> = ({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(answers),
       });
+      if (!response.ok) {
+        throw new Error(`Falha ao gerar plano: ${response.status}`);
+      }
 
       const data = await response.json();
-      clearTimeout(timer1);
-      clearTimeout(timer2);
-      clearTimeout(timer3);
 
       if (data.plano) {
-        setGeneratedPlan(data.plano);
+        const plan: GeneratedStudyPlan = {
+          ...data.plano,
+          estilo_aprendizado: answers.estilo_aprendizado,
+        };
+        setGeneratedPlan(plan);
+        setGenerationSource('api');
         setStep(5); // Tela de Apresentação do Plano
         confetti({
           particleCount: 70,
@@ -195,103 +205,13 @@ export const OnboardingWizardModal: React.FC<OnboardingWizardModalProps> = ({
       }
     } catch (err) {
       console.warn('Erro ao gerar plano via API, aplicando fallback estruturado:', err);
-      // Fallback robusto garantido
-      const fallbackPlan: GeneratedStudyPlan = {
-        id: `plan-fb-${Date.now()}`,
-        titulo_plano: `Trilha Sob Medida: ${selectedLanguage} para ${selectedMotive}`,
-        descricao_plano: `Plano estruturado de ${dailyMinutes} min/dia para alcançar fluência em ${selectedMotive}, focando em ${selectedInterests[0] || 'vocabulário prático'}.`,
-        idioma: selectedLanguage,
-        nivel_cefr: selectedLevel,
-        meta_diaria_minutos: dailyMinutes,
-        motivo_principal: selectedMotive,
-        interesses_principais: selectedInterests,
-        topico_inicial_recomendado: `${selectedLanguage}: ${selectedMotive} & ${selectedInterests[0] || 'Conversação Prática'}`,
-        mensagem_boas_vindas_tutor:
-          selectedLanguage === 'Francês'
-            ? `Bonjour ! Bienvenue à votre parcours personnalisé de Français. Preparei seu plano com foco em ${selectedMotive} e ${selectedInterests[0] || 'conversação'}. Para começarmos, que tal me contar o que você mais quer praticar hoje?`
-            : selectedLanguage === 'Espanhol'
-            ? `¡Hola! Bienvenido a tu plan personalizado de Español. He preparado tu ruta enfocada en ${selectedMotive} y ${selectedInterests[0] || 'conversación'}. ¿Qué te gustaría practicar primero hoy?`
-            : selectedLanguage === 'Alemão'
-            ? `Hallo! Willkommen zu deinem Deutsch-Lernplan. Preparei sua trilha com foco em ${selectedMotive} e ${selectedInterests[0] || 'conversação'}. Vamos começar nossa primeira prática?`
-            : selectedLanguage === 'Italiano'
-            ? `Ciao! Benvenuto al tuo piano personalizzato di Italiano. Ho preparato il tuo percorso focalizzato su ${selectedMotive} e ${selectedInterests[0] || 'conversazione'}. Di cosa vorresti parlare oggi?`
-            : selectedLanguage === 'Japonês'
-            ? `Konnichiwa! (こんにちは!) Bem-vindo ao seu plano de Japonês focado em ${selectedMotive}. Vamos começar nossa prática com expressões úteis?`
-            : `Hello! Welcome to your personalized English study plan. I have tailored your path focused on ${selectedMotive} and ${selectedInterests[0] || 'practical conversation'}. What would you like to explore first?`,
-        estrategia_pedagogica: 'Imersão conversacional com repetição espaçada e conexões relacionais no grafo.',
-        cronograma_semanal: [
-          { dia_semana: 'Segunda-feira', foco: 'Vocabulário Essencial', duracao_minutos: dailyMinutes, tipo_atividade: 'chat', descricao_pratica: 'Praticar termos do dia a dia no chat.' },
-          { dia_semana: 'Terça-feira', foco: 'Repetição Espaçada', duracao_minutos: dailyMinutes, tipo_atividade: 'flashcards', descricao_pratica: 'Revisar cartões e consolidar a memória.' },
-          { dia_semana: 'Quarta-feira', foco: 'Diálogo Situacional', duracao_minutos: dailyMinutes, tipo_atividade: 'chat', descricao_pratica: 'Simular conversas reais no tópico escolhido.' },
-          { dia_semana: 'Quinta-feira', foco: 'Duelo Rápido', duracao_minutos: dailyMinutes, tipo_atividade: 'duel', descricao_pratica: 'Treinar agilidade de vocabulário com bônus de voz.' },
-          { dia_semana: 'Sexta-feira', foco: 'Kit de Estudos', duracao_minutos: dailyMinutes, tipo_atividade: 'materials', descricao_pratica: 'Explorar guia de estudos com transcrição IPA.' },
-          { dia_semana: 'Sábado', foco: 'Conversação Livre', duracao_minutos: dailyMinutes, tipo_atividade: 'chat', descricao_pratica: 'Treino aberto de pronúncia e fluência.' },
-          { dia_semana: 'Domingo', foco: 'Revisão Leve', duracao_minutos: Math.max(10, Math.round(dailyMinutes * 0.5)), tipo_atividade: 'flashcards', descricao_pratica: 'Manter a sequência ativa com revisão rápida.' },
-        ],
-        nos_iniciais_grafo: [
-          {
-            id: `node-fb-1`,
-            tipo: 'vocabulario',
-            titulo: 'Touch base',
-            descricao: 'Fazer um contato rápido / Alinhar pontos.',
-            dominio_estimado: 45,
-            dificuldade: 2,
-            pronuncia_ipa: '/tʌtʃ beɪs/',
-            traducao: 'Alinhar / Fazer contato rápido',
-            exemplo_uso: "Let's touch base tomorrow before the call.",
-          },
-          {
-            id: `node-fb-2`,
-            tipo: 'falso_amigo',
-            titulo: 'Actually',
-            descricao: 'Significa "na verdade / de fato" e não "atualmente".',
-            dominio_estimado: 40,
-            dificuldade: 2,
-            pronuncia_ipa: '/ˈæk.tʃu.ə.li/',
-            traducao: 'Na verdade, realmente',
-            exemplo_uso: 'Actually, that is not what happened.',
-          },
-        ],
-        primeiro_material_estudo: {
-          id: `mat-fb-${Date.now()}`,
-          titulo: `Guia de Início: ${selectedLanguage} para ${selectedMotive}`,
-          tipo_fonte: 'texto',
-          fonte_original: 'Assistente de Configuração',
-          idioma_alvo: selectedLanguage,
-          nivel_cefr: selectedLevel,
-          resumo: `Kit fundamental com vocabulário prático e diálogo calibrado para seu perfil.`,
-          vocabulario: [
-            { termo: 'Touch base', traducao: 'Fazer contato rápido', exemplo: "Let's touch base soon.", pronuncia_ipa: '/tʌtʃ beɪs/' },
-            { termo: 'Actually', traducao: 'Na verdade', exemplo: 'Actually, I agree with you.', pronuncia_ipa: '/ˈæk.tʃu.ə.li/' },
-          ],
-          gramatica: [
-            { topico: 'Conectivos Naturais', explicacao: 'Use conectivos para dar ritmo à fala sem hesitar.', exemplos: ['Actually, yes.', 'In fact, I think so.'] },
-          ],
-          dialogo_pratica: [
-            { personagem: 'Tutor', fala: 'Hi! Ready to practice some practical phrases?' },
-            { personagem: 'Você', fala: 'Yes, actually! Let’s get started.' },
-          ],
-          questoes_compreensao: [
-            { pergunta: 'O que significa a expressão "Touch base"?', resposta_correta: 'Fazer um contato rápido ou alinhamento', explicacao: 'É um termo frequente em ambientes profissionais e sociais.' },
-          ],
-          flashcards: [
-            { frente: 'Touch base', verso: 'Fazer contato rápido / alinhar pontos', dica: 'Expressão idiomática' },
-            { frente: 'Actually', verso: 'Na verdade, de fato (não confundir com atualmente)', dica: 'Falso cognato' },
-          ],
-          conteudo_markdown: `# Guia de ${selectedLanguage}\n\nMaterial preparado pelo assistente de configuração.`,
-          criado_em: new Date().toISOString(),
-          adicionado_ao_grafo: true,
-        },
-        dicas_personalizadas: [
-          `Estude ${dailyMinutes} minutos por dia para construir um hábito sólido.`,
-          'Repita as expressões em voz alta usando o visualizador de onda sonoro.',
-        ],
-        criado_em: new Date().toISOString(),
-      };
-
-      setGeneratedPlan(fallbackPlan);
+      setGeneratedPlan(createFallbackStudyPlan(answers));
+      setGenerationSource('local');
       setStep(5);
     } finally {
+      clearTimeout(timer1);
+      clearTimeout(timer2);
+      clearTimeout(timer3);
       setIsGenerating(false);
     }
   };
@@ -305,7 +225,14 @@ export const OnboardingWizardModal: React.FC<OnboardingWizardModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 bg-[oklch(0.25_0.05_280_/_0.55)] backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 overflow-y-auto animate-fade-in">
-      <div className="relative bg-[var(--surface)] border border-[var(--border)] rounded-[var(--r-xl)] max-w-3xl w-full p-6 sm:p-8 space-y-6 shadow-[var(--shadow)] text-[var(--fg)] max-h-[92vh] flex flex-col overflow-hidden">
+      <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="onboarding-dialog-title"
+        tabIndex={-1}
+        className="relative bg-[var(--surface)] border border-[var(--border)] rounded-[var(--r-xl)] max-w-3xl w-full p-6 sm:p-8 space-y-6 shadow-[var(--shadow)] text-[var(--fg)] max-h-[92vh] flex flex-col overflow-hidden"
+      >
         {/* Header com Stepper e Botão Fechar */}
         <div className="flex items-center justify-between border-b border-[var(--border)] pb-4 shrink-0">
           <div className="space-y-1">
@@ -313,7 +240,7 @@ export const OnboardingWizardModal: React.FC<OnboardingWizardModalProps> = ({
               <Sparkles className="w-3.5 h-3.5" />
               <span>ASSISTENTE DE CONFIGURAÇÃO INICIAL</span>
             </div>
-            <h2 className="text-xl sm:text-2xl font-bold font-display text-[var(--fg)]">
+            <h2 id="onboarding-dialog-title" className="text-xl sm:text-2xl font-bold font-display text-[var(--fg)]">
               {step === 1 && 'Escolha seu Idioma & Nível'}
               {step === 2 && 'Qual é o seu Objetivo Principal?'}
               {step === 3 && 'Seus Interesses & Afinidades'}
@@ -324,6 +251,7 @@ export const OnboardingWizardModal: React.FC<OnboardingWizardModalProps> = ({
 
           <button
             onClick={onClose}
+            aria-label="Fechar configuração"
             className="p-2 rounded-full text-[var(--muted)] hover:text-[var(--fg)] hover:bg-[oklch(0.95_0.01_84)] transition cursor-pointer"
             title="Fechar assistente"
           >
@@ -665,6 +593,11 @@ export const OnboardingWizardModal: React.FC<OnboardingWizardModalProps> = ({
               >
                 {/* Banner de Sucesso do Plano */}
                 <div className="p-5 rounded-2xl bg-gradient-to-br from-[var(--surface)] to-[oklch(0.96_0.02_84)] border-2 border-[var(--accent-deep)] shadow-sm space-y-3 text-left">
+                  {generationSource === 'local' && (
+                    <div className="rounded-xl border border-amber-400/40 bg-amber-500/10 p-3 text-xs text-amber-900">
+                      A IA não respondeu desta vez. Criamos um plano local com as preferências que você informou; você pode revisar antes de aplicar.
+                    </div>
+                  )}
                   <div className="flex items-center justify-between flex-wrap gap-2">
                     <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[var(--accent)] text-[var(--fg)] font-extrabold text-xs">
                       <Rocket className="w-3.5 h-3.5" />
@@ -755,8 +688,8 @@ export const OnboardingWizardModal: React.FC<OnboardingWizardModalProps> = ({
                     <Calendar className="w-4 h-4 text-[var(--accent-deep)]" />
                     <span>Cronograma dos Primeiros 7 Dias</span>
                   </span>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
-                    {generatedPlan.cronograma_semanal.slice(0, 4).map((day, idx) => (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-7 gap-2">
+                    {generatedPlan.cronograma_semanal.map((day, idx) => (
                       <div
                         key={idx}
                         className="p-3 rounded-xl bg-[var(--surface)] border border-[var(--border)] space-y-1 text-xs"
@@ -821,14 +754,20 @@ export const OnboardingWizardModal: React.FC<OnboardingWizardModalProps> = ({
             )}
 
             {step === 4 && (
-              <button
-                type="button"
-                onClick={handleGeneratePlan}
-                className="px-6 py-2.5 rounded-full font-extrabold text-xs sm:text-sm bg-[var(--accent)] text-[var(--fg)] hover:bg-[var(--accent-deep)] transition flex items-center gap-2 shadow-sm cursor-pointer ml-auto"
-              >
-                <Sparkles className="w-4 h-4" />
-                <span>Gerar Meu Primeiro Plano com IA</span>
-              </button>
+              <div className="ml-auto flex flex-col items-end gap-1">
+                <button
+                  type="button"
+                  onClick={handleGeneratePlan}
+                  disabled={selectedInterests.length === 0}
+                  className="px-6 py-2.5 rounded-full font-extrabold text-xs sm:text-sm bg-[var(--accent)] text-[var(--fg)] hover:bg-[var(--accent-deep)] transition flex items-center gap-2 shadow-sm cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  <Sparkles className="w-4 h-4" />
+                  <span>Gerar Meu Primeiro Plano com IA</span>
+                </button>
+                {selectedInterests.length === 0 && (
+                  <span className="text-xs font-semibold text-amber-800">Selecione pelo menos um interesse</span>
+                )}
+              </div>
             )}
 
             {step === 5 && (

@@ -433,7 +433,6 @@ export const SpeechRateCoachModal: React.FC<SpeechRateCoachModalProps> = ({
                   <SpeechRateVisualizer
                     metrics={readingTestResult}
                     variant="full"
-                    allowLevelChange={false}
                   />
                 </div>
               )}

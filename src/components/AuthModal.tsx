@@ -9,6 +9,7 @@ import {
 import { UserProfile, UserRole } from '../types';
 import { Button } from './ui/button';
 import { playSfx } from '../services/soundEffects';
+import { useModalFocusTrap } from '../hooks/useModalFocusTrap';
 import {
   ShieldCheck,
   User,
@@ -19,7 +20,6 @@ import {
   LogOut,
   CheckCircle2,
   AlertCircle,
-  KeyRound,
   Compass,
 } from 'lucide-react';
 
@@ -36,6 +36,7 @@ export function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps) {
   const [displayName, setDisplayName] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const dialogRef = useModalFocusTrap<HTMLDivElement>(isOpen, onClose);
 
   if (!isOpen) return null;
 
@@ -113,41 +114,16 @@ export function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps) {
     }
   };
 
-  // Login de Demonstração como Administrador
-  const handleDemoAdminLogin = async () => {
-    setIsLoading(true);
-    setErrorMsg(null);
-    playSfx('level_up');
-    try {
-      const demoAdminProfile: UserProfile = {
-        uid: 'adm-demo-master',
-        email: 'jhonatan.marcela@gmail.com',
-        displayName: 'Jhonatan (Administrador)',
-        photoURL: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
-        role: 'admin',
-        createdAt: new Date().toISOString(),
-        lastLoginAt: new Date().toISOString(),
-        statsSummary: {
-          level: 5,
-          xp: 1850,
-          streak: 14,
-          nodesCount: 42,
-          materialsCount: 8,
-        },
-      };
-      onSuccess(demoAdminProfile);
-      onClose();
-    } catch (err: any) {
-      console.error(err);
-      setErrorMsg('Erro no login rápido de administrador.');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
   return (
     <div className="fixed inset-0 z-50 bg-[oklch(0.25_0.05_280_/_0.55)] backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-200">
-      <div className="relative bg-[var(--surface)] border border-[var(--border)] rounded-[var(--r-lg)] max-w-md w-full p-6 sm:p-8 space-y-6 shadow-[var(--shadow)] text-[var(--fg)] max-h-[92vh] overflow-y-auto">
+      <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="auth-dialog-title"
+        tabIndex={-1}
+        className="relative bg-[var(--surface)] border border-[var(--border)] rounded-[var(--r-lg)] max-w-md w-full p-6 sm:p-8 space-y-6 shadow-[var(--shadow)] text-[var(--fg)] max-h-[92vh] overflow-y-auto"
+      >
         
         {/* Header do Modal */}
         <div className="flex items-start justify-between">
@@ -156,7 +132,7 @@ export function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps) {
               <ShieldCheck className="w-3.5 h-3.5" />
               <span>SINCRONIZAÇÃO EM NUVEM (OPCIONAL)</span>
             </div>
-            <h2 className="text-xl font-bold font-display text-[var(--fg)]">
+            <h2 id="auth-dialog-title" className="text-xl font-bold font-display text-[var(--fg)]">
               {mode === 'login' && 'Entrar na sua Conta'}
               {mode === 'register' && 'Criar Nova Conta'}
               {mode === 'guest' && 'Modo Teste / Convidado'}
@@ -167,6 +143,7 @@ export function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps) {
           </div>
           <button
             onClick={onClose}
+            aria-label="Fechar autenticação"
             className="text-[var(--muted)] hover:text-[var(--fg)] p-1.5 rounded-full hover:bg-[oklch(0.955_0.012_84)] transition cursor-pointer"
           >
             ✕
@@ -379,21 +356,6 @@ export function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps) {
             </button>
           </div>
         )}
-
-        {/* Atalho Rápido para Administrador de Demonstração */}
-        <div className="pt-3 border-t border-[var(--border)] flex flex-col gap-2">
-          <div className="flex items-center justify-between text-[11px] text-[var(--muted)]">
-            <span className="font-bold">Acesso de Gestão:</span>
-            <span>Conta com Privilégios ADM</span>
-          </div>
-          <button
-            onClick={handleDemoAdminLogin}
-            className="w-full py-2 px-3 rounded-xl border border-amber-400/40 bg-amber-500/10 hover:bg-amber-500/20 text-amber-900 font-extrabold text-xs flex items-center justify-center gap-2 transition cursor-pointer"
-          >
-            <KeyRound className="w-3.5 h-3.5 text-amber-700" />
-            <span>Testar como Administrador (jhonatan.marcela@gmail.com)</span>
-          </button>
-        </div>
       </div>
     </div>
   );
