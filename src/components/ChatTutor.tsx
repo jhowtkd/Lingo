@@ -509,7 +509,7 @@ export const ChatTutor: React.FC<ChatTutorProps> = ({
         body: JSON.stringify({
           texto_falado: text,
           audio_base64: audioBase64,
-          idioma: 'Inglês',
+          idioma: currentLang,
           topico: currentTopic,
         }),
       });
@@ -602,7 +602,7 @@ export const ChatTutor: React.FC<ChatTutorProps> = ({
     setAudioError(null);
 
     try {
-      const result = await audioRecorderRef.current.stopRecordingAndTranscribe('pt-BR');
+      const result = await audioRecorderRef.current.stopRecordingAndTranscribe(targetLocale);
       if (result.text && result.text.trim()) {
         const measuredDuration = result.durationSeconds || Math.max(1, finalRecTime);
         setReviewVoiceDuration(measuredDuration);
