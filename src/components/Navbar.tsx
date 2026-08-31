@@ -17,6 +17,8 @@ import {
   VolumeX,
   Crown,
   Share2,
+  MoreHorizontal,
+  X,
 } from 'lucide-react';
 import { UserStats, UserProfile } from '../types';
 import { getLanguageTheme } from '../services/languageThemes';
@@ -52,10 +54,12 @@ export const Navbar: React.FC<NavbarProps> = ({
 }) => {
   const activeTheme = getLanguageTheme(stats.idioma_ativo || currentTopic);
   const [isSfxMuted, setIsSfxMuted] = useState(sfx.getIsMuted());
+  const [isMobileMoreOpen, setIsMobileMoreOpen] = useState(false);
 
-  const handleTabClick = (tabId: string) => {
-    playSfx('click');
+  const handleTabClick = (tabId: string, sound: 'click' | 'pop' = 'click') => {
+    playSfx(sound);
     setActiveTab(tabId);
+    setIsMobileMoreOpen(false);
   };
 
   const handleToggleSfx = () => {
@@ -80,6 +84,10 @@ export const Navbar: React.FC<NavbarProps> = ({
     navLinks.push({ id: 'admin', label: '👑 ADM', icon: Crown });
   }
 
+  const mobilePrimaryIds = ['home', 'chat', 'flashcards', 'materials'];
+  const mobilePrimaryLinks = navLinks.filter((link) => mobilePrimaryIds.includes(link.id));
+  const mobileMoreLinks = navLinks.filter((link) => !mobilePrimaryIds.includes(link.id));
+
   return (
     <div className="sticky top-3.5 z-50 px-4 sm:px-6 max-w-6xl mx-auto w-full">
       <nav
@@ -88,10 +96,7 @@ export const Navbar: React.FC<NavbarProps> = ({
       >
         {/* Brand Logo */}
         <button
-          onClick={() => {
-            playSfx('pop');
-            setActiveTab('home');
-          }}
+          onClick={() => handleTabClick('home', 'pop')}
           className="flex items-center gap-2.5 font-display font-bold text-lg text-[var(--fg)] hover:opacity-90 transition cursor-pointer shrink-0"
         >
           <span className="w-8 h-8 rounded-xl bg-[var(--accent)] flex items-center justify-center text-[var(--fg)] shadow-[inset_0_-3px_0_oklch(0.55_0.15_48)] shrink-0">
@@ -129,7 +134,7 @@ export const Navbar: React.FC<NavbarProps> = ({
         </button>
 
         {/* Nav Links */}
-        <div className="flex items-center gap-0.5 ml-auto overflow-x-auto scrollbar-none py-0.5">
+        <div className="hidden lg:flex items-center gap-0.5 ml-auto overflow-x-auto scrollbar-none py-0.5">
           {navLinks.map((link) => {
             const isActive = activeTab === link.id;
             return (
@@ -137,6 +142,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                 key={link.id}
                 id={`nav-link-${link.id}`}
                 onClick={() => handleTabClick(link.id)}
+                aria-current={isActive ? 'page' : undefined}
                 className={`px-3 sm:px-3.5 py-1.5 sm:py-2 rounded-full font-bold text-xs sm:text-sm whitespace-nowrap transition-all duration-180 cursor-pointer ${
                   isActive
                     ? 'bg-[var(--fg)] text-[oklch(0.97_0.01_84)] shadow-xs'
@@ -163,7 +169,7 @@ export const Navbar: React.FC<NavbarProps> = ({
           {/* Sound Effects Toggle */}
           <button
             onClick={handleToggleSfx}
-            className={`p-2 rounded-full transition cursor-pointer ${
+            className={`hidden sm:inline-flex p-2 rounded-full transition cursor-pointer ${
               isSfxMuted
                 ? 'text-[var(--muted)]/60 hover:text-[var(--fg)] hover:bg-[oklch(0.955_0.012_84)]'
                 : 'text-[var(--fg)] bg-[oklch(0.955_0.012_84)] hover:bg-[oklch(0.94_0.015_84)]'
@@ -180,7 +186,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               playSfx('click');
               onOpenSharedPacksModal();
             }}
-            className="p-2 text-[var(--muted)] hover:text-[var(--fg)] hover:bg-[oklch(0.955_0.012_84)] rounded-full transition cursor-pointer"
+            className="hidden sm:inline-flex p-2 text-[var(--muted)] hover:text-[var(--fg)] hover:bg-[oklch(0.955_0.012_84)] rounded-full transition cursor-pointer"
             title="Bases de Conhecimento Compartilhadas"
             aria-label="Bases de Conhecimento"
           >
@@ -194,7 +200,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                 playSfx('click');
                 onOpenScreenshotModal();
               }}
-              className="p-2 text-[var(--muted)] hover:text-[var(--fg)] hover:bg-[oklch(0.955_0.012_84)] rounded-full transition cursor-pointer"
+              className="hidden sm:inline-flex p-2 text-[var(--muted)] hover:text-[var(--fg)] hover:bg-[oklch(0.955_0.012_84)] rounded-full transition cursor-pointer"
               title="Captura de telas em PNG"
             >
               <Camera className="w-4 h-4" />
@@ -206,11 +212,70 @@ export const Navbar: React.FC<NavbarProps> = ({
             currentUser={currentUser}
             onOpenAuthModal={onOpenAuthModal}
             onOpenSharedPacksModal={onOpenSharedPacksModal}
-            onOpenAdminPanel={() => setActiveTab('admin')}
+            onOpenAdminPanel={() => handleTabClick('admin')}
             onLogout={onLogout}
             onResetData={onResetData}
           />
         </div>
+      </nav>
+
+      {isMobileMoreOpen && (
+        <div
+          id="mobile-more-menu"
+          className="fixed inset-x-3 bottom-20 z-50 grid grid-cols-2 gap-1 rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-2 shadow-[var(--shadow)] lg:hidden"
+        >
+          {mobileMoreLinks.map((link) => {
+            const Icon = link.icon;
+            const isActive = activeTab === link.id;
+            return (
+              <button
+                key={link.id}
+                type="button"
+                onClick={() => handleTabClick(link.id)}
+                aria-current={isActive ? 'page' : undefined}
+                className="flex items-center gap-2 rounded-xl px-3 py-3 text-left text-xs font-bold text-[var(--fg)] hover:bg-[oklch(0.955_0.012_84)]"
+              >
+                <Icon className="h-4 w-4" />
+                <span>{link.label}</span>
+              </button>
+            );
+          })}
+        </div>
+      )}
+
+      <nav
+        data-testid="mobile-navigation"
+        aria-label="Navegação principal móvel"
+        className="fixed inset-x-3 bottom-3 z-50 grid grid-cols-5 rounded-2xl border border-[var(--border)] bg-[var(--surface)]/95 p-1.5 shadow-[var(--shadow)] backdrop-blur-md lg:hidden"
+      >
+        {mobilePrimaryLinks.map((link) => {
+          const Icon = link.icon;
+          const isActive = activeTab === link.id;
+          return (
+            <button
+              key={link.id}
+              type="button"
+              onClick={() => handleTabClick(link.id)}
+              aria-current={isActive ? 'page' : undefined}
+              className={`flex min-h-12 flex-col items-center justify-center gap-1 rounded-xl text-[10px] font-bold ${
+                isActive ? 'bg-[var(--fg)] text-white' : 'text-[var(--muted)]'
+              }`}
+            >
+              <Icon className="h-4 w-4" />
+              <span>{link.label}</span>
+            </button>
+          );
+        })}
+        <button
+          type="button"
+          onClick={() => setIsMobileMoreOpen((open) => !open)}
+          aria-expanded={isMobileMoreOpen}
+          aria-controls="mobile-more-menu"
+          className="flex min-h-12 flex-col items-center justify-center gap-1 rounded-xl text-[10px] font-bold text-[var(--muted)]"
+        >
+          {isMobileMoreOpen ? <X className="h-4 w-4" /> : <MoreHorizontal className="h-4 w-4" />}
+          <span>Mais</span>
+        </button>
       </nav>
     </div>
   );

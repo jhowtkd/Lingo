@@ -177,7 +177,7 @@ export default function App() {
       />
 
       {/* Main View Container */}
-      <div className="flex-1 flex flex-col max-w-6xl w-full mx-auto px-4 sm:px-6 py-6">
+      <div className="flex-1 flex flex-col max-w-6xl w-full mx-auto px-4 sm:px-6 py-6 pb-24 lg:pb-0">
         <main className="flex-1 flex flex-col">
           <div id="main-app-content" className="w-full flex-1 flex flex-col">
             {activeTab === 'home' && (
@@ -285,7 +285,7 @@ export default function App() {
       </div>
 
       {/* Footer */}
-      <footer className="max-w-6xl mx-auto w-full px-6 py-6 text-xs sm:text-sm text-[var(--muted)] flex items-center justify-between gap-4 flex-wrap border-t border-[var(--border)] mt-auto">
+      <footer className="max-w-6xl mx-auto w-full px-6 py-6 pb-24 lg:pb-0 text-xs sm:text-sm text-[var(--muted)] flex items-center justify-between gap-4 flex-wrap border-t border-[var(--border)] mt-auto">
         <span>
           <strong className="font-display text-[var(--fg)]">Lingo</strong> · tutor de idiomas com memória relacional em grafo & bases compartilhadas
         </span>
