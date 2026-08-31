@@ -150,6 +150,7 @@ export const WeeklyDashboard: React.FC<WeeklyDashboardProps> = ({ onStartReview 
   const hasRecordedActivity =
     metrics.sessoes_realizadas > 0 ||
     metrics.total_respostas > 0 ||
+    metrics.minutos_estudados > 0 ||
     StorageService.getNodes().length > 0;
 
   const metricCardsData = [
@@ -317,79 +318,84 @@ export const WeeklyDashboard: React.FC<WeeklyDashboardProps> = ({ onStartReview 
           </div>
         </div>
 
-        {/* Gráfico Recharts */}
-        <div className="w-full h-60 sm:h-64 pt-2">
-          <ResponsiveContainer width="100%" height="100%">
-            <LineChart
-              data={weeklyGrowthData}
-              margin={{ top: 10, right: 15, left: -15, bottom: 5 }}
-            >
-              <CartesianGrid strokeDasharray="3 3" stroke="rgba(0, 0, 0, 0.06)" vertical={false} />
-              <XAxis
-                dataKey="dia"
-                stroke="#64748b"
-                fontSize={11}
-                tickLine={false}
-                axisLine={{ stroke: 'rgba(0, 0, 0, 0.1)' }}
-              />
-              <YAxis
-                yAxisId="left"
-                stroke="#64748b"
-                fontSize={11}
-                tickLine={false}
-                axisLine={false}
-                tickFormatter={(val) => `${val}m`}
-              />
-              <YAxis
-                yAxisId="right"
-                orientation="right"
-                stroke="#64748b"
-                fontSize={11}
-                tickLine={false}
-                axisLine={false}
-                tickFormatter={(val) => `${val} un`}
-              />
-              <Tooltip
-                contentStyle={{
-                  backgroundColor: '#0f172a',
-                  borderRadius: '10px',
-                  border: '1px solid rgba(255,255,255,0.1)',
-                  color: '#ffffff',
-                  fontSize: '12px',
-                  padding: '10px 14px',
-                  boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.3)',
-                }}
-                labelStyle={{ fontWeight: 'bold', color: '#cbd5e1', marginBottom: '4px' }}
-                formatter={(value: any, name: any) => {
-                  if (name === 'minutos') return [`${value} min`, 'Tempo de Estudo'];
-                  if (name === 'vocabulario') return [`${value} termos`, 'Vocabulário Ativo'];
-                  return [value, name];
-                }}
-              />
-              <Line
-                yAxisId="left"
-                type="monotone"
-                dataKey="minutos"
-                name="minutos"
-                stroke="#059669"
-                strokeWidth={2.5}
-                dot={{ r: 4, fill: '#059669', strokeWidth: 2, stroke: '#ffffff' }}
-                activeDot={{ r: 6, stroke: '#059669', strokeWidth: 2, fill: '#ffffff' }}
-              />
-              <Line
-                yAxisId="right"
-                type="monotone"
-                dataKey="vocabulario"
-                name="vocabulario"
-                stroke="#d97706"
-                strokeWidth={2.5}
-                strokeDasharray="4 2"
-                dot={{ r: 4, fill: '#d97706', strokeWidth: 2, stroke: '#ffffff' }}
-                activeDot={{ r: 6, stroke: '#d97706', strokeWidth: 2, fill: '#ffffff' }}
-              />
-            </LineChart>
-          </ResponsiveContainer>
-        </div>
+        {hasRecordedActivity ? (
+          <div className="w-full h-60 sm:h-64 pt-2">
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart
+                data={weeklyGrowthData}
+                margin={{ top: 10, right: 15, left: -15, bottom: 5 }}
+              >
+                <CartesianGrid strokeDasharray="3 3" stroke="rgba(0, 0, 0, 0.06)" vertical={false} />
+                <XAxis
+                  dataKey="dia"
+                  stroke="#64748b"
+                  fontSize={11}
+                  tickLine={false}
+                  axisLine={{ stroke: 'rgba(0, 0, 0, 0.1)' }}
+                />
+                <YAxis
+                  yAxisId="left"
+                  stroke="#64748b"
+                  fontSize={11}
+                  tickLine={false}
+                  axisLine={false}
+                  tickFormatter={(val) => `${val}m`}
+                />
+                <YAxis
+                  yAxisId="right"
+                  orientation="right"
+                  stroke="#64748b"
+                  fontSize={11}
+                  tickLine={false}
+                  axisLine={false}
+                  tickFormatter={(val) => `${val} un`}
+                />
+                <Tooltip
+                  contentStyle={{
+                    backgroundColor: '#0f172a',
+                    borderRadius: '10px',
+                    border: '1px solid rgba(255,255,255,0.1)',
+                    color: '#ffffff',
+                    fontSize: '12px',
+                    padding: '10px 14px',
+                    boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.3)',
+                  }}
+                  labelStyle={{ fontWeight: 'bold', color: '#cbd5e1', marginBottom: '4px' }}
+                  formatter={(value: any, name: any) => {
+                    if (name === 'minutos') return [`${value} min`, 'Tempo de Estudo'];
+                    if (name === 'vocabulario') return [`${value} termos`, 'Vocabulário Ativo'];
+                    return [value, name];
+                  }}
+                />
+                <Line
+                  yAxisId="left"
+                  type="monotone"
+                  dataKey="minutos"
+                  name="minutos"
+                  stroke="#059669"
+                  strokeWidth={2.5}
+                  dot={{ r: 4, fill: '#059669', strokeWidth: 2, stroke: '#ffffff' }}
+                  activeDot={{ r: 6, stroke: '#059669', strokeWidth: 2, fill: '#ffffff' }}
+                />
+                <Line
+                  yAxisId="right"
+                  type="monotone"
+                  dataKey="vocabulario"
+                  name="vocabulario"
+                  stroke="#d97706"
+                  strokeWidth={2.5}
+                  strokeDasharray="4 2"
+                  dot={{ r: 4, fill: '#d97706', strokeWidth: 2, stroke: '#ffffff' }}
+                  activeDot={{ r: 6, stroke: '#d97706', strokeWidth: 2, fill: '#ffffff' }}
+                />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+        ) : (
+          <p className="py-12 text-center text-sm text-[var(--muted)]">
+            A tendência aparecerá após sua primeira atividade registrada.
+          </p>
+        )}
 
         {/* Rodapé informativo com métricas resumidas */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2 border-t border-[var(--border)]">
