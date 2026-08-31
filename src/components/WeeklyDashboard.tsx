@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import confetti from 'canvas-confetti';
 import {
   ResponsiveContainer,
   LineChart,
@@ -20,7 +19,6 @@ import {
   Trophy,
   Target,
   Award,
-  Zap,
   Check,
   BrainCircuit,
   MessageSquare,
@@ -28,21 +26,19 @@ import {
   ArrowRight,
   ArrowUpRight,
 } from 'lucide-react';
-import { WeeklyMetrics, DailyGoal, MilestoneItem, PriorityTopicSuggestion } from '../types';
+import { WeeklyMetrics, PriorityTopicSuggestion } from '../types';
 import { GraphEngine } from '../services/graphEngine';
 import { StorageService } from '../services/storage';
+import {
+  buildDailyGoals,
+  buildMilestones,
+  buildWeeklyTrend,
+  DailyTrendPoint,
+} from '../services/progressMetrics';
 import { MisconceptionsDictionary } from './MisconceptionsDictionary';
 
 interface WeeklyDashboardProps {
   onStartReview: (topic: string) => void;
-}
-
-interface DailyTrendPoint {
-  dia: string;
-  data: string;
-  minutos: number;
-  vocabulario: number;
-  taxaConsistencia: number;
 }
 
 export const WeeklyDashboard: React.FC<WeeklyDashboardProps> = ({ onStartReview }) => {
@@ -50,87 +46,6 @@ export const WeeklyDashboard: React.FC<WeeklyDashboardProps> = ({ onStartReview 
   const [priorityTopics, setPriorityTopics] = useState<PriorityTopicSuggestion[]>([]);
   const [isLoadingRec, setIsLoadingRec] = useState(false);
   const [isLoadingPriority, setIsLoadingPriority] = useState(false);
-
-  // Metas Diárias com Estado Interativo
-  const [dailyGoals, setDailyGoals] = useState<DailyGoal[]>([
-    {
-      id: 'goal-1',
-      titulo: 'Estudo Diário de Conversação',
-      descricao: 'Praticar pronúncia e fluência com o tutor de IA',
-      categoria: 'tempo',
-      progresso_atual: 15,
-      meta_total: 20,
-      unidade: 'min',
-      concluida: false,
-      xp_recompensa: 50,
-      icone: 'clock',
-    },
-    {
-      id: 'goal-2',
-      titulo: 'Acurácia de Conversação ≥ 80%',
-      descricao: 'Manter respostas gramaticalmente corretas no diálogo',
-      categoria: 'precisao',
-      progresso_atual: 82,
-      meta_total: 80,
-      unidade: '%',
-      concluida: true,
-      xp_recompensa: 75,
-      icone: 'target',
-    },
-    {
-      id: 'goal-3',
-      titulo: 'Revisão Espaçada Ativa',
-      descricao: 'Completar flashcards e conceitos com revisão pendente',
-      categoria: 'revisao',
-      progresso_atual: 4,
-      meta_total: 5,
-      unidade: 'cards',
-      concluida: false,
-      xp_recompensa: 40,
-      icone: 'zap',
-    },
-  ]);
-
-  // Marcos de Aprendizagem (Milestones)
-  const [milestones, setMilestones] = useState<MilestoneItem[]>([
-    {
-      id: 'ms-1',
-      titulo: 'Guardião da Constância',
-      descricao: 'Mantenha 5 dias consecutivos de prática ativa na semana',
-      nivel: 'Ouro',
-      progresso_atual: 5,
-      meta_total: 5,
-      unidade: 'dias',
-      concluida: true,
-      xp_recompensa: 200,
-      data_conquista: 'Hoje',
-      categoria: 'streak',
-    },
-    {
-      id: 'ms-2',
-      titulo: 'Mestre da Topologia SRS',
-      descricao: 'Alcance mais de 80% de domínio em 6 nós no grafo de memória',
-      nivel: 'Prata',
-      progresso_atual: 5,
-      meta_total: 6,
-      unidade: 'nós',
-      concluida: false,
-      xp_recompensa: 150,
-      categoria: 'mastery',
-    },
-    {
-      id: 'ms-3',
-      titulo: 'Superador de Falsos Amigos',
-      descricao: 'Corrija e valide 3 equívocos conceituais ou falsos cognatos',
-      nivel: 'Bronze',
-      progresso_atual: 2,
-      meta_total: 3,
-      unidade: 'erros',
-      concluida: false,
-      xp_recompensa: 100,
-      categoria: 'accuracy',
-    },
-  ]);
 
   const loadMetrics = async () => {
     const computed = GraphEngine.calculateWeeklyMetrics();
@@ -172,116 +87,25 @@ export const WeeklyDashboard: React.FC<WeeklyDashboardProps> = ({ onStartReview 
     loadMetrics();
   }, []);
 
-  // Dados de Tendência: Consistência de Estudo e Crescimento de Vocabulário
-  const weeklyGrowthData: DailyTrendPoint[] = useMemo(() => {
-    const sessions = StorageService.getSessions();
-    const nodes = StorageService.getNodes();
+  const progressInput = useMemo(() => {
     const stats = StorageService.getStats();
+    const nodes = StorageService.getNodes();
+    const corrections = StorageService.getCorrections();
+    const sessions = StorageService.getSessions();
 
-    const result: DailyTrendPoint[] = [];
-    const today = new Date();
-    const dayNames = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
-
-    // Filtra vocabulários, expressões e estruturas no grafo
-    const vocabNodes = nodes.filter(
-      (n) => n.tipo === 'vocabulario' || n.tipo === 'expressao_idiomatica' || n.tipo === 'falso_amigo'
-    );
-    const totalVocab = Math.max(vocabNodes.length, 6);
-
-    for (let i = 6; i >= 0; i--) {
-      const targetDate = new Date();
-      targetDate.setDate(today.getDate() - i);
-      const dateStr = targetDate.toISOString().split('T')[0];
-      const dayName = dayNames[targetDate.getDay()];
-
-      // Sessões registradas para o dia
-      const daySessions = sessions.filter((s) => s.inicio && s.inicio.startsWith(dateStr));
-      const sessionMinutes = daySessions.reduce((acc, s) => acc + (s.duracao_minutos || 0), 0);
-
-      // Consistência baseada na sequência ativa do usuário
-      const isToday = i === 0;
-      const isWithinStreak = i < (stats.sequencia_dias || 3);
-      const minutes = sessionMinutes > 0
-        ? sessionMinutes
-        : isToday
-        ? (stats.minutos_hoje || 25)
-        : isWithinStreak
-        ? Math.max(15, Math.floor(18 + ((i * 7 + 11) % 18)))
-        : Math.max(5, Math.floor(10 + (i % 6)));
-
-      // Curva acumulada de retenção e assimilação de vocabulário
-      const progressFraction = (7 - i) / 7;
-      const vocabCount = Math.round(
-        Math.max(2, totalVocab * (0.6 + 0.4 * progressFraction))
-      );
-
-      result.push({
-        dia: dayName,
-        data: dateStr,
-        minutos: minutes,
-        vocabulario: vocabCount,
-        taxaConsistencia: Math.min(100, Math.round((minutes / (stats.meta_diaria_minutos || 20)) * 100)),
-      });
-    }
-
-    return result;
+    return { stats, nodes, corrections, sessions };
   }, [metrics]);
-
-  const triggerMilestoneCelebration = () => {
-    try {
-      confetti({
-        particleCount: 50,
-        spread: 60,
-        origin: { y: 0.6 },
-        colors: ['#000000', '#f59e0b', '#10b981', '#6366f1'],
-        ticks: 150,
-      });
-    } catch {
-      // Fallback
-    }
-  };
-
-  const handleToggleDailyGoal = (goalId: string) => {
-    setDailyGoals((prev) =>
-      prev.map((g) => {
-        if (g.id === goalId) {
-          const nextConcluida = !g.concluida;
-          if (nextConcluida) {
-            triggerMilestoneCelebration();
-            return {
-              ...g,
-              concluida: true,
-              progresso_atual: g.meta_total,
-            };
-          } else {
-            return {
-              ...g,
-              concluida: false,
-              progresso_atual: Math.max(0, g.meta_total - 2),
-            };
-          }
-        }
-        return g;
-      })
-    );
-  };
-
-  const handleCompleteMilestone = (msId: string) => {
-    setMilestones((prev) =>
-      prev.map((ms) => {
-        if (ms.id === msId) {
-          triggerMilestoneCelebration();
-          return {
-            ...ms,
-            concluida: true,
-            progresso_atual: ms.meta_total,
-            data_conquista: 'Agora mesmo',
-          };
-        }
-        return ms;
-      })
-    );
-  };
+  const dailyGoals = buildDailyGoals(progressInput);
+  const milestones = buildMilestones(progressInput);
+  const weeklyGrowthData: DailyTrendPoint[] = useMemo(
+    () => buildWeeklyTrend({
+      stats: StorageService.getStats(),
+      nodes: StorageService.getNodes(),
+      corrections: StorageService.getCorrections(),
+      sessions: StorageService.getSessions(),
+    }),
+    [metrics]
+  );
 
   const handleRefreshAIRecommendation = async () => {
     if (!metrics) return;
@@ -321,6 +145,13 @@ export const WeeklyDashboard: React.FC<WeeklyDashboardProps> = ({ onStartReview 
     );
   }
 
+  const minutesDelta = metrics.comparativo_semana_anterior.minutos_delta_pct;
+  const accuracyDelta = metrics.comparativo_semana_anterior.taxa_acerto_delta_pct;
+  const hasRecordedActivity =
+    metrics.sessoes_realizadas > 0 ||
+    metrics.total_respostas > 0 ||
+    StorageService.getNodes().length > 0;
+
   const metricCardsData = [
     {
       id: 'metric-tempo',
@@ -328,14 +159,14 @@ export const WeeklyDashboard: React.FC<WeeklyDashboardProps> = ({ onStartReview 
       icon: Clock,
       value: `${metrics.minutos_estudados}`,
       unit: 'min',
-      badge: `+${metrics.comparativo_semana_anterior.minutos_delta_pct}% semana`,
+      badge: `${minutesDelta > 0 ? '+' : ''}${minutesDelta}% vs. semana anterior`,
     },
     {
       id: 'metric-precisao',
       label: 'Precisão',
       icon: CheckCircle2,
       value: `${metrics.taxa_acerto}%`,
-      badge: `+${metrics.comparativo_semana_anterior.taxa_acerto_delta_pct}% acerto`,
+      badge: `${accuracyDelta > 0 ? '+' : ''}${accuracyDelta}% vs. semana anterior`,
     },
     {
       id: 'metric-correcoes',
@@ -351,7 +182,7 @@ export const WeeklyDashboard: React.FC<WeeklyDashboardProps> = ({ onStartReview 
       icon: BookOpen,
       value: `${metrics.sessoes_realizadas}`,
       unit: 'feitas',
-      subtext: 'ritmo constante',
+      subtext: metrics.sessoes_realizadas > 0 ? 'registradas no período' : 'nenhuma registrada',
     },
     {
       id: 'metric-habito',
@@ -359,7 +190,7 @@ export const WeeklyDashboard: React.FC<WeeklyDashboardProps> = ({ onStartReview 
       icon: Flame,
       value: `${metrics.sequencia_atual}`,
       unit: 'dias',
-      subtext: 'Meta batida',
+      subtext: metrics.sequencia_atual > 0 ? 'sequência atual' : 'comece hoje',
     },
     {
       id: 'metric-revisoes',
@@ -391,18 +222,6 @@ export const WeeklyDashboard: React.FC<WeeklyDashboardProps> = ({ onStartReview 
 
         <div className="flex items-center gap-2">
           <button
-            onClick={() => {
-              const uncompleted = dailyGoals.find((g) => !g.concluida);
-              if (uncompleted) handleToggleDailyGoal(uncompleted.id);
-              else triggerMilestoneCelebration();
-            }}
-            className="inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-xs font-extrabold bg-[var(--accent)] text-[var(--fg)] hover:bg-[var(--accent-deep)] transition shadow-xs cursor-pointer"
-          >
-            <Trophy className="w-3.5 h-3.5" />
-            <span>Simular Meta</span>
-          </button>
-
-          <button
             onClick={loadMetrics}
             className="inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-xs font-extrabold bg-[var(--surface)] border border-[var(--border)] text-[var(--fg)] hover:border-[var(--fg)] transition cursor-pointer"
           >
@@ -411,6 +230,17 @@ export const WeeklyDashboard: React.FC<WeeklyDashboardProps> = ({ onStartReview 
           </button>
         </div>
       </section>
+
+      {!hasRecordedActivity && (
+        <section className="view-card p-6 text-left space-y-2">
+          <h2 className="font-display font-bold text-lg text-[var(--fg)]">
+            Seu painel começa com a primeira prática
+          </h2>
+          <p className="text-sm text-[var(--muted)]">
+            Ainda não há sessões, respostas ou termos registrados. Conclua uma atividade para acompanhar sua evolução aqui.
+          </p>
+        </section>
+      )}
 
       {/* Grid de Métricas Principais (6 Cards) */}
       <section className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3.5">
@@ -575,7 +405,7 @@ export const WeeklyDashboard: React.FC<WeeklyDashboardProps> = ({ onStartReview 
             <div>
               <span className="text-[10px] font-extrabold uppercase text-[var(--muted)]">Vocabulário no Grafo</span>
               <p className="text-sm font-bold text-[var(--fg)] font-mono">
-                {weeklyGrowthData[weeklyGrowthData.length - 1]?.vocabulario || 8} termos
+                {weeklyGrowthData.at(-1)?.vocabulario ?? 0} termos
               </p>
             </div>
             <BookOpen className="w-4 h-4 text-amber-600" />
@@ -621,17 +451,19 @@ export const WeeklyDashboard: React.FC<WeeklyDashboardProps> = ({ onStartReview 
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex items-start gap-3">
-                      <button
-                        onClick={() => handleToggleDailyGoal(goal.id)}
-                        className={`mt-0.5 w-5 h-5 rounded-md flex items-center justify-center border transition cursor-pointer ${
+                      <div
+                        aria-hidden="true"
+                        className={`mt-0.5 w-5 h-5 rounded-md flex items-center justify-center border ${
                           isAchieved
                             ? 'bg-[var(--ok)] text-white border-[var(--ok)] shadow-xs'
-                            : 'border-[var(--border)] hover:border-[var(--fg)] text-transparent bg-white'
+                            : 'border-[var(--border)] text-transparent bg-white'
                         }`}
-                        title={isAchieved ? 'Marcar pendente' : 'Concluir meta'}
                       >
                         <Check className="w-3.5 h-3.5 stroke-[3]" />
-                      </button>
+                      </div>
+                      <span className="sr-only">
+                        {isAchieved ? 'Meta concluída' : 'Meta em andamento'}
+                      </span>
 
                       <div>
                         <div className="flex items-center gap-2">
@@ -735,12 +567,9 @@ export const WeeklyDashboard: React.FC<WeeklyDashboardProps> = ({ onStartReview 
                           Conquistado
                         </span>
                       ) : (
-                        <button
-                          onClick={() => handleCompleteMilestone(ms.id)}
-                          className="text-xs px-3 py-1 font-extrabold rounded-full border border-[var(--border)] bg-[var(--surface)] hover:border-[var(--fg)] transition cursor-pointer"
-                        >
-                          Concluir
-                        </button>
+                        <span className="text-xs px-3 py-1 font-extrabold rounded-full border border-[var(--border)] bg-[var(--surface)]">
+                          Em andamento
+                        </span>
                       )}
                     </div>
                   </div>
