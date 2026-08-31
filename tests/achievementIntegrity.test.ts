@@ -107,7 +107,7 @@ describe('AchievementEngine integrity', () => {
       new URL('../src/components/ChatTutor.tsx', import.meta.url),
       'utf8'
     );
-    const recordedAnswer = source.indexOf('StorageService.recordAnswer(!data.possui_erro);');
+    const recordedAnswer = source.indexOf('StorageService.recordAnswer(!data.possui_erro,');
     const publishedStats = source.indexOf('onUpdateStats(StorageService.getStats());', recordedAnswer);
 
     expect(recordedAnswer).toBeGreaterThan(-1);

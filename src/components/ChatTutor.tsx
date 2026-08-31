@@ -443,7 +443,7 @@ export const ChatTutor: React.FC<ChatTutorProps> = ({
       // 6. Atribui XP e atualiza gamificação
       const xpAmount = data.xp_ganho || (data.possui_erro ? 15 : 25);
       const xpResult = StorageService.addXP(xpAmount);
-      StorageService.recordAnswer(!data.possui_erro);
+      StorageService.recordAnswer(!data.possui_erro, { topico: currentTopic, xp: xpAmount });
       onUpdateStats(StorageService.getStats());
 
       // Avalia conquistas desbloqueadas
@@ -1639,7 +1639,6 @@ export const ChatTutor: React.FC<ChatTutorProps> = ({
                     <SpeechRateVisualizer
                       metrics={msg.speech_rate}
                       variant="compact"
-                      allowLevelChange={true}
                     />
                   </div>
                 )}
@@ -1884,7 +1883,6 @@ export const ChatTutor: React.FC<ChatTutorProps> = ({
                 SpeechRateService.mapStudentLevelToCEFR(studentLevel)
               )}
               variant="compact"
-              allowLevelChange={true}
             />
           </div>
         </div>
@@ -2091,7 +2089,7 @@ export const ChatTutor: React.FC<ChatTutorProps> = ({
           setIsPronunciationModalOpen(false);
           setPracticeWordForModal(undefined);
         }}
-        currentTopic={currentTopic}
+        language={currentLang}
         onUpdateStats={onUpdateStats}
         initialPhrase={practiceWordForModal}
       />

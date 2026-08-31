@@ -21,6 +21,7 @@ import {
   fetchPersonalKnowledgeFromCloud,
   updateUserStatsSummary,
 } from './firebase';
+import { PLAN_NODE_EVIDENCE } from './progressMetrics';
 
 const STORAGE_KEYS = {
   NODES: 'tutor_graph_nodes_v1',
@@ -1598,13 +1599,47 @@ export const StorageService = {
     return { stats, subiu_nivel: subiuNivel, novo_nivel: novoNivel };
   },
 
-  recordAnswer(correta: boolean) {
+  recordAnswer(correta: boolean, activity?: { topico?: string; xp?: number }) {
     const stats = this.getStats();
     stats.total_respostas += 1;
     if (correta) {
       stats.respostas_corretas += 1;
     }
     this.saveStats(stats);
+
+    const now = new Date();
+    const date = now.toISOString().slice(0, 10);
+    const sessionId = `activity-${date}`;
+    const sessions = this.getSessions();
+    const existing = sessions.find((session) => session.id === sessionId);
+
+    if (existing) {
+      existing.fim = now.toISOString();
+      existing.respostas_totais += 1;
+      existing.respostas_corretas += correta ? 1 : 0;
+      existing.erros_identificados += correta ? 0 : 1;
+      existing.xp_obtido += Math.max(0, activity?.xp ?? 0);
+      if (activity?.topico && !existing.conceitos_trabalhados.includes(activity.topico)) {
+        existing.conceitos_trabalhados.push(activity.topico);
+      }
+      this.saveSessions(sessions);
+      return;
+    }
+
+    this.addSession({
+      id: sessionId,
+      titulo: 'Prática registrada',
+      topico: activity?.topico || 'Prática com o tutor',
+      inicio: now.toISOString(),
+      fim: now.toISOString(),
+      duracao_minutos: 0,
+      respostas_totais: 1,
+      respostas_corretas: correta ? 1 : 0,
+      conceitos_trabalhados: activity?.topico ? [activity.topico] : [],
+      erros_identificados: correta ? 0 : 1,
+      xp_obtido: Math.max(0, activity?.xp ?? 0),
+      concluida: true,
+    });
   },
 
   recordMinutesStudied(minutos: number) {
@@ -1926,7 +1961,7 @@ export const StorageService = {
             pronuncia_ipa: newNode.pronuncia_ipa,
             traducao: newNode.traducao,
             exemplo_uso: newNode.exemplo_uso,
-            evidencias: ['Plano Personalizado de Aprendizado'],
+            evidencias: [PLAN_NODE_EVIDENCE],
             criado_em: new Date().toISOString(),
             atualizado_em: new Date().toISOString(),
           };

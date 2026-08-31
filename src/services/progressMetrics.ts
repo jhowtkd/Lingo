@@ -23,7 +23,7 @@ export interface ProgressMetricsInput {
   now?: Date;
 }
 
-const PLAN_NODE_EVIDENCE = 'Plano Personalizado de Aprendizado';
+export const PLAN_NODE_EVIDENCE = 'Plano Personalizado de Aprendizado';
 
 /** A node becomes progress only after an interaction adds evidence beyond its plan seed. */
 export function hasRecordedNodeEvidence(node: GraphNode): boolean {

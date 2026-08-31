@@ -23,6 +23,7 @@ import { playSfx } from '../services/soundEffects';
 import { Button } from './ui/button';
 import { Badge } from './ui/badge';
 import { CornerPlus } from './ui/corner-plus';
+import { getLanguageConfig } from '../config/languages';
 
 interface WordContextModalProps {
   word: string | null;
@@ -97,6 +98,7 @@ export const WordContextModal: React.FC<WordContextModalProps> = ({
     playSfx('pop');
     try {
       await SpeechService.speak(textToPlay, {
+        lang: getLanguageConfig(contextData?.idioma || language).ttsLocale,
         rate: 0.9,
         useNeuralAI: true,
         onEnd: () => setIsPlayingAudio(false),
@@ -116,7 +118,7 @@ export const WordContextModal: React.FC<WordContextModalProps> = ({
       tipo: contextData.falso_amigo_alerta ? 'falso_amigo' : 'vocabulario',
       titulo: contextData.palavra,
       descricao: `${contextData.traducao_principal} (${contextData.pronuncia_ipa}) - ${contextData.definicao_contextual}`,
-      dominio_estimado: 40,
+      dominio_estimado: 0,
       dificuldade: contextData.nivel_cefr === 'C1' || contextData.nivel_cefr === 'C2' ? 4 : 3,
       frequencia_erro: 0,
       ultima_revisao: new Date().toISOString(),

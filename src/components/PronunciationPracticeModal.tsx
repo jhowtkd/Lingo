@@ -4,18 +4,12 @@ import {
   Volume2,
   Sparkles,
   CheckCircle2,
-  AlertTriangle,
-  RotateCcw,
   X,
-  Award,
-  ChevronRight,
-  Flame,
   Zap,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import confetti from 'canvas-confetti';
 import { PronunciationChallenge, UserStats } from '../types';
-import { AudioSpectrumVisualizer } from './AudioSpectrumVisualizer';
 import { PronunciationWaveformVisualizer } from './PronunciationWaveformVisualizer';
 import { requestMicrophoneStream, AudioRecorderService } from '../services/audioService';
 import { StorageService } from '../services/storage';
@@ -24,13 +18,43 @@ import { TutorVoiceWaveform } from './TutorVoiceWaveform';
 import { CornerPlus } from './ui/corner-plus';
 import { Button } from './ui/button';
 import { playSfx } from '../services/soundEffects';
+import { getLanguageConfig, normalizeUnicodeText } from '../config/languages';
 
 interface PronunciationPracticeModalProps {
   isOpen: boolean;
   onClose: () => void;
-  currentTopic: string;
+  language: string;
   onUpdateStats: (newStats: UserStats) => void;
   initialPhrase?: string;
+}
+
+export function calculatePronunciationMatchScore(
+  targetPhrase: string,
+  recognizedText: string,
+  language: string
+): number {
+  const config = getLanguageConfig(language);
+  const target = normalizeUnicodeText(targetPhrase);
+  const recognized = normalizeUnicodeText(recognizedText);
+  if (!target || !recognized) return 0;
+
+  const tokenize = (text: string) => config.usesWhitespaceSegmentation
+    ? text.split(/\s+/).filter(Boolean)
+    : Array.from(text.replace(/\s/g, ''));
+  const targetTokens = tokenize(target);
+  const recognizedCounts = new Map<string, number>();
+  tokenize(recognized).forEach((token) => {
+    recognizedCounts.set(token, (recognizedCounts.get(token) ?? 0) + 1);
+  });
+
+  const matched = targetTokens.reduce((total, token) => {
+    const remaining = recognizedCounts.get(token) ?? 0;
+    if (remaining === 0) return total;
+    recognizedCounts.set(token, remaining - 1);
+    return total + 1;
+  }, 0);
+
+  return Math.min(100, Math.round((matched / targetTokens.length) * 100));
 }
 
 const DEFAULT_CHALLENGES: PronunciationChallenge[] = [
@@ -79,11 +103,12 @@ const DEFAULT_CHALLENGES: PronunciationChallenge[] = [
 export const PronunciationPracticeModal: React.FC<PronunciationPracticeModalProps> = ({
   isOpen,
   onClose,
-  currentTopic,
+  language,
   onUpdateStats,
   initialPhrase,
 }) => {
-  const [challenges, setChallenges] = useState<PronunciationChallenge[]>(DEFAULT_CHALLENGES);
+  const languageConfig = getLanguageConfig(language);
+  const hasReadyChallenges = languageConfig.id === 'ingles';
   const [selectedChallenge, setSelectedChallenge] = useState<PronunciationChallenge>(
     DEFAULT_CHALLENGES[0]
   );
@@ -94,8 +119,10 @@ export const PronunciationPracticeModal: React.FC<PronunciationPracticeModalProp
     if (initialPhrase && initialPhrase.trim()) {
       setCustomPhrase(initialPhrase.trim());
       setIsCustomMode(true);
+    } else if (!hasReadyChallenges) {
+      setIsCustomMode(true);
     }
-  }, [initialPhrase, isOpen]);
+  }, [initialPhrase, isOpen, hasReadyChallenges]);
 
   // Estados de Gravação e Áudio
   const [isRecording, setIsRecording] = useState(false);
@@ -106,7 +133,6 @@ export const PronunciationPracticeModal: React.FC<PronunciationPracticeModalProp
     score: number;
     transcricao_obtida: string;
     feedback_fonetico: string;
-    pontos_fortes: string[];
     melhorias: string[];
     xp_ganho: number;
   } | null>(null);
@@ -160,49 +186,32 @@ export const PronunciationPracticeModal: React.FC<PronunciationPracticeModalProp
 
     try {
       const targetPhrase = isCustomMode ? customPhrase : selectedChallenge.frase;
-      const transcriptionRes = await audioRecorderRef.current.stopRecordingAndTranscribe('en-US');
+      const transcriptionRes = await audioRecorderRef.current.stopRecordingAndTranscribe(
+        languageConfig.ttsLocale
+      );
       stopMicrophoneStream();
 
-      // Chamada para avaliação pedagógica de pronúncia
-      const res = await fetch('/api/chat', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          mensagem: `[AVALIAÇÃO DE PRONÚNCIA]: O estudante praticou a frase em inglês: "${targetPhrase}". O áudio reconhecido pelo transceptor foi: "${
-            transcriptionRes.text || targetPhrase
-          }". Avalie a pronúncia com nota de 0 a 100, aponte pontos fortes e dê 2 dicas fonéticas práticas de articulação e ritmo.`,
-          topico_atual: currentTopic,
-          nivel_estudante: 'Intermediário',
-        }),
-      });
-
-      const targetWords = targetPhrase.toLowerCase().replace(/[^a-z\s]/g, '').split(/\s+/);
-      const recognizedWords = (transcriptionRes.text || targetPhrase)
-        .toLowerCase()
-        .replace(/[^a-z\s]/g, '')
-        .split(/\s+/);
-
-      let matched = 0;
-      targetWords.forEach((tw) => {
-        if (recognizedWords.includes(tw)) matched++;
-      });
-
-      const baseScore = Math.max(65, Math.min(98, Math.round((matched / targetWords.length) * 100)));
-      const xpEarned = baseScore >= 80 ? 35 : 20;
+      const baseScore = calculatePronunciationMatchScore(
+        targetPhrase,
+        transcriptionRes.text,
+        language
+      );
+      const xpEarned = baseScore >= 80 ? 35 : baseScore > 0 ? 20 : 0;
 
       const evalData = {
         score: baseScore,
-        transcricao_obtida: transcriptionRes.text || targetPhrase,
+        transcricao_obtida:
+          transcriptionRes.text || 'Não foi possível transcrever o áudio.',
         feedback_fonetico:
           baseScore >= 85
-            ? 'Excelente fluidez e articulação fonética! O ritmo natural e a entonação foram bem capturados no espectro sonoro.'
-            : 'Boa tentativa! Foque na conexão entre as palavras (connected speech) e na redução das vogais fracas.',
-        pontos_fortes: [
-          'Clareza na entonação das palavras principais',
-          'Nível de intensidade vocal adequado e estável no espectro',
-        ],
+            ? 'A transcrição reconheceu toda a frase-alvo. Confira o áudio para avaliar ritmo e entonação.'
+            : baseScore > 0
+              ? 'Boa tentativa! Compare a transcrição capturada com a frase-alvo e pratique os trechos ausentes.'
+              : 'Não houve transcrição suficiente para calcular uma pontuação confiável. Tente novamente em um ambiente mais silencioso.',
         melhorias: [
-          selectedChallenge.dica_articulacao || 'Evite inserir vogais de apoio nos finais de palavras.',
+          isCustomMode
+            ? 'Repita a frase mais devagar, articulando cada unidade antes de acelerar.'
+            : selectedChallenge.dica_articulacao,
         ],
         xp_ganho: xpEarned,
       };
@@ -210,8 +219,9 @@ export const PronunciationPracticeModal: React.FC<PronunciationPracticeModalProp
       setEvaluationResult(evalData);
 
       // Concede XP e atualiza progresso
-      StorageService.addXP(xpEarned);
-      StorageService.recordMinutesStudied(2);
+      if (xpEarned > 0) StorageService.addXP(xpEarned);
+      const measuredMinutes = Math.round(((transcriptionRes.durationSeconds ?? 0) / 60) * 100) / 100;
+      if (measuredMinutes > 0) StorageService.recordMinutesStudied(measuredMinutes);
       onUpdateStats(StorageService.getStats());
 
       if (baseScore >= 80) {
@@ -248,7 +258,7 @@ export const PronunciationPracticeModal: React.FC<PronunciationPracticeModalProp
     SpeechService.speak(
       text,
       {
-        lang: 'en-US',
+        lang: languageConfig.ttsLocale,
         rate: 0.85,
         onEnd: () => setIsSpeakingRef(false),
         onError: () => setIsSpeakingRef(false),
@@ -261,8 +271,8 @@ export const PronunciationPracticeModal: React.FC<PronunciationPracticeModalProp
 
   const currentTarget = isCustomMode
     ? {
-        frase: customPhrase || 'Type a sentence to practice...',
-        pronuncia_ipa: '/custom/',
+        frase: customPhrase || `Digite uma frase em ${languageConfig.displayName} para praticar.`,
+        pronuncia_ipa: '',
         traducao: 'Frase personalizada',
         dificuldade: 'medio' as const,
         dica_articulacao: 'Pratique a entonação e clareza de cada palavra com calma.',
@@ -296,7 +306,7 @@ export const PronunciationPracticeModal: React.FC<PronunciationPracticeModalProp
                 </div>
               </div>
               <p className="text-xs text-muted-foreground font-mono mt-0.5">
-                Visualize suas frequências vocais em tempo real e aprimore sua entonação em inglês.
+                Visualize suas frequências vocais em tempo real e aprimore sua entonação em {languageConfig.displayName}.
               </p>
             </div>
           </div>
@@ -318,12 +328,14 @@ export const PronunciationPracticeModal: React.FC<PronunciationPracticeModalProp
             <span className="text-[11px] font-mono font-bold text-muted-foreground uppercase tracking-wider">
               Escolha uma frase ou desafio fonético:
             </span>
-            <button
-              onClick={() => setIsCustomMode(!isCustomMode)}
-              className="text-xs text-foreground hover:underline font-mono cursor-pointer"
-            >
-              {isCustomMode ? '[ Ver Desafios Prontos ]' : '[ Digitar Frase Própria ]'}
-            </button>
+            {hasReadyChallenges && (
+              <button
+                onClick={() => setIsCustomMode(!isCustomMode)}
+                className="text-xs text-foreground hover:underline font-mono cursor-pointer"
+              >
+                {isCustomMode ? '[ Ver Desafios Prontos ]' : '[ Digitar Frase Própria ]'}
+              </button>
+            )}
           </div>
 
           {isCustomMode ? (
@@ -332,13 +344,13 @@ export const PronunciationPracticeModal: React.FC<PronunciationPracticeModalProp
                 type="text"
                 value={customPhrase}
                 onChange={(e) => setCustomPhrase(e.target.value)}
-                placeholder="Digite uma frase em inglês para praticar sua pronúncia..."
+                placeholder={`Digite uma frase em ${languageConfig.displayName} para praticar sua pronúncia...`}
                 className="w-full bg-background border border-border rounded-md p-3 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-ring shadow-2xs font-mono"
               />
             </div>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-              {challenges.map((c) => (
+              {DEFAULT_CHALLENGES.map((c) => (
                 <button
                   key={c.id}
                   onClick={() => {
@@ -457,7 +469,7 @@ export const PronunciationPracticeModal: React.FC<PronunciationPracticeModalProp
           {!isRecording ? (
             <Button
               onClick={handleStartPractice}
-              disabled={isEvaluating}
+              disabled={isEvaluating || (isCustomMode && !customPhrase.trim())}
               className="w-full py-2.5 font-mono text-xs sm:text-sm gap-2 cursor-pointer shadow-2xs"
             >
               <Mic className="w-4 h-4" />
@@ -470,7 +482,7 @@ export const PronunciationPracticeModal: React.FC<PronunciationPracticeModalProp
                 className="flex-1 py-2.5 bg-rose-600 hover:bg-rose-700 text-white font-mono text-xs sm:text-sm gap-2 cursor-pointer"
               >
                 <CheckCircle2 className="w-4 h-4" />
-                <span>Concluir e Analisar Pronúncia</span>
+                <span>Concluir e Verificar Transcrição</span>
               </Button>
               <Button
                 variant="outline"
@@ -486,11 +498,11 @@ export const PronunciationPracticeModal: React.FC<PronunciationPracticeModalProp
         {isEvaluating && (
           <div className="p-3 bg-muted/60 border border-border rounded-lg text-xs font-mono text-foreground flex items-center justify-center space-x-2">
             <div className="w-3.5 h-3.5 rounded-full bg-foreground animate-spin" />
-            <span>Processando áudio e avaliando clareza fonética com IA...</span>
+            <span>Transcrevendo o áudio e comparando com a frase-alvo...</span>
           </div>
         )}
 
-        {/* Resultado da Avaliação Fonética */}
+        {/* Resultado da Transcrição */}
         <AnimatePresence>
           {evaluationResult && (
             <motion.div
@@ -505,10 +517,10 @@ export const PronunciationPracticeModal: React.FC<PronunciationPracticeModalProp
                   </div>
                   <div>
                     <h5 className="font-bold text-foreground text-sm tracking-tight">
-                      {evaluationResult.score >= 80 ? 'Pronúncia Excelente!' : 'Bom Progresso Vocal!'}
+                      {evaluationResult.score >= 80 ? 'Frase reconhecida com clareza!' : 'Resultado da Transcrição'}
                     </h5>
                     <span className="text-[11px] text-muted-foreground">
-                      Pontuação de Aderência Fonética & Espectro
+                      Cobertura da frase-alvo na transcrição
                     </span>
                   </div>
                 </div>

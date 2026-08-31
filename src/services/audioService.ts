@@ -109,8 +109,9 @@ export class AudioRecorderService {
             } catch (apiErr: any) {
               console.warn('Falha no endpoint /api/transcribe, tentando fallback local...', apiErr);
               resolve({
-                text: 'Expliquei oralmente sobre o conceito e gostaria de verificar meu entendimento.',
-                confidence: 0.8,
+                text: '',
+                confidence: 0,
+                error: apiErr instanceof Error ? apiErr.message : 'Falha na transcrição',
                 audioBase64: base64Audio,
                 mimeType: audioBlob.type,
                 durationSeconds: recordedDuration,

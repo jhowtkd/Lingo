@@ -464,7 +464,7 @@ export const MisconceptionsDictionary: React.FC<MisconceptionsDictionaryProps> =
     }
 
     StorageService.addXP(30);
-    StorageService.recordAnswer(true);
+    StorageService.recordAnswer(true, { topico: item.titulo, xp: 30 });
 
     // Recarrega
     loadDictionaryData();

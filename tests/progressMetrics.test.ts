@@ -4,6 +4,7 @@ import {
   buildMilestones,
   buildWeeklyTrend,
   hasRecordedNodeEvidence,
+  PLAN_NODE_EVIDENCE,
   ProgressMetricsInput,
 } from '../src/services/progressMetrics';
 import { GraphEngine } from '../src/services/graphEngine';
@@ -103,7 +104,7 @@ describe('progress metrics', () => {
       frequencia_erro: 0,
       ultima_revisao: '2026-08-30T10:00:00.000Z',
       proxima_revisao: '2026-09-02T10:00:00.000Z',
-      evidencias: ['Plano Personalizado de Aprendizado'],
+      evidencias: [PLAN_NODE_EVIDENCE],
       criado_em: '2026-08-30T10:00:00.000Z',
       atualizado_em: '2026-08-30T10:00:00.000Z',
       idioma: 'Francês',
@@ -160,7 +161,7 @@ describe('GraphEngine dashboard integrity', () => {
       frequencia_erro: 0,
       ultima_revisao: '2026-08-30T10:00:00.000Z',
       proxima_revisao: '2020-08-30T10:00:00.000Z',
-      evidencias: ['Plano Personalizado de Aprendizado'],
+      evidencias: [PLAN_NODE_EVIDENCE],
       criado_em: '2026-08-30T10:00:00.000Z',
       atualizado_em: '2026-08-30T10:00:00.000Z',
       idioma: 'Francês',
@@ -173,5 +174,56 @@ describe('GraphEngine dashboard integrity', () => {
 
     expect(GraphEngine.calculateWeeklyMetrics().revisoes_pendentes).toBe(0);
     expect(GraphEngine.getPriorityTopicsFromMemoryGraph(3)).toEqual([]);
+  });
+
+  it('uses registered chat activity in the weekly answer metrics', () => {
+    const now = new Date();
+    vi.spyOn(StorageService, 'getNodes').mockReturnValue([]);
+    vi.spyOn(StorageService, 'getSessions').mockReturnValue([{
+      id: 'activity-today',
+      titulo: 'Prática registrada',
+      topico: 'Viagens',
+      inicio: now.toISOString(),
+      fim: now.toISOString(),
+      duracao_minutos: 0,
+      respostas_totais: 1,
+      respostas_corretas: 1,
+      conceitos_trabalhados: ['Viagens'],
+      erros_identificados: 0,
+      xp_obtido: 25,
+      concluida: true,
+    }]);
+    vi.spyOn(StorageService, 'getCorrections').mockReturnValue([]);
+    vi.spyOn(StorageService, 'getStats').mockReturnValue(cleanInput().stats);
+
+    expect(GraphEngine.calculateWeeklyMetrics()).toMatchObject({
+      sessoes_realizadas: 1,
+      total_respostas: 1,
+      respostas_corretas: 1,
+      taxa_acerto: 100,
+      xp_ganho: 25,
+    });
+  });
+});
+
+describe('answer activity storage', () => {
+  it('records an answer in the daily session consumed by the dashboard', () => {
+    const stats = cleanInput().stats;
+    const addSession = vi.spyOn(StorageService, 'addSession').mockImplementation(() => undefined);
+    vi.spyOn(StorageService, 'getStats').mockReturnValue(stats);
+    vi.spyOn(StorageService, 'getSessions').mockReturnValue([]);
+    vi.spyOn(StorageService, 'saveStats').mockImplementation(() => undefined);
+
+    StorageService.recordAnswer(true, { topico: 'Viagens', xp: 25 });
+
+    expect(stats).toMatchObject({ total_respostas: 1, respostas_corretas: 1 });
+    expect(addSession).toHaveBeenCalledWith(expect.objectContaining({
+      titulo: 'Prática registrada',
+      topico: 'Viagens',
+      respostas_totais: 1,
+      respostas_corretas: 1,
+      xp_obtido: 25,
+      concluida: true,
+    }));
   });
 });
