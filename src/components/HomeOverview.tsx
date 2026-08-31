@@ -19,12 +19,16 @@ import {
 } from 'lucide-react';
 import { UserStats } from '../types';
 import { StorageService } from '../services/storage';
+import { DailyTipCard } from './DailyTipCard';
 
 interface HomeOverviewProps {
   stats: UserStats;
   currentTopic: string;
-  onNavigate: (tab: string) => void;
+  onNavigate: (tab: string, param?: string) => void;
   onOpenOnboarding?: () => void;
+  onUpdateStats?: (newStats: UserStats) => void;
+  onNavigateToMaterialsWithId?: (materialId?: string) => void;
+  onNavigateToChatWithTopic?: (topic: string) => void;
 }
 
 export const HomeOverview: React.FC<HomeOverviewProps> = ({
@@ -32,6 +36,9 @@ export const HomeOverview: React.FC<HomeOverviewProps> = ({
   currentTopic,
   onNavigate,
   onOpenOnboarding,
+  onUpdateStats,
+  onNavigateToMaterialsWithId,
+  onNavigateToChatWithTopic,
 }) => {
   const goalMinutes = stats.meta_diaria_minutos || 30;
   const currentMinutes = stats.minutos_hoje || 0;
@@ -119,10 +126,10 @@ export const HomeOverview: React.FC<HomeOverviewProps> = ({
   ];
 
   return (
-    <div className="w-full space-y-8 pb-8 animate-fade-in">
+    <div className="w-full space-y-8 pb-8 animate-fade-in text-left">
       {/* Banner de Assistente de Configuração / Plano Ativo */}
       {studyPlan ? (
-        <section className="bg-gradient-to-r from-[var(--surface)] via-[oklch(0.97_0.015_84)] to-[var(--surface)] border-2 border-[var(--accent-deep)] rounded-[var(--r-lg)] p-6 sm:p-7 shadow-[var(--shadow-sm)] space-y-4 text-left">
+        <section className="view-card border-2 border-[var(--accent-deep)] p-6 sm:p-8 space-y-5 text-left">
           <div className="flex items-center justify-between flex-wrap gap-3">
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[var(--accent-soft)] text-[var(--accent-deep)] font-extrabold text-xs">
               <Sparkles className="w-3.5 h-3.5" />
@@ -145,7 +152,7 @@ export const HomeOverview: React.FC<HomeOverviewProps> = ({
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-center">
-            <div className="lg:col-span-8 space-y-2">
+            <div className="lg:col-span-8 space-y-2.5">
               <h2 className="text-xl sm:text-2xl font-bold font-display text-[var(--fg)]">
                 {studyPlan.titulo_plano}
               </h2>
@@ -186,12 +193,12 @@ export const HomeOverview: React.FC<HomeOverviewProps> = ({
 
           {/* Mini Calendário Semanal da Trilha */}
           {studyPlan.cronograma_semanal && studyPlan.cronograma_semanal.length > 0 && (
-            <div className="pt-3 border-t border-[var(--border)]">
-              <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2">
+            <div className="pt-4 border-t border-[var(--border)]">
+              <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2.5">
                 {studyPlan.cronograma_semanal.map((d, idx) => (
                   <div
                     key={idx}
-                    className="p-2.5 rounded-xl bg-[var(--surface)] border border-[var(--border)] text-left space-y-0.5"
+                    className="p-3 rounded-xl bg-[var(--surface)] border border-[var(--border)] text-left space-y-1 shadow-xs"
                   >
                     <span className="text-[10px] font-extrabold text-[var(--accent-deep)] block">
                       {d.dia_semana.slice(0, 3)}
@@ -209,14 +216,14 @@ export const HomeOverview: React.FC<HomeOverviewProps> = ({
           )}
         </section>
       ) : (
-        <section className="bg-gradient-to-r from-[var(--surface)] via-[oklch(0.97_0.015_84)] to-[var(--surface)] border-2 border-[var(--accent-deep)] rounded-[var(--r-lg)] p-6 sm:p-8 shadow-[var(--shadow-sm)] space-y-4 text-left">
+        <section className="view-card border-2 border-[var(--accent-deep)] p-6 sm:p-8 space-y-5 text-left">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[var(--accent-soft)] text-[var(--accent-deep)] font-extrabold text-xs">
             <Rocket className="w-3.5 h-3.5" />
             <span>ASSISTENTE DE CONFIGURAÇÃO DE TRILHA</span>
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-center">
-            <div className="lg:col-span-8 space-y-2">
+            <div className="lg:col-span-8 space-y-2.5">
               <h2 className="text-2xl sm:text-3xl font-bold font-display text-[var(--fg)]">
                 Gere seu Plano de Estudos Sob Medida com IA
               </h2>
@@ -238,103 +245,131 @@ export const HomeOverview: React.FC<HomeOverviewProps> = ({
         </section>
       )}
 
-      {/* Hero Section */}
-      <section className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center pt-2">
-        <div className="lg:col-span-7 space-y-5 text-left">
-          <div className="inline-flex items-center gap-2 bg-[var(--surface)] border border-[var(--border)] rounded-full px-4 py-2 text-xs sm:text-sm font-extrabold text-[var(--accent-deep)] shadow-sm">
-            <span className="w-2 h-2 rounded-full bg-[var(--accent)] animate-pulse" />
-            <span>
-              {stats.sequencia_dias > 0
-                ? `Sequência de ${stats.sequencia_dias} dias — continue assim`
-                : 'Primeiro dia de estudos — base limpa e pronta para começar!'}
-            </span>
-          </div>
-
-          <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold font-display text-[var(--fg)] tracking-tight leading-tight">
-            O que vamos <span className="text-[var(--accent-deep)]">aprender</span> hoje?
-          </h1>
-
-          <p className="text-base sm:text-lg text-[var(--muted)] max-w-xl font-normal leading-relaxed">
-            Seu tutor de idiomas com memória de grafo: conversação, revisão espaçada e desafios que se adaptam ao que você já domina.
-          </p>
-
-          <div className="flex flex-wrap gap-3 pt-2">
-            <button
-              onClick={() => onNavigate('chat')}
-              className="inline-flex items-center justify-center gap-2.5 rounded-full px-6 py-3.5 font-extrabold text-sm sm:text-base bg-[var(--accent)] text-[var(--fg)] hover:bg-[var(--accent-deep)] transition shadow-[0_4px_0_oklch(0.55_0.15_48)] hover:-translate-y-0.5 active:translate-y-0.5 active:shadow-[0_2px_0_oklch(0.5_0.14_45)] cursor-pointer"
-            >
-              <MessageSquare className="w-4 h-4" />
-              <span>Conversar com o tutor</span>
-            </button>
-
-            <button
-              onClick={() => onNavigate('duel')}
-              className="inline-flex items-center justify-center gap-2.5 rounded-full px-6 py-3.5 font-extrabold text-sm sm:text-base bg-[var(--surface)] text-[var(--fg)] border-2 border-[var(--border)] hover:border-[var(--fg)] hover:-translate-y-0.5 transition cursor-pointer"
-            >
-              <Zap className="w-4 h-4 text-[var(--accent-deep)]" />
-              <span>Duelo rápido de 2 min</span>
-            </button>
-          </div>
-        </div>
-
-        {/* Daily Goal Card */}
-        <div className="lg:col-span-5">
-          <div className="bg-[var(--surface)] border border-[var(--border)] rounded-[var(--r-lg)] p-6 sm:p-7 shadow-[var(--shadow-sm)] flex items-center gap-6 text-left">
-            <div className="relative w-28 h-28 shrink-0">
-              <svg className="w-full h-full -rotate-90" viewBox="0 0 120 120" aria-hidden="true">
-                <circle
-                  cx="60"
-                  cy="60"
-                  r="50"
-                  fill="none"
-                  stroke="oklch(0.93 0.02 84)"
-                  strokeWidth="12"
-                />
-                <circle
-                  cx="60"
-                  cy="60"
-                  r="50"
-                  fill="none"
-                  stroke="var(--accent)"
-                  strokeWidth="12"
-                  strokeLinecap="round"
-                  strokeDasharray="314.16"
-                  style={{
-                    strokeDashoffset: strokeDashoffset,
-                    transition: 'stroke-dashoffset 1.2s cubic-bezier(0.22, 1, 0.36, 1)',
-                  }}
-                />
-              </svg>
-              <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
-                <span className="font-display font-bold text-2xl text-[var(--fg)] leading-none">
-                  {currentMinutes}/{goalMinutes}
-                </span>
-                <span className="text-xs font-bold text-[var(--muted)] mt-0.5">min</span>
-              </div>
+      {/* Hero Section Card */}
+      <section className="view-card p-6 sm:p-8 md:p-10">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
+          <div className="lg:col-span-7 space-y-5 text-left">
+            <div className="inline-flex items-center gap-2 bg-[var(--surface)] border border-[var(--border)] rounded-full px-4 py-2 text-xs sm:text-sm font-extrabold text-[var(--accent-deep)] shadow-xs">
+              <span className="w-2 h-2 rounded-full bg-[var(--accent)] animate-pulse" />
+              <span>
+                {stats.sequencia_dias > 0
+                  ? `Sequência de ${stats.sequencia_dias} dias — continue assim`
+                  : 'Primeiro dia de estudos — base limpa e pronta para começar!'}
+              </span>
             </div>
 
-            <div className="space-y-1.5 flex-1">
-              <h3 className="font-display text-lg font-bold text-[var(--fg)]">
-                Meta de hoje
-              </h3>
-              <p className="text-xs sm:text-sm text-[var(--muted)] leading-snug">
-                {goalMinutes} minutos de foco mantêm seu ritmo sem frustração.
-              </p>
-              <div className="inline-flex items-center gap-1.5 bg-[var(--sunny)] text-[var(--fg)] rounded-full px-3 py-1 text-xs font-extrabold mt-1">
-                <Flame className="w-3.5 h-3.5 text-amber-700 fill-amber-700" />
-                <span>{stats.sequencia_dias} dias seguidos</span>
+            <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold font-display text-[var(--fg)] tracking-tight leading-tight">
+              O que vamos <span className="text-[var(--accent-deep)]">aprender</span> hoje?
+            </h1>
+
+            <p className="text-base sm:text-lg text-[var(--muted)] max-w-xl font-normal leading-relaxed">
+              Seu tutor de idiomas com memória de grafo: conversação, revisão espaçada e desafios que se adaptam ao que você já domina.
+            </p>
+
+            <div className="flex flex-wrap gap-3 pt-2">
+              <button
+                onClick={() => onNavigate('chat')}
+                className="inline-flex items-center justify-center gap-2.5 rounded-full px-6 py-3.5 font-extrabold text-sm sm:text-base bg-[var(--accent)] text-[var(--fg)] hover:bg-[var(--accent-deep)] transition shadow-[0_4px_0_oklch(0.55_0.15_48)] hover:-translate-y-0.5 active:translate-y-0.5 active:shadow-[0_2px_0_oklch(0.5_0.14_45)] cursor-pointer"
+              >
+                <MessageSquare className="w-4 h-4" />
+                <span>Conversar com o tutor</span>
+              </button>
+
+              <button
+                onClick={() => onNavigate('duel')}
+                className="inline-flex items-center justify-center gap-2.5 rounded-full px-6 py-3.5 font-extrabold text-sm sm:text-base bg-[var(--surface)] text-[var(--fg)] border-2 border-[var(--border)] hover:border-[var(--fg)] hover:-translate-y-0.5 transition cursor-pointer"
+              >
+                <Zap className="w-4 h-4 text-[var(--accent-deep)]" />
+                <span>Duelo rápido de 2 min</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Daily Goal Card */}
+          <div className="lg:col-span-5">
+            <div className="view-card-subtle p-6 sm:p-7 flex items-center gap-6 text-left">
+              <div className="relative w-28 h-28 shrink-0">
+                <svg className="w-full h-full -rotate-90" viewBox="0 0 120 120" aria-hidden="true">
+                  <circle
+                    cx="60"
+                    cy="60"
+                    r="50"
+                    fill="none"
+                    stroke="oklch(0.93 0.02 84)"
+                    strokeWidth="12"
+                  />
+                  <circle
+                    cx="60"
+                    cy="60"
+                    r="50"
+                    fill="none"
+                    stroke="var(--accent)"
+                    strokeWidth="12"
+                    strokeLinecap="round"
+                    strokeDasharray="314.16"
+                    style={{
+                      strokeDashoffset: strokeDashoffset,
+                      transition: 'stroke-dashoffset 1.2s cubic-bezier(0.22, 1, 0.36, 1)',
+                    }}
+                  />
+                </svg>
+                <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
+                  <span className="font-display font-bold text-2xl text-[var(--fg)] leading-none">
+                    {currentMinutes}/{goalMinutes}
+                  </span>
+                  <span className="text-xs font-bold text-[var(--muted)] mt-0.5">min</span>
+                </div>
+              </div>
+
+              <div className="space-y-1.5 flex-1">
+                <h3 className="font-display text-lg font-bold text-[var(--fg)]">
+                  Meta de hoje
+                </h3>
+                <p className="text-xs sm:text-sm text-[var(--muted)] leading-snug">
+                  {goalMinutes} minutos de foco mantêm seu ritmo sem frustração.
+                </p>
+                <div className="inline-flex items-center gap-1.5 bg-[var(--sunny)] text-[var(--fg)] rounded-full px-3 py-1 text-xs font-extrabold mt-1">
+                  <Flame className="w-3.5 h-3.5 text-amber-700 fill-amber-700" />
+                  <span>{stats.sequencia_dias} dias seguidos</span>
+                </div>
               </div>
             </div>
           </div>
         </div>
       </section>
 
+      {/* Dica do Dia: Análise de Lacuna no Grafo de Conhecimento & Material Sugerido */}
+      <DailyTipCard
+        stats={stats}
+        currentTopic={currentTopic}
+        onNavigateToMaterials={(matId) => {
+          if (onNavigateToMaterialsWithId) {
+            onNavigateToMaterialsWithId(matId);
+          } else {
+            onNavigate('materials', matId);
+          }
+        }}
+        onNavigateToChat={(topic) => {
+          if (onNavigateToChatWithTopic) {
+            onNavigateToChatWithTopic(topic);
+          } else {
+            onNavigate('chat', topic);
+          }
+        }}
+        onUpdateStats={onUpdateStats}
+      />
+
       {/* Espaços de Estudo Grid */}
-      <section className="space-y-4 text-left">
+      <section className="view-card p-6 sm:p-8 space-y-6 text-left">
         <div className="flex items-baseline justify-between gap-4 flex-wrap">
-          <h2 className="text-2xl sm:text-3xl font-display font-bold text-[var(--fg)]">
-            Seus espaços de estudo
-          </h2>
+          <div>
+            <h2 className="text-2xl sm:text-3xl font-display font-bold text-[var(--fg)]">
+              Seus espaços de estudo
+            </h2>
+            <p className="text-xs sm:text-sm text-[var(--muted)] mt-1">
+              Atividades modulares de conversação, memorização em grafo e desafios rápidos.
+            </p>
+          </div>
           <button
             onClick={() => onNavigate('dashboard')}
             className="text-xs sm:text-sm font-extrabold text-[var(--accent-deep)] hover:underline cursor-pointer"
@@ -343,14 +378,14 @@ export const HomeOverview: React.FC<HomeOverviewProps> = ({
           </button>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4.5">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-5">
           {studySpaces.map((tile) => {
             const Icon = tile.icon;
             return (
               <div
                 key={tile.id}
                 onClick={() => onNavigate(tile.id)}
-                className="group bg-[var(--surface)] border border-[var(--border)] rounded-[var(--r)] p-5.5 shadow-[var(--shadow-sm)] flex flex-col gap-3 transition-all duration-200 hover:-translate-y-1 hover:shadow-[var(--shadow)] cursor-pointer text-left"
+                className="group bg-[var(--surface)] border border-[var(--border)] rounded-[var(--r-sm)] p-5 sm:p-6 shadow-xs flex flex-col gap-3.5 transition-all duration-200 hover:-translate-y-1 hover:shadow-[var(--shadow-depth)] cursor-pointer text-left"
               >
                 <div
                   className="w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 transition-transform group-hover:scale-105"
@@ -378,7 +413,7 @@ export const HomeOverview: React.FC<HomeOverviewProps> = ({
       </section>
 
       {/* Continuar de onde parou Card */}
-      <section className="bg-[var(--fg)] text-[oklch(0.95_0.01_84)] rounded-[var(--r-lg)] p-6 sm:p-8 shadow-[var(--shadow)] flex flex-col md:flex-row items-center gap-6 text-left">
+      <section className="bg-[var(--fg)] text-[oklch(0.95_0.01_84)] rounded-[var(--r-lg)] p-6 sm:p-8 shadow-[var(--shadow-view)] flex flex-col md:flex-row items-center gap-6 text-left">
         <div className="w-18 h-18 rounded-2xl bg-[var(--accent)] flex items-center justify-center shrink-0 shadow-[inset_0_-4px_0_oklch(0.55_0.15_48)]">
           <Play className="w-8 h-8 text-[var(--fg)] fill-[var(--fg)] ml-1" />
         </div>
@@ -400,7 +435,7 @@ export const HomeOverview: React.FC<HomeOverviewProps> = ({
 
         <button
           onClick={() => onNavigate('materials')}
-          className="w-full md:w-auto inline-flex items-center justify-center gap-2 rounded-full px-6 py-3 font-extrabold text-sm bg-[var(--accent)] text-[var(--fg)] hover:bg-[var(--accent-deep)] transition shadow-[0_4px_0_oklch(0.5_0.13_46)] hover:-translate-y-0.5 cursor-pointer shrink-0"
+          className="w-full md:w-auto inline-flex items-center justify-center gap-2 rounded-full px-6 py-3.5 font-extrabold text-sm bg-[var(--accent)] text-[var(--fg)] hover:bg-[var(--accent-deep)] transition shadow-[0_4px_0_oklch(0.5_0.13_46)] hover:-translate-y-0.5 cursor-pointer shrink-0"
         >
           <span>Retomar aula</span>
         </button>

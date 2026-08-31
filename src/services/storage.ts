@@ -3,6 +3,7 @@ import {
   GraphRelation,
   PedagogicalCorrection,
   ChatMessage,
+  ChatConversation,
   UserStats,
   Achievement,
   StudySession,
@@ -13,6 +14,7 @@ import {
   SharedKnowledgePack,
   GeneratedStudyPlan,
   OnboardingAnswers,
+  CEFRLevel,
 } from '../types';
 import {
   syncPersonalKnowledgeToCloud,
@@ -25,6 +27,8 @@ const STORAGE_KEYS = {
   RELATIONS: 'tutor_graph_relations_v1',
   CORRECTIONS: 'tutor_corrections_v1',
   CHATS: 'tutor_chat_history_v1',
+  CONVERSATIONS: 'tutor_conversations_v2',
+  ACTIVE_CONVERSATION_ID: 'tutor_active_conv_id_v2',
   STATS: 'tutor_user_stats_v1',
   ACHIEVEMENTS: 'tutor_achievements_v1',
   SESSIONS: 'tutor_sessions_v1',
@@ -279,6 +283,190 @@ export const SEED_MATERIALS: StudyMaterialItem[] = [
       'Flap T americano: No inglês dos EUA, o som de "t" ou "tt" entre duas vogais soa como o "r" brando do português em "arara" (ex: "water" -> "wa-rer", "better" -> "be-rer").',
     ],
     conteudo_markdown: `# Guia de Estudos: Connected Speech in Everyday English\n\n**Idioma**: Inglês | **Nível**: B2\n\n## 1. Princípios de Fala Conectada\nA fala natural em inglês não é uma sequência de palavras isoladas, mas uma corrente sonora contínua.\n\n## 2. Vocabulário & Phrasal Verbs\n- **Link up**: Ligar sons consonantais com vogais.\n- **Heads up**: Dica/aviso prévio.\n- **Look over**: Revisar rapidamente.\n\n## 3. Prática Conversacional\nAbra o Tutor de Línguas e pratique o diálogo simulado para treinar sua pronúncia e ritmo!`,
+    criado_em: new Date().toISOString(),
+    adicionado_ao_grafo: true,
+  },
+  {
+    id: 'mat-seed-2',
+    titulo: 'Actually vs Currently: Pare de Confundir em Reuniões e Conversas',
+    tipo_fonte: 'youtube',
+    fonte_original: 'https://www.youtube.com/watch?v=y3k1Q-P3d6w',
+    youtube_video_id: 'y3k1Q-P3d6w',
+    idioma_alvo: 'Inglês',
+    nivel_cefr: 'B1',
+    resumo:
+      'Guia definitivo para eliminar o falso cognato "actually". Aprenda quando usar "currently" para expressar o presente e "actually" para retificações semânticas.',
+    vocabulario: [
+      {
+        termo: 'Currently',
+        pronuncia_ipa: '/ˈkʌr.ənt.li/',
+        traducao: 'Atualmente / No momento',
+        classe_gramatical: 'Advérbio de Tempo',
+        exemplo: 'Currently, our team is developing a new mobile feature.',
+        traducao_exemplo: 'Atualmente, nossa equipe está desenvolvendo uma nova funcionalidade mobile.',
+        nivel: 'A2',
+      },
+      {
+        termo: 'Actually',
+        pronuncia_ipa: '/ˈæk.tʃu.ə.li/',
+        traducao: 'Na verdade / De fato',
+        classe_gramatical: 'Advérbio de Retificação',
+        exemplo: 'I thought the meeting was at 3 PM, but actually it is at 4 PM.',
+        traducao_exemplo: 'Eu pensei que a reunião fosse às 15h, mas na verdade é às 16h.',
+        nivel: 'B1',
+      },
+      {
+        termo: 'Pretend',
+        pronuncia_ipa: '/prɪˈtɛnd/',
+        traducao: 'Fingir (NÃO pretender)',
+        classe_gramatical: 'Verbo',
+        exemplo: 'Do not pretend to know something if you are not sure.',
+        traducao_exemplo: 'Não finja saber algo se você não tiver certeza.',
+        nivel: 'B1',
+      },
+      {
+        termo: 'Intend',
+        pronuncia_ipa: '/ɪnˈtɛnd/',
+        traducao: 'Pretender / Ter a intenção de',
+        classe_gramatical: 'Verbo',
+        exemplo: 'I intend to master English fluency this year.',
+        traducao_exemplo: 'Pretendo dominar a fluência em inglês este ano.',
+        nivel: 'B1',
+      },
+    ],
+    gramatica: [
+      {
+        topico: 'Diferenciação Semântica: Currently vs Actually',
+        explicacao:
+          '"Actually" é derivado de "actual" (real, factual), enquanto "Currently" deriva de "current" (atual/corrente).',
+        exemplos: [
+          '"Currently, I am looking for a job." (Atualmente estou procurando emprego).',
+          '"Actually, I already accepted an offer!" (Na verdade, já aceitei uma proposta!).',
+        ],
+        dica_para_brasileiros:
+          'Substitua mentalmente "Actually" por "In fact" ou "Na verdade" antes de falar para nunca mais errar.',
+      },
+    ],
+    dialogo_pratica: [
+      {
+        personagem: 'Sarah',
+        fala: 'Are you currently living in New York?',
+        traducao: 'Você está morando atualmente em Nova York?',
+      },
+      {
+        personagem: 'Carlos',
+        fala: 'Actually, I moved to Austin last month! But I currently work for a NY company.',
+        traducao: 'Na verdade, me mudei para Austin no mês passado! Mas atualmente trabalho para uma empresa de NY.',
+      },
+    ],
+    questoes_compreensao: [
+      {
+        pergunta: 'Como dizer corretamente "Atualmente estou estudando programação"?',
+        opcoes: [
+          'Currently I am studying programming',
+          'Actually I am studying programming',
+          'Presently I pretend to study programming',
+        ],
+        resposta_correta: 'Currently I am studying programming',
+        explicacao: 'Currently expressa a ação temporal em curso no presente.',
+      },
+    ],
+    flashcards: [
+      {
+        frente: 'Currently',
+        verso: 'Atualmente / No momento presente',
+        dica: 'Currently, I am working from home.',
+      },
+      {
+        frente: 'Actually',
+        verso: 'Na verdade / De fato',
+        dica: 'Actually, I prefer tea.',
+      },
+    ],
+    dicas_culturais_e_pronuncia: [
+      'Entonação de Actually: falantes nativos costumam alongar suavemente a primeira sílaba: /ˈæk.tʃu.ə.li/.',
+    ],
+    conteudo_markdown: `# Master Class: Actually vs Currently\n\nElimine um dos maiores vícios de tradução do português para o inglês.\n\n- **Currently**: Atualmente\n- **Actually**: Na verdade\n- **Intend**: Pretender\n- **Pretend**: Fingir`,
+    criado_em: new Date().toISOString(),
+    adicionado_ao_grafo: true,
+  },
+  {
+    id: 'mat-seed-3',
+    titulo: 'A Regra dos 3 Sons do "-ED" Final: Elimine o Vício do "edji"',
+    tipo_fonte: 'youtube',
+    fonte_original: 'https://www.youtube.com/watch?v=f20BN_fW1zM',
+    youtube_video_id: 'f20BN_fW1zM',
+    idioma_alvo: 'Inglês',
+    nivel_cefr: 'B1',
+    resumo:
+      'Aprenda como pronunciar corretamente o passado de verbos regulares (/t/, /d/ e /ɪd/) sem adicionar sílabas extras artificiais.',
+    vocabulario: [
+      {
+        termo: 'Voiced consonant',
+        pronuncia_ipa: '/vɔɪst ˈkɒn.sə.nənt/',
+        traducao: 'Consoante sonora (com vibração nas cordas vocais)',
+        exemplo: 'Voiced sounds produce a /d/ sound for -ed (e.g. called).',
+        nivel: 'B1',
+      },
+      {
+        termo: 'Voiceless consonant',
+        pronuncia_ipa: '/ˈvɔɪs.ləs ˈkɒn.sə.nənt/',
+        traducao: 'Consoante surda (sem vibração nas cordas vocais)',
+        exemplo: 'Voiceless sounds produce a /t/ sound for -ed (e.g. worked).',
+        nivel: 'B1',
+      },
+    ],
+    gramatica: [
+      {
+        topico: 'As 3 Terminações do Passado Regular',
+        explicacao:
+          '1) /t/ após sons surdos (k, p, s, sh, ch): worked /wɜːkt/, watched /wɒtʃt/.\n2) /d/ após sons sonoros (l, m, n, r, v): called /kɔːld/, played /pleɪd/.\n3) /ɪd/ APENAS após T ou D: wanted /ˈwɒn.tɪd/, decided /dɪˈsaɪ.dɪd/.',
+        exemplos: [
+          'Worked = 1 sílaba /wɜːkt/',
+          'Decided = 3 sílabas /dɪ-ˈsaɪ-dɪd/',
+        ],
+        dica_para_brasileiros:
+          'Nunca coloque a vogal "i" de apoio no final (work-edji). O som do T ou D é estalado e seco.',
+      },
+    ],
+    dialogo_pratica: [
+      {
+        personagem: 'Teacher',
+        fala: 'What did you do yesterday afternoon?',
+        traducao: 'O que você fez ontem à tarde?',
+      },
+      {
+        personagem: 'Student',
+        fala: 'I worked on my project and called my manager.',
+        traducao: 'Eu trabalhei no meu projeto e liguei para o meu gerente.',
+        audio_tip: 'worked -> /wɜːkt/, called -> /kɔːld/.',
+      },
+    ],
+    questoes_compreensao: [
+      {
+        pergunta: 'Quando o "-ed" adiciona uma nova sílaba ao verbo?',
+        opcoes: [
+          'Apenas quando o verbo termina em som de T ou D',
+          'Sempre em todos os verbos regulares',
+          'Apenas após vogais',
+        ],
+        resposta_correta: 'Apenas quando o verbo termina em som de T ou D',
+        explicacao: 'Exemplos: wanted, needed, decided. Nos demais, o -ed não cria nova sílaba.',
+      },
+    ],
+    flashcards: [
+      {
+        frente: 'Worked (/wɜːkt/)',
+        verso: 'Passado de work (1 sílaba)',
+        dica: 'Som de T seco no final.',
+      },
+      {
+        frente: 'Decided (/dɪˈsaɪ.dɪd/)',
+        verso: 'Passado de decide (3 sílabas com terminação /ɪd/)',
+        dica: 'Termina em D, logo recebe /ɪd/.',
+      },
+    ],
+    conteudo_markdown: `# Pronúncia Fonética do -ED Regular\n\nDomine as 3 regras essenciais:\n- Som de /t/: após k, p, s, sh, ch, f\n- Som de /d/: após l, v, n, m, r, b, g e vogais\n- Som de /ɪd/: após t e d`,
     criado_em: new Date().toISOString(),
     adicionado_ao_grafo: true,
   },
@@ -972,14 +1160,32 @@ export const StorageService = {
     }
   },
 
-  // Histórico de Chat
-  getChatHistory(): ChatMessage[] {
-    const raw = localStorage.getItem(this.getKey(STORAGE_KEYS.CHATS));
-    if (!raw) {
-      const stats = this.getStats();
-      const plan = this.getStudyPlan();
-      const lang = plan?.idioma || stats.idioma_ativo || 'Inglês';
+  // =========================================================================
+  // SISTEMA DE MULTI-CONVERSAS & SESSÕES POR LIÇÃO (ChatConversation)
+  // =========================================================================
+  getConversations(): ChatConversation[] {
+    const raw = localStorage.getItem(this.getKey(STORAGE_KEYS.CONVERSATIONS));
+    if (raw) {
+      try {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return parsed;
+        }
+      } catch (e) {
+        console.warn('Erro ao carregar conversas do storage:', e);
+      }
+    }
 
+    // Migração ou inicialização padrão: cria a primeira conversa a partir do histórico antigo ou plano
+    const stats = this.getStats();
+    const plan = this.getStudyPlan();
+    const lang = plan?.idioma || stats.idioma_ativo || 'Inglês';
+    const legacyHistory = this.getLegacyChatHistory();
+
+    const initialConvId = `conv-default-${Date.now()}`;
+    let initialMessages: ChatMessage[] = legacyHistory;
+
+    if (initialMessages.length === 0) {
       let initialContent = '';
       if (plan && plan.mensagem_boas_vindas_tutor) {
         initialContent = plan.mensagem_boas_vindas_tutor;
@@ -1003,7 +1209,7 @@ export const StorageService = {
           `Olá! Bem-vindo ao seu tutor de ${lang}. Qual tópico ou situação prática vamos treinar hoje?`;
       }
 
-      const initial: ChatMessage[] = [
+      initialMessages = [
         {
           id: `welcome-${Date.now()}`,
           remetente: 'tutor',
@@ -1011,18 +1217,240 @@ export const StorageService = {
           timestamp: new Date().toISOString(),
           idioma: lang,
           conceitos_chave: plan?.interesses_principais,
-          adaptacao: plan ? {
-            nivel: plan.nivel_cefr === 'A1' || plan.nivel_cefr === 'A2' ? 'fundamental_analogico' : (plan.nivel_cefr === 'B1' || plan.nivel_cefr === 'B2' ? 'intermediario_aplicado' : 'avancado_analitico'),
-            rotulo: `Nível ${plan.nivel_cefr} (${plan.motivo_principal})`,
-            dominio_avaliado: plan.nivel_cefr === 'A1' ? 35 : plan.nivel_cefr === 'A2' ? 50 : plan.nivel_cefr === 'B1' ? 65 : 85,
-            justificativa: `Início calibrado com base no plano de estudos gerado para ${plan.idioma}.`,
-            estrategia_pedagogica: plan.estrategia_pedagogica || 'Imersão conversacional adaptativa.',
-          } : undefined,
+          adaptacao: plan
+            ? {
+                nivel:
+                  plan.nivel_cefr === 'A1' || plan.nivel_cefr === 'A2'
+                    ? 'fundamental_analogico'
+                    : plan.nivel_cefr === 'B1' || plan.nivel_cefr === 'B2'
+                    ? 'intermediario_aplicado'
+                    : 'avancado_analitico',
+                rotulo: `Nível ${plan.nivel_cefr} (${plan.motivo_principal})`,
+                dominio_avaliado:
+                  plan.nivel_cefr === 'A1' ? 35 : plan.nivel_cefr === 'A2' ? 50 : plan.nivel_cefr === 'B1' ? 65 : 85,
+                justificativa: `Início calibrado com base no plano de estudos gerado para ${plan.idioma}.`,
+                estrategia_pedagogica: plan.estrategia_pedagogica || 'Imersão conversacional adaptativa.',
+              }
+            : undefined,
         },
       ];
-      this.saveChatHistory(initial);
-      return initial;
     }
+
+    const defaultConv: ChatConversation = {
+      id: initialConvId,
+      titulo: plan?.topico_inicial_recomendado ? `Plano: ${plan.topico_inicial_recomendado}` : 'Conversa Geral',
+      topico: plan?.topico_inicial_recomendado || `${lang}: Conversação Geral`,
+      idioma: lang,
+      material_id: plan?.primeiro_material_estudo?.id,
+      material_titulo: plan?.primeiro_material_estudo?.titulo,
+      criado_em: new Date().toISOString(),
+      atualizado_em: new Date().toISOString(),
+      mensagens: initialMessages,
+      nivel_cefr: plan?.nivel_cefr || stats.nivel_cefr || 'B1',
+      total_mensagens: initialMessages.length,
+    };
+
+    const list = [defaultConv];
+    this.saveConversations(list, false);
+    this.setActiveConversationId(initialConvId);
+    return list;
+  },
+
+  saveConversations(conversations: ChatConversation[], sync = true) {
+    localStorage.setItem(this.getKey(STORAGE_KEYS.CONVERSATIONS), JSON.stringify(conversations));
+    if (sync) {
+      const active = this.getActiveConversation();
+      if (active) {
+        localStorage.setItem(this.getKey(STORAGE_KEYS.CHATS), JSON.stringify(active.mensagens));
+      }
+    }
+  },
+
+  getActiveConversationId(): string {
+    let id = localStorage.getItem(this.getKey(STORAGE_KEYS.ACTIVE_CONVERSATION_ID));
+    if (!id) {
+      const convs = this.getConversations();
+      if (convs.length > 0) {
+        id = convs[0].id;
+        this.setActiveConversationId(id);
+      } else {
+        id = `conv-${Date.now()}`;
+      }
+    }
+    return id;
+  },
+
+  setActiveConversationId(id: string) {
+    localStorage.setItem(this.getKey(STORAGE_KEYS.ACTIVE_CONVERSATION_ID), id);
+    const conv = this.getConversation(id);
+    if (conv) {
+      localStorage.setItem(this.getKey(STORAGE_KEYS.CHATS), JSON.stringify(conv.mensagens));
+    }
+  },
+
+  getActiveConversation(): ChatConversation {
+    const convs = this.getConversations();
+    const activeId = this.getActiveConversationId();
+    const found = convs.find((c) => c.id === activeId);
+    if (found) return found;
+    if (convs.length > 0) {
+      this.setActiveConversationId(convs[0].id);
+      return convs[0];
+    }
+    const newConv = this.createConversation({
+      titulo: 'Conversa Geral',
+      topico: 'Conversação Geral',
+    });
+    return newConv;
+  },
+
+  getConversation(id: string): ChatConversation | undefined {
+    const convs = this.getConversations();
+    return convs.find((c) => c.id === id);
+  },
+
+  getConversationsByMaterialId(materialId: string): ChatConversation[] {
+    const convs = this.getConversations();
+    return convs.filter((c) => c.material_id === materialId);
+  },
+
+  /**
+   * Cria uma NOVA conversa dedicada a uma lição / material de estudo ou tópico livre
+   */
+  createConversation(options: {
+    titulo?: string;
+    topico: string;
+    idioma?: string;
+    materialId?: string;
+    materialTitulo?: string;
+    nivelCefr?: CEFRLevel;
+    initialMessage?: string;
+  }): ChatConversation {
+    const stats = this.getStats();
+    const plan = this.getStudyPlan();
+    const lang = options.idioma || stats.idioma_ativo || plan?.idioma || 'Inglês';
+    const cefr = options.nivelCefr || stats.nivel_cefr || plan?.nivel_cefr || 'B1';
+
+    let materialItem: StudyMaterialItem | undefined = undefined;
+    if (options.materialId) {
+      materialItem = this.getMaterials().find((m) => m.id === options.materialId);
+    }
+
+    const convId = `conv-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`;
+    const convTitle =
+      options.titulo ||
+      (materialItem ? `Lição: ${materialItem.titulo}` : options.topico.replace(/^[A-Za-zÀ-ÿ]+:\s*/, ''));
+
+    let welcomeContent = options.initialMessage;
+    if (!welcomeContent) {
+      if (materialItem) {
+        const vocabHighlights = (materialItem.vocabulario || [])
+          .slice(0, 3)
+          .map((v) => `"${v.termo}"`)
+          .join(', ');
+
+        if (lang === 'Inglês') {
+          welcomeContent = `Hello! Welcome to our focused conversation on "**${materialItem.titulo}**"! 🎯\n\nIn this lesson, we will explore key concepts${vocabHighlights ? ` like ${vocabHighlights}` : ''} and practice speaking naturally. How would you like to start: simulating a realistic dialogue, testing the main expressions, or discussing the central theme?`;
+        } else if (lang === 'Espanhol') {
+          welcomeContent = `¡Hola! Bienvenido a la sesión de conversación sobre "**${materialItem.titulo}**"! 🎯\n\nPracticaremos expresiones útiles${vocabHighlights ? ` como ${vocabHighlights}` : ''} y diálogo fluido. ¿Cómo te gustaría comenzar: practicando el diálogo o debatiendo el tema principal?`;
+        } else if (lang === 'Francês') {
+          welcomeContent = `Bonjour ! Bienvenue dans cette conversation dédiée à la leçon "**${materialItem.titulo}**" ! 🎯\n\nNous allons mettre en pratique les expressions clés${vocabHighlights ? ` comme ${vocabHighlights}` : ''}. Par quoi souhaitez-vous commencer ?`;
+        } else {
+          welcomeContent = `Olá! Bem-vindo à nossa sessão de conversação focada na lição "**${materialItem.titulo}**"! 🎯\n\nVamos praticar conversação fluida e aplicação real dos conceitos${vocabHighlights ? ` (${vocabHighlights})` : ''}. Como você prefere começar?`;
+        }
+      } else {
+        const greetingsByLang: Record<string, string> = {
+          'Inglês': `Hello! Starting a new conversation about **${options.topico}**. Let's practice speaking naturally! What would you like to explore first?`,
+          'Espanhol': `¡Hola! Iniciando una nueva conversación sobre **${options.topico}**. ¿Qué aspecto te gustaría practicar primero?`,
+          'Francês': `Bonjour ! Nouvelle conversation sur **${options.topico}**. Que souhaitez-vous aborder en premier ?`,
+          'Alemão': `Hallo! Neue Konversation über **${options.topico}**. Worüber möchtest du sprechen?`,
+          'Italiano': `Ciao! Nuova conversazione su **${options.topico}**. Di cosa vorresti parlare prima?`,
+        };
+        welcomeContent =
+          greetingsByLang[lang] ||
+          `Olá! Iniciando uma nova conversa sobre **${options.topico}**. O que você gostaria de praticar primeiro?`;
+      }
+    }
+
+    const initialMsg: ChatMessage = {
+      id: `welcome-${Date.now()}`,
+      remetente: 'tutor',
+      conteudo: welcomeContent,
+      timestamp: new Date().toISOString(),
+      idioma: lang,
+      conceitos_chave: materialItem ? materialItem.vocabulario?.slice(0, 4).map((v) => v.termo) : undefined,
+      adaptacao: {
+        nivel: cefr === 'A1' || cefr === 'A2' ? 'fundamental_analogico' : cefr === 'B1' || cefr === 'B2' ? 'intermediario_aplicado' : 'avancado_analitico',
+        rotulo: `Nível ${cefr} • ${options.materialTitulo || options.topico}`,
+        dominio_avaliado: cefr === 'A1' ? 40 : cefr === 'A2' ? 55 : cefr === 'B1' ? 70 : 85,
+        justificativa: materialItem ? `Sessão dedicada ao material de estudo "${materialItem.titulo}".` : `Nova conversa sobre ${options.topico}.`,
+        estrategia_pedagogica: 'Imersão conversacional orientada à lição.',
+      },
+    };
+
+    const newConv: ChatConversation = {
+      id: convId,
+      titulo: convTitle,
+      topico: options.topico,
+      idioma: lang,
+      material_id: options.materialId,
+      material_titulo: options.materialTitulo || materialItem?.titulo,
+      criado_em: new Date().toISOString(),
+      atualizado_em: new Date().toISOString(),
+      mensagens: [initialMsg],
+      nivel_cefr: cefr,
+      total_mensagens: 1,
+    };
+
+    const all = this.getConversations();
+    all.unshift(newConv);
+    this.saveConversations(all);
+    this.setActiveConversationId(convId);
+
+    return newConv;
+  },
+
+  saveConversation(conv: ChatConversation) {
+    const list = this.getConversations();
+    const idx = list.findIndex((c) => c.id === conv.id);
+    conv.atualizado_em = new Date().toISOString();
+    conv.total_mensagens = conv.mensagens.length;
+    if (idx >= 0) {
+      list[idx] = conv;
+    } else {
+      list.unshift(conv);
+    }
+    this.saveConversations(list);
+  },
+
+  deleteConversation(id: string) {
+    let list = this.getConversations().filter((c) => c.id !== id);
+    if (list.length === 0) {
+      const fallback = this.createConversation({
+        titulo: 'Conversa Geral',
+        topico: 'Conversação Geral',
+      });
+      list = [fallback];
+    }
+    this.saveConversations(list);
+    if (this.getActiveConversationId() === id) {
+      this.setActiveConversationId(list[0].id);
+    }
+  },
+
+  // Retorna mensagens da conversa ativa ou legada
+  getChatHistory(conversationId?: string): ChatMessage[] {
+    const activeId = conversationId || this.getActiveConversationId();
+    const conv = this.getConversation(activeId);
+    if (conv) {
+      return conv.mensagens;
+    }
+    return this.getLegacyChatHistory();
+  },
+
+  getLegacyChatHistory(): ChatMessage[] {
+    const raw = localStorage.getItem(this.getKey(STORAGE_KEYS.CHATS));
+    if (!raw) return [];
     try {
       return JSON.parse(raw);
     } catch {
@@ -1045,7 +1473,7 @@ export const StorageService = {
         'Francês':
           'Bonjour ! Bienvenue à votre tuteur de français. Estou aqui para destravar sua conversação e pronúncia em francês. Vamos começar nossa prática?',
         'Espanhol':
-          '¡Hola! Bienvenido a tu tutor de español. Estoy aquí para ayudarte a hablar con fluidez y soltura. ¿Qué tema te gustaría practicar hoy?',
+          '¡Hola! Bienvenido a tu tutor de español. Estou aqui para ayudarte a hablar con fluidez y soltura. ¿Qué tema te gustaría practicar hoy?',
         'Alemão':
           'Hallo! Willkommen zu deinem Sprach-Tutor. Estou aqui para te ajudar com estruturas e conversação em alemão. Vamos começar?',
         'Italiano':
@@ -1066,38 +1494,79 @@ export const StorageService = {
         timestamp: new Date().toISOString(),
         idioma: lang,
         conceitos_chave: activePlan?.interesses_principais,
-        adaptacao: activePlan ? {
-          nivel: activePlan.nivel_cefr === 'A1' || activePlan.nivel_cefr === 'A2' ? 'fundamental_analogico' : (activePlan.nivel_cefr === 'B1' || activePlan.nivel_cefr === 'B2' ? 'intermediario_aplicado' : 'avancado_analitico'),
-          rotulo: `Nível ${activePlan.nivel_cefr} (${activePlan.motivo_principal})`,
-          dominio_avaliado: activePlan.nivel_cefr === 'A1' ? 35 : activePlan.nivel_cefr === 'A2' ? 50 : activePlan.nivel_cefr === 'B1' ? 65 : 85,
-          justificativa: `Início calibrado com base no plano de estudos gerado para ${activePlan.idioma}.`,
-          estrategia_pedagogica: activePlan.estrategia_pedagogica || 'Imersão conversacional adaptativa.',
-        } : undefined,
+        adaptacao: activePlan
+          ? {
+              nivel:
+                activePlan.nivel_cefr === 'A1' || activePlan.nivel_cefr === 'A2'
+                  ? 'fundamental_analogico'
+                  : activePlan.nivel_cefr === 'B1' || activePlan.nivel_cefr === 'B2'
+                  ? 'intermediario_aplicado'
+                  : 'avancado_analitico',
+              rotulo: `Nível ${activePlan.nivel_cefr} (${activePlan.motivo_principal})`,
+              dominio_avaliado:
+                activePlan.nivel_cefr === 'A1' ? 35 : activePlan.nivel_cefr === 'A2' ? 50 : activePlan.nivel_cefr === 'B1' ? 65 : 85,
+              justificativa: `Início calibrado com base no plano de estudos gerado para ${activePlan.idioma}.`,
+              estrategia_pedagogica: activePlan.estrategia_pedagogica || 'Imersão conversacional adaptativa.',
+            }
+          : undefined,
       },
     ];
-    this.saveChatHistory(initial);
+
+    // Atualiza a conversa ativa
+    const active = this.getActiveConversation();
+    active.mensagens = initial;
+    active.titulo = activePlan?.topico_inicial_recomendado ? `Plano: ${activePlan.topico_inicial_recomendado}` : 'Plano de Estudos';
+    active.topico = activePlan?.topico_inicial_recomendado || `${lang}: Conversação Geral`;
+    this.saveConversation(active);
+
     return initial;
   },
 
-  saveChatHistory(messages: ChatMessage[]) {
-    localStorage.setItem(this.getKey(STORAGE_KEYS.CHATS), JSON.stringify(messages));
+  saveChatHistory(messages: ChatMessage[], conversationId?: string) {
+    const targetId = conversationId || this.getActiveConversationId();
+    const conv = this.getConversation(targetId);
+    if (conv) {
+      conv.mensagens = messages;
+      this.saveConversation(conv);
+    } else {
+      localStorage.setItem(this.getKey(STORAGE_KEYS.CHATS), JSON.stringify(messages));
+    }
   },
 
-  addChatMessage(msg: ChatMessage) {
-    const messages = this.getChatHistory();
-    messages.push(msg);
-    this.saveChatHistory(messages);
+  addChatMessage(msg: ChatMessage, conversationId?: string) {
+    const targetId = conversationId || this.getActiveConversationId();
+    const conv = this.getConversation(targetId);
+    if (conv) {
+      conv.mensagens.push(msg);
+      this.saveConversation(conv);
+    } else {
+      const messages = this.getLegacyChatHistory();
+      messages.push(msg);
+      localStorage.setItem(this.getKey(STORAGE_KEYS.CHATS), JSON.stringify(messages));
+    }
   },
 
-  updateChatMessage(msgId: string, updates: Partial<ChatMessage>) {
-    const messages = this.getChatHistory().map((m) =>
-      m.id === msgId ? { ...m, ...updates } : m
-    );
-    this.saveChatHistory(messages);
+  updateChatMessage(msgId: string, updates: Partial<ChatMessage>, conversationId?: string) {
+    const targetId = conversationId || this.getActiveConversationId();
+    const conv = this.getConversation(targetId);
+    if (conv) {
+      conv.mensagens = conv.mensagens.map((m) => (m.id === msgId ? { ...m, ...updates } : m));
+      this.saveConversation(conv);
+    } else {
+      const messages = this.getLegacyChatHistory().map((m) => (m.id === msgId ? { ...m, ...updates } : m));
+      localStorage.setItem(this.getKey(STORAGE_KEYS.CHATS), JSON.stringify(messages));
+    }
   },
 
-  clearChatHistory() {
-    this.saveChatHistory([]);
+  clearChatHistory(conversationId?: string) {
+    const targetId = conversationId || this.getActiveConversationId();
+    const conv = this.getConversation(targetId);
+    if (conv) {
+      conv.mensagens = [];
+      this.saveConversation(conv);
+    } else {
+      localStorage.setItem(this.getKey(STORAGE_KEYS.CHATS), JSON.stringify([]));
+    }
   },
 
   // Estatísticas e Gamificação

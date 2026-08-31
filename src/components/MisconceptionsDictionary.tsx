@@ -497,49 +497,49 @@ export const MisconceptionsDictionary: React.FC<MisconceptionsDictionaryProps> =
   };
 
   return (
-    <div className="relative border border-border bg-card rounded-lg p-5 sm:p-6 shadow-2xs space-y-6">
+    <div className="relative view-card p-6 sm:p-8 space-y-7 text-left w-full">
       <CornerPlus />
       {/* Cabeçalho do Dicionário com Badges de Grafo */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-border pb-5">
-          <div>
-            <div className="flex items-center space-x-3">
-              <div className="w-8 h-8 rounded-lg bg-foreground text-background flex items-center justify-center font-mono font-bold text-xs">
-                GM
-              </div>
-              <div>
-                <div className="flex items-center gap-2">
-                  <h3 className="text-base sm:text-lg font-bold tracking-tight text-foreground">
-                    Dicionário Interativo de Equívocos Recorrentes
-                  </h3>
-                  <div className="inline-flex items-center rounded border border-border bg-muted/60 px-2 py-0.5 font-mono text-[10px] font-semibold text-muted-foreground uppercase">
-                    MEMORY GRAPH
-                  </div>
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-[var(--border)] pb-5">
+        <div>
+          <div className="flex items-center space-x-3">
+            <div className="w-9 h-9 rounded-xl bg-[var(--fg)] text-[var(--accent)] flex items-center justify-center font-mono font-bold text-xs shadow-xs">
+              GM
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h3 className="text-lg sm:text-xl font-bold font-display tracking-tight text-[var(--fg)]">
+                  Dicionário Interativo de Equívocos Recorrentes
+                </h3>
+                <div className="inline-flex items-center rounded-full border border-[var(--border)] bg-[var(--surface)] px-2.5 py-0.5 font-mono text-[10px] font-bold text-[var(--muted)] uppercase">
+                  MEMORY GRAPH
                 </div>
-                <p className="text-xs text-muted-foreground mt-0.5">
-                  Mapeamento ativo de falsos cognatos, vícios de tradução literal e desvios fonéticos identificados pelo tutor.
-                </p>
               </div>
-            </div>
-          </div>
-
-          {/* Resumo de Métricas Rápidas */}
-          <div className="flex items-center gap-2 sm:gap-3 shrink-0">
-            <div className="px-3 py-1.5 bg-muted/50 border border-border rounded-lg text-center font-mono">
-              <span className="text-[10px] uppercase font-bold text-rose-600 dark:text-rose-400 block">Revisões Urgentes</span>
-              <span className="text-xs font-bold text-foreground">{stats.precisaRevisar} pendentes</span>
-            </div>
-
-            <div className="px-3 py-1.5 bg-muted/50 border border-border rounded-lg text-center font-mono">
-              <span className="text-[10px] uppercase font-bold text-emerald-600 dark:text-emerald-400 block">Superados</span>
-              <span className="text-xs font-bold text-foreground">{stats.compreendidos} itens</span>
-            </div>
-
-            <div className="px-3 py-1.5 bg-muted/50 border border-border rounded-lg text-center font-mono">
-              <span className="text-[10px] uppercase font-bold text-muted-foreground block">Domínio Médio</span>
-              <span className="text-xs font-bold text-foreground">{stats.avgDominio}%</span>
+              <p className="text-xs sm:text-sm text-[var(--muted)] mt-1">
+                Mapeamento ativo de falsos cognatos, vícios de tradução literal e desvios fonéticos identificados pelo tutor.
+              </p>
             </div>
           </div>
         </div>
+
+        {/* Resumo de Métricas Rápidas */}
+        <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+          <div className="px-3.5 py-2 bg-[var(--surface)] border border-[var(--border)] rounded-xl text-center font-mono shadow-xs">
+            <span className="text-[10px] uppercase font-extrabold text-rose-600 block">Revisões Urgentes</span>
+            <span className="text-xs sm:text-sm font-bold text-[var(--fg)]">{stats.precisaRevisar} pendentes</span>
+          </div>
+
+          <div className="px-3.5 py-2 bg-[var(--surface)] border border-[var(--border)] rounded-xl text-center font-mono shadow-xs">
+            <span className="text-[10px] uppercase font-extrabold text-emerald-600 block">Superados</span>
+            <span className="text-xs sm:text-sm font-bold text-[var(--fg)]">{stats.compreendidos} itens</span>
+          </div>
+
+          <div className="px-3.5 py-2 bg-[var(--surface)] border border-[var(--border)] rounded-xl text-center font-mono shadow-xs">
+            <span className="text-[10px] uppercase font-extrabold text-[var(--muted)] block">Domínio Médio</span>
+            <span className="text-xs sm:text-sm font-bold text-[var(--fg)]">{stats.avgDominio}%</span>
+          </div>
+        </div>
+      </div>
 
         {/* Barra de Busca, Categorias e Filtros */}
         <div className="space-y-3">

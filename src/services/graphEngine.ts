@@ -9,26 +9,29 @@ import {
   PriorityTopicSuggestion,
 } from '../types';
 import { StorageService } from './storage';
+import { normalizeUnicodeText, getLanguageConfig } from '../config/languages';
 
 export const GraphEngine = {
-  // Normaliza strings para busca e deduplicação
+  // Normaliza strings para busca e deduplicação preservando alfabetos internacionais
   normalize(text: string): string {
-    return text
-      .toLowerCase()
-      .normalize('NFD')
-      .replace(/[\u0300-\u036f]/g, '')
-      .replace(/[^\w\s]/gi, '')
-      .trim();
+    return normalizeUnicodeText(text);
   },
 
   // Avalia o nível de compreensão do estudante no grafo e determina a estratégia de adaptação dinâmica
-  analyzeStudentComprehension(topic: string, userMessage = ''): ExplanationAdaptation {
+  analyzeStudentComprehension(topic: string, userMessage = '', language = 'Inglês'): ExplanationAdaptation {
     const nodes = StorageService.getNodes();
+    const langConfig = getLanguageConfig(language);
     const normTopic = this.normalize(topic);
     const normMsg = this.normalize(userMessage);
 
+    // Isola estritamente os nós do idioma ativo
+    const langNodes = nodes.filter((n) => {
+      const nodeLang = getLanguageConfig(n.idioma || 'ingles');
+      return nodeLang.id === langConfig.id;
+    });
+
     // Filtra nós relacionados ao tópico ou à mensagem
-    const relevantNodes = nodes.filter((n) => {
+    const relevantNodes = langNodes.filter((n) => {
       const normTitle = this.normalize(n.titulo);
       const normDesc = this.normalize(n.descricao);
       return (
@@ -39,7 +42,7 @@ export const GraphEngine = {
       );
     });
 
-    const activeNodes = relevantNodes.length > 0 ? relevantNodes : nodes;
+    const activeNodes = relevantNodes.length > 0 ? relevantNodes : langNodes;
 
     // Métricas do grafo para este contexto
     const activeMisconceptions = activeNodes.filter(
@@ -48,7 +51,7 @@ export const GraphEngine = {
     const highDifficultyNodes = activeNodes.filter((n) => n.dificuldade >= 4);
 
     const totalDominio = activeNodes.reduce((sum, n) => sum + (n.dominio_estimado || 50), 0);
-    const avgDominio = Math.round(totalDominio / Math.max(1, activeNodes.length));
+    const avgDominio = activeNodes.length > 0 ? Math.round(totalDominio / activeNodes.length) : 65;
 
     // Determina o nível de adaptação dinâmica
     let nivel: AdaptationLevel = 'intermediario_aplicado';
@@ -59,19 +62,19 @@ export const GraphEngine = {
     if (avgDominio < 55 || activeMisconceptions.length > 0) {
       nivel = 'fundamental_analogico';
       rotulo = 'Fundamental com Analogias Concretas';
-      justificativa = `Grafo identificou domínio médio de ${avgDominio}% com ${activeMisconceptions.length} equívoco(s)/dificuldade(s) ativa(s) em "${topic}".`;
+      justificativa = `Grafo identificou domínio médio de ${avgDominio}% com ${activeMisconceptions.length} equívoco(s)/dificuldade(s) ativa(s) em "${topic}" (${langConfig.displayName}).`;
       estrategia =
         'Priorizar metáforas do mundo real, decomposição em passos atômicos, validação de pré-requisitos e ausência de jargões herméticos.';
     } else if (avgDominio >= 80 && highDifficultyNodes.length > 0) {
       nivel = 'avancado_analitico';
       rotulo = 'Avançado e Rigoroso com Casos de Borda';
-      justificativa = `Grafo identificou alto domínio consolidado (${avgDominio}%) em "${topic}". Pronto para aprofundamento analítico e cenários de borda.`;
+      justificativa = `Grafo identificou alto domínio consolidado (${avgDominio}%) em "${topic}" (${langConfig.displayName}). Pronto para aprofundamento analítico e cenários de borda.`;
       estrategia =
         'Utilizar rigor formal, análise assintótica, tradeoffs de implementação, provocação socrática de alto nível e desafios de síntese.';
     } else {
       nivel = 'intermediario_aplicado';
       rotulo = 'Intermediário com Formalização e Prática';
-      justificativa = `Grafo identificou compreensão estável (${avgDominio}%) em "${topic}".`;
+      justificativa = `Grafo identificou compreensão estável (${avgDominio}%) em "${topic}" (${langConfig.displayName}).`;
       estrategia =
         'Combinar intuição com vocabulário técnico preciso, exemplos práticos de código/aplicação e interconexão com nós adjacentes do grafo.';
     }
@@ -87,42 +90,68 @@ export const GraphEngine = {
   },
 
   // Registra a adaptação utilizada nos nós do grafo relevantes para rastreabilidade
-  recordAdaptationUsed(topic: string, adaptation: ExplanationAdaptation): void {
+  recordAdaptationUsed(topic: string, adaptation: ExplanationAdaptation, language = 'Inglês'): void {
     const nodes = StorageService.getNodes();
+    const langConfig = getLanguageConfig(language);
     const normTopic = this.normalize(topic);
 
     nodes.forEach((node) => {
-      if (
-        this.normalize(node.titulo).includes(normTopic) ||
-        normTopic.includes(this.normalize(node.titulo))
-      ) {
-        node.nivel_adaptacao_recente = adaptation.rotulo;
-        node.atualizado_em = new Date().toISOString();
+      const nodeLang = getLanguageConfig(node.idioma || 'ingles');
+      if (nodeLang.id === langConfig.id) {
+        if (
+          this.normalize(node.titulo).includes(normTopic) ||
+          normTopic.includes(this.normalize(node.titulo))
+        ) {
+          node.nivel_adaptacao_recente = adaptation.rotulo;
+          node.atualizado_em = new Date().toISOString();
+        }
       }
     });
 
     StorageService.saveNodes(nodes);
   },
 
-  // Busca nós relevantes para o contexto da conversa
-  getRelevantContext(topic: string, userMessage: string, limit = 5): GraphNode[] {
+  // Busca nós relevantes para o contexto da conversa com isolamento estrito de idioma e threshold de relevância
+  getRelevantContext(topic: string, userMessage: string, limit = 3, language = 'Inglês'): GraphNode[] {
     const nodes = StorageService.getNodes();
+    const langConfig = getLanguageConfig(language);
     const normTopic = this.normalize(topic);
     const normMsg = this.normalize(userMessage);
 
-    const scored = nodes.map((node) => {
+    // Isola por idioma
+    const langNodes = nodes.filter((n) => {
+      const nodeLang = getLanguageConfig(n.idioma || 'ingles');
+      return nodeLang.id === langConfig.id;
+    });
+
+    const scored: Array<{ node: GraphNode; score: number }> = [];
+
+    for (const node of langNodes) {
       let score = 0;
       const normTitle = this.normalize(node.titulo);
       const normDesc = this.normalize(node.descricao);
 
-      if (normTitle.includes(normTopic) || normTopic.includes(normTitle)) score += 10;
-      if (normMsg.includes(normTitle)) score += 8;
-      if (normDesc.includes(normTopic)) score += 4;
-      if (node.tipo === 'dificuldade' || node.tipo === 'equivoco') score += 5; // Prioriza dificuldades do aluno
-      if (new Date(node.proxima_revisao) <= new Date()) score += 3; // Prioriza revisões pendentes
+      if (normTitle && (normTitle.includes(normTopic) || normTopic.includes(normTitle))) {
+        score += 10;
+      }
+      if (normTitle && normMsg && normMsg.includes(normTitle)) {
+        score += 8;
+      }
+      if (normDesc && normTopic && normDesc.includes(normTopic)) {
+        score += 4;
+      }
+      if (node.tipo === 'dificuldade' || node.tipo === 'equivoco' || node.tipo === 'falso_amigo') {
+        score += 3;
+      }
+      if (node.proxima_revisao && new Date(node.proxima_revisao) <= new Date()) {
+        score += 2;
+      }
 
-      return { node, score };
-    });
+      // Threshold mínimo de relevância: apenas itens com evidência concreta
+      if (score >= 6) {
+        scored.push({ node, score });
+      }
+    }
 
     scored.sort((a, b) => b.score - a.score);
     return scored.slice(0, limit).map((s) => s.node);
@@ -131,18 +160,21 @@ export const GraphEngine = {
   // Deduplica e insere novos nós vindos da análise pedagógica
   processNewNodesFromTutor(
     newNodes: Partial<GraphNode & { relacionado_com?: string; tipo_relacao?: RelationType }>[],
-    evidence: string
+    evidence: string,
+    language = 'Inglês'
   ): GraphNode[] {
     const existingNodes = StorageService.getNodes();
+    const langConfig = getLanguageConfig(language);
     const createdOrUpdated: GraphNode[] = [];
 
     for (const raw of newNodes) {
       if (!raw.titulo) continue;
 
       const normTitle = this.normalize(raw.titulo);
-      const existing = existingNodes.find(
-        (n) => this.normalize(n.titulo) === normTitle || normTitle.includes(this.normalize(n.titulo))
-      );
+      const existing = existingNodes.find((n) => {
+        const nLang = getLanguageConfig(n.idioma || 'ingles');
+        return nLang.id === langConfig.id && (this.normalize(n.titulo) === normTitle || normTitle.includes(this.normalize(n.titulo)));
+      });
 
       const now = new Date().toISOString();
 
@@ -176,6 +208,7 @@ export const GraphEngine = {
         const newNode: GraphNode = {
           id: `node-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
           tipo: (raw.tipo as NodeType) || 'conceito',
+          idioma: langConfig.displayName,
           titulo: raw.titulo,
           descricao: raw.descricao || `Conceito identificado durante a sessão: ${raw.titulo}`,
           dominio_estimado: initialDominio,
@@ -194,7 +227,10 @@ export const GraphEngine = {
         // Se houver relação sugerida
         if (raw.relacionado_com) {
           const targetNorm = this.normalize(raw.relacionado_com);
-          const targetNode = existingNodes.find((n) => this.normalize(n.titulo).includes(targetNorm));
+          const targetNode = existingNodes.find((n) => {
+            const nLang = getLanguageConfig(n.idioma || 'ingles');
+            return nLang.id === langConfig.id && this.normalize(n.titulo).includes(targetNorm);
+          });
 
           if (targetNode) {
             const rel: GraphRelation = {

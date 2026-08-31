@@ -67,6 +67,8 @@ export const FlashcardsView: React.FC<FlashcardsViewProps> = ({
   const [filterMode, setFilterMode] = useState<FlashcardFilterMode>('todos');
   const [invertMode, setInvertMode] = useState(false); // Inverter: Significado ➔ Termo
   const [direction, setDirection] = useState<'next' | 'prev' | 'flip'>('next');
+  const [autoPronounce, setAutoPronounce] = useState(true); // Pronúncia automática ao exibir o cartão
+  const [isPlayingAudio, setIsPlayingAudio] = useState(false);
 
   // Histórico da Sessão
   const [sessionResults, setSessionResults] = useState<SRSReviewResult[]>([]);
@@ -78,6 +80,21 @@ export const FlashcardsView: React.FC<FlashcardsViewProps> = ({
   const [transcribedText, setTranscribedText] = useState('');
   const [voiceTranscribing, setVoiceTranscribing] = useState(false);
   const audioRecorderRef = useRef<AudioRecorderService | null>(null);
+
+  // Função para tocar pronúncia do cartão
+  const playCardAudio = useCallback((cardTerm?: string) => {
+    const termToSpeak = cardTerm || cards[currentIndex]?.termo;
+    if (!termToSpeak) return;
+    setIsPlayingAudio(true);
+    SpeechService.speak(termToSpeak, {
+      lang: activeTheme.codigo_voz,
+      rate: 0.9,
+    });
+    const timer = setTimeout(() => {
+      setIsPlayingAudio(false);
+    }, 1600);
+    return () => clearTimeout(timer);
+  }, [cards, currentIndex, activeTheme.codigo_voz]);
 
   // Carrega Flashcards do Grafo de Memória
   const loadCards = useCallback(() => {
@@ -97,6 +114,20 @@ export const FlashcardsView: React.FC<FlashcardsViewProps> = ({
   useEffect(() => {
     loadCards();
   }, [loadCards]);
+
+  // Efeito de Áudio Automático ao exibir um novo flashcard
+  useEffect(() => {
+    if (!autoPronounce || cards.length === 0 || isSessionCompleted) return;
+    const currentCard = cards[currentIndex];
+    if (!currentCard) return;
+
+    // Dispara a pronúncia com pequeno delay suave para sincronizar com a animação de entrada
+    const timer = setTimeout(() => {
+      playCardAudio(currentCard.termo);
+    }, 300);
+
+    return () => clearTimeout(timer);
+  }, [currentIndex, cards, autoPronounce, isSessionCompleted, playCardAudio]);
 
   // Embaralhar Deck
   const handleShuffle = () => {
@@ -262,7 +293,7 @@ export const FlashcardsView: React.FC<FlashcardsViewProps> = ({
   const progressPercent = cards.length > 0 ? Math.round(((currentIndex + 1) / cards.length) * 100) : 0;
 
   return (
-    <div className="flex flex-col h-full space-y-4 max-w-4xl mx-auto w-full">
+    <div className="view-card p-5 sm:p-7 md:p-8 space-y-6 max-w-4xl mx-auto w-full text-left">
       {/* Cabeçalho de Controle e Filtros */}
       <div className="flex items-center justify-between flex-wrap gap-3 pb-3 border-b border-[var(--border)]">
         <div className="flex items-center space-x-3">
@@ -288,9 +319,24 @@ export const FlashcardsView: React.FC<FlashcardsViewProps> = ({
 
         {/* Controles de Modo e Deck */}
         <div className="flex items-center space-x-2">
+          {/* Botão de Áudio Automático */}
+          <button
+            onClick={() => setAutoPronounce((prev) => !prev)}
+            className={`px-3 py-1.5 rounded-full border text-xs font-bold transition flex items-center space-x-1.5 cursor-pointer ${
+              autoPronounce
+                ? 'bg-[var(--accent)] text-[var(--fg)] border-[var(--border)] shadow-xs'
+                : 'bg-[var(--surface)] text-[var(--muted)] border-[var(--border)] hover:bg-[oklch(0.96_0.01_84)]'
+            }`}
+            title="Tocar a pronúncia nativa automaticamente ao exibir cada cartão"
+          >
+            <Volume2 className={`w-3.5 h-3.5 ${autoPronounce ? 'text-[var(--fg)] animate-pulse' : 'text-[var(--muted)]'}`} />
+            <span className="hidden sm:inline">Som Automático: {autoPronounce ? 'ON' : 'OFF'}</span>
+            <span className="sm:hidden font-mono">{autoPronounce ? 'ON' : 'OFF'}</span>
+          </button>
+
           <button
             onClick={() => setInvertMode((prev) => !prev)}
-            className={`px-3.5 py-1.5 rounded-full border text-xs font-bold transition flex items-center space-x-1.5 cursor-pointer ${
+            className={`px-3 py-1.5 rounded-full border text-xs font-bold transition flex items-center space-x-1.5 cursor-pointer ${
               invertMode
                 ? 'bg-[var(--fg)] text-[var(--accent)] border-[var(--fg)] shadow-xs'
                 : 'bg-[var(--surface)] text-[var(--fg)] border-[var(--border)] hover:bg-[oklch(0.96_0.01_84)]'
@@ -571,6 +617,14 @@ export const FlashcardsView: React.FC<FlashcardsViewProps> = ({
 
                     {/* Conteúdo Central da Frente */}
                     <div className="flex-1 flex flex-col items-center justify-center text-center space-y-3 px-2">
+                      {/* Badge dinâmico de reprodução de áudio */}
+                      {isPlayingAudio && (
+                        <div className="px-3 py-1 rounded-full bg-amber-500/15 border border-amber-500/40 text-stone-900 dark:text-stone-100 text-[11px] font-bold flex items-center space-x-1.5 animate-pulse">
+                          <Volume2 className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
+                          <span>🔊 Pronúncia automática ativa — ouça e repita em seguida!</span>
+                        </div>
+                      )}
+
                       <div className="flex items-center justify-center space-x-3">
                         <h3 className="text-2xl sm:text-4xl font-display font-extrabold tracking-tight text-[var(--fg)]">
                           {invertMode ? currentCard.traducao : currentCard.termo}
@@ -580,15 +634,16 @@ export const FlashcardsView: React.FC<FlashcardsViewProps> = ({
                           type="button"
                           onClick={(e) => {
                             e.stopPropagation();
-                            SpeechService.speak(currentCard.termo, {
-                              lang: activeTheme.codigo_voz,
-                              rate: 0.9,
-                            });
+                            playCardAudio(currentCard.termo);
                           }}
-                          className="p-2.5 rounded-full hover:bg-[oklch(0.96_0.01_84)] text-[var(--muted)] hover:text-[var(--fg)] transition cursor-pointer"
-                          title="Ouvir pronúncia nativa"
+                          className={`p-2.5 rounded-full transition cursor-pointer ${
+                            isPlayingAudio
+                              ? 'bg-amber-500/20 text-amber-600 dark:text-amber-400 scale-110 shadow-sm border border-amber-400'
+                              : 'hover:bg-[oklch(0.96_0.01_84)] text-[var(--muted)] hover:text-[var(--fg)] border border-transparent'
+                          }`}
+                          title="Ouvir pronúncia nativa novamente"
                         >
-                          <Volume2 className="w-5 h-5 text-[var(--fg)]" />
+                          <Volume2 className="w-5 h-5" />
                         </button>
                       </div>
 
@@ -608,7 +663,7 @@ export const FlashcardsView: React.FC<FlashcardsViewProps> = ({
                     </div>
 
                     {/* Rodapé da Frente: Dica de Virar e Treino de Voz */}
-                    <div className="border-t border-[var(--border)] pt-3 flex items-center justify-between text-xs text-[var(--muted)]">
+                    <div className="border-t border-[var(--border)] pt-3 flex flex-wrap items-center justify-between gap-2 text-xs text-[var(--muted)]">
                       <div className="flex items-center space-x-2">
                         <button
                           type="button"
@@ -628,7 +683,7 @@ export const FlashcardsView: React.FC<FlashcardsViewProps> = ({
                         >
                           {isRecording ? <MicOff className="w-3.5 h-3.5" /> : <Mic className="w-3.5 h-3.5" />}
                           <span className="text-[11px] hidden sm:inline">
-                            {isRecording ? 'Gravando...' : voiceTranscribing ? 'Transcrevendo...' : 'Testar Voz'}
+                            {isRecording ? 'Gravando...' : voiceTranscribing ? 'Transcrevendo...' : '🎙️ Repetir & Testar'}
                           </span>
                         </button>
 
@@ -641,7 +696,7 @@ export const FlashcardsView: React.FC<FlashcardsViewProps> = ({
 
                       <div className="flex items-center space-x-1 text-[var(--muted)] font-bold">
                         <RotateCw className="w-3.5 h-3.5" />
-                        <span>Clique para virar</span>
+                        <span>Clique para virar & ver resposta</span>
                       </div>
                     </div>
                   </div>

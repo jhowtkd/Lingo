@@ -332,7 +332,7 @@ export function AdminView({ currentUser, onImportPackToCurrentBase }: AdminViewP
   return (
     <div className="space-y-6 max-w-6xl mx-auto pb-12">
       {/* Header do Painel ADM */}
-      <div className="bg-[var(--surface)] border border-[var(--border)] rounded-[var(--r-lg)] p-6 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div className="view-card p-6 sm:p-7 flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div className="space-y-1.5">
           <div className="inline-flex items-center gap-1.5 rounded-full bg-amber-500/15 text-amber-900 px-3 py-1 text-xs font-extrabold border border-amber-500/30">
             <Crown className="w-3.5 h-3.5 text-amber-600" />
@@ -375,7 +375,7 @@ export function AdminView({ currentUser, onImportPackToCurrentBase }: AdminViewP
 
       {/* Cards de Métricas Principais */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="bg-[var(--surface)] border border-[var(--border)] rounded-[var(--r-md)] p-4 shadow-xs flex items-center gap-3.5">
+        <div className="view-card-subtle p-4.5 flex items-center gap-3.5">
           <div className="w-10 h-10 rounded-xl bg-sky-500/15 text-sky-700 flex items-center justify-center font-bold">
             <Clock className="w-5 h-5" />
           </div>
@@ -385,7 +385,7 @@ export function AdminView({ currentUser, onImportPackToCurrentBase }: AdminViewP
           </div>
         </div>
 
-        <div className="bg-[var(--surface)] border border-[var(--border)] rounded-[var(--r-md)] p-4 shadow-xs flex items-center gap-3.5">
+        <div className="view-card-subtle p-4.5 flex items-center gap-3.5">
           <div className="w-10 h-10 rounded-xl bg-emerald-500/15 text-emerald-700 flex items-center justify-center font-bold">
             <TrendingUp className="w-5 h-5" />
           </div>
@@ -395,7 +395,7 @@ export function AdminView({ currentUser, onImportPackToCurrentBase }: AdminViewP
           </div>
         </div>
 
-        <div className="bg-[var(--surface)] border border-[var(--border)] rounded-[var(--r-md)] p-4 shadow-xs flex items-center gap-3.5">
+        <div className="view-card-subtle p-4.5 flex items-center gap-3.5">
           <div className="w-10 h-10 rounded-xl bg-rose-500/15 text-rose-700 flex items-center justify-center font-bold">
             <AlertTriangle className="w-5 h-5" />
           </div>
@@ -405,7 +405,7 @@ export function AdminView({ currentUser, onImportPackToCurrentBase }: AdminViewP
           </div>
         </div>
 
-        <div className="bg-[var(--surface)] border border-[var(--border)] rounded-[var(--r-md)] p-4 shadow-xs flex items-center gap-3.5">
+        <div className="view-card-subtle p-4.5 flex items-center gap-3.5">
           <div className="w-10 h-10 rounded-xl bg-indigo-500/15 text-indigo-700 flex items-center justify-center font-bold">
             <Users className="w-5 h-5" />
           </div>

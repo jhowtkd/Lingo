@@ -26,10 +26,21 @@ import {
   BarChart2,
   Gauge,
   Timer,
+  MessageSquarePlus,
+  MessagesSquare,
+  BookOpen,
+  Plus,
+  Check,
+  FolderOpen,
+  Maximize2,
+  Minimize2,
+  Eye,
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import {
   ChatMessage,
+  ChatConversation,
+  StudyMaterialItem,
   PedagogicalCorrection,
   UserStats,
   ExplanationAdaptation,
@@ -46,6 +57,9 @@ import {
   SpeechRateService,
   CEFR_SPEECH_RATE_TARGETS,
 } from '../services/speechRateService';
+import { QuickRepliesService, ReplyTipOption } from '../services/quickRepliesService';
+import { TopicProficiencyBar } from './TopicProficiencyBar';
+import { QuickRepliesContainer } from './QuickRepliesContainer';
 import { LiveVoiceModal } from './LiveVoiceModal';
 import { PronunciationPracticeModal } from './PronunciationPracticeModal';
 import { PronunciationScoreCard } from './PronunciationScoreCard';
@@ -129,12 +143,63 @@ export const ChatTutor: React.FC<ChatTutorProps> = ({
   // Expandir detalhes de adaptação
   const [expandedAdaptationId, setExpandedAdaptationId] = useState<string | null>(null);
 
+  // Multi-conversas e Sessões por Lição
+  const [conversations, setConversations] = useState<ChatConversation[]>([]);
+  const [activeConvId, setActiveConvId] = useState<string>('');
+  const [isConvMenuOpen, setIsConvMenuOpen] = useState(false);
+  const [isNewConvModalOpen, setIsNewConvModalOpen] = useState(false);
+  const [newConvTab, setNewConvTab] = useState<'lessons' | 'prompts' | 'custom'>('lessons');
+  const [customConvTitle, setCustomConvTitle] = useState('');
+  const [customConvTopic, setCustomConvTopic] = useState('');
+
+  // Modo Foco (Imersão Total sem Distrações)
+  const [isFocusMode, setIsFocusMode] = useState<boolean>(false);
+
+  // Dicas Pedagógicas de Como Responder (Modelos de Frase para Aprendizado Ativo)
+  const [replyTips, setReplyTips] = useState<ReplyTipOption[]>([]);
+
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const audioRecorderRef = useRef<AudioRecorderService | null>(null);
   const timerIntervalRef = useRef<any>(null);
 
+  // Escuta tecla ESC para sair do Modo Foco
   useEffect(() => {
-    setMessages(StorageService.getChatHistory());
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && isFocusMode) {
+        setIsFocusMode(false);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isFocusMode]);
+
+  // Atualiza as dicas de modelo de resposta quando chegam novas mensagens ou muda o tópico/idioma
+  useEffect(() => {
+    const lastTutorMsg = [...messages].reverse().find((m) => m.remetente === 'tutor')?.conteudo;
+    const tips = QuickRepliesService.generateTips(
+      lastTutorMsg,
+      currentTopic,
+      stats.idioma_ativo || 'Inglês'
+    );
+    setReplyTips(tips);
+  }, [messages, currentTopic, stats.idioma_ativo]);
+
+  // Sincroniza lista de conversas e conversa ativa
+  const refreshConversations = () => {
+    const allConvs = StorageService.getConversations();
+    setConversations(allConvs);
+    const active = StorageService.getActiveConversation();
+    if (active) {
+      setActiveConvId(active.id);
+      setMessages(active.mensagens || []);
+    } else {
+      const history = StorageService.getChatHistory();
+      setMessages(history);
+    }
+  };
+
+  useEffect(() => {
+    refreshConversations();
     audioRecorderRef.current = new AudioRecorderService();
 
     // Inscreve no serviço de síntese de voz
@@ -153,6 +218,69 @@ export const ChatTutor: React.FC<ChatTutorProps> = ({
       SpeechService.stop();
     };
   }, [currentTopic, stats.idioma_ativo]);
+
+  const handleSelectConversation = (convId: string) => {
+    StorageService.setActiveConversationId(convId);
+    setActiveConvId(convId);
+    const conv = StorageService.getConversation(convId);
+    if (conv) {
+      setMessages(conv.mensagens || []);
+      if (conv.topico && conv.topico !== currentTopic) {
+        onSelectTopic(conv.topico);
+      }
+    }
+    setIsConvMenuOpen(false);
+    playSfx('pop');
+  };
+
+  const handleCreateNewConversationForLesson = (material: StudyMaterialItem) => {
+    const newConv = StorageService.createConversation({
+      materialId: material.id,
+      materialTitulo: material.titulo,
+      topico: material.titulo,
+      idioma: material.idioma_alvo,
+      nivelCefr: material.nivel_cefr as any,
+    });
+    setConversations(StorageService.getConversations());
+    setActiveConvId(newConv.id);
+    setMessages(newConv.mensagens);
+    onSelectTopic(newConv.topico);
+    setIsNewConvModalOpen(false);
+    setIsConvMenuOpen(false);
+    playSfx('success');
+  };
+
+  const handleCreateNewCustomConversation = (topic: string, title?: string) => {
+    if (!topic.trim()) return;
+    const newConv = StorageService.createConversation({
+      titulo: title?.trim() || undefined,
+      topico: topic.trim(),
+      idioma: stats.idioma_ativo,
+      nivelCefr: stats.nivel_cefr,
+    });
+    setConversations(StorageService.getConversations());
+    setActiveConvId(newConv.id);
+    setMessages(newConv.mensagens);
+    onSelectTopic(newConv.topico);
+    setIsNewConvModalOpen(false);
+    setIsConvMenuOpen(false);
+    setCustomConvTitle('');
+    setCustomConvTopic('');
+    playSfx('success');
+  };
+
+  const handleDeleteConversation = (id: string, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    if (window.confirm('Tem certeza de que deseja excluir esta conversa?')) {
+      StorageService.deleteConversation(id);
+      const remaining = StorageService.getConversations();
+      setConversations(remaining);
+      const newActiveId = StorageService.getActiveConversationId();
+      setActiveConvId(newActiveId);
+      setMessages(StorageService.getChatHistory(newActiveId));
+      playSfx('pop');
+    }
+  };
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -578,8 +706,9 @@ export const ChatTutor: React.FC<ChatTutorProps> = ({
 
   const handleClearHistory = () => {
     if (window.confirm('Tem certeza que deseja limpar o histórico desta conversa?')) {
-      StorageService.clearChatHistory();
+      StorageService.clearChatHistory(activeConvId);
       setMessages([]);
+      setConversations(StorageService.getConversations());
     }
   };
 
@@ -716,7 +845,40 @@ export const ChatTutor: React.FC<ChatTutorProps> = ({
     .filter(Boolean);
 
   return (
-    <div className="flex flex-col h-[calc(100vh-4.5rem)] max-w-5xl w-full mx-auto p-2 sm:p-4">
+    <div
+      className={`flex flex-col transition-all duration-300 ${
+        isFocusMode
+          ? 'fixed inset-0 z-50 bg-[var(--bg)] p-3 sm:p-6 overflow-hidden h-screen max-w-none shadow-2xl backdrop-blur-md'
+          : 'h-[calc(100vh-4.5rem)] max-w-5xl w-full mx-auto p-2 sm:p-4'
+      }`}
+    >
+      {/* Banner de Modo Foco Ativo (se ativado) */}
+      {isFocusMode && (
+        <div className="shrink-0 mb-2 px-3 py-2 bg-amber-500/10 border border-amber-500/30 rounded-xl flex items-center justify-between gap-2 text-xs">
+          <div className="flex items-center space-x-2 min-w-0">
+            <span className="flex h-2 w-2 relative shrink-0">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-amber-500"></span>
+            </span>
+            <span className="font-bold text-[var(--fg)]">Modo Foco Ativo:</span>
+            <span className="text-[var(--muted)] truncate hidden sm:inline">
+              Área maximizada para imersão total no diálogo com o tutor (Pressione ESC para sair)
+            </span>
+          </div>
+
+          <Button
+            size="sm"
+            variant="default"
+            onClick={() => setIsFocusMode(false)}
+            className="gap-1.5 text-xs font-bold cursor-pointer rounded-full bg-[var(--fg)] text-[var(--bg)] hover:bg-[var(--fg)]/90 shrink-0 shadow-xs"
+            title="Sair do Modo Foco e restaurar layout padrão"
+          >
+            <Minimize2 className="w-3.5 h-3.5" />
+            <span>Sair do Foco</span>
+          </Button>
+        </div>
+      )}
+
       {/* Modal Gemini Live */}
       <LiveVoiceModal
         isOpen={isLiveModalOpen}
@@ -770,127 +932,433 @@ export const ChatTutor: React.FC<ChatTutorProps> = ({
         </div>
       )}
 
-      {/* Barra Superior do Chat */}
-      <div className="relative bg-card border border-border/80 rounded-2xl p-3.5 sm:p-4 mb-3 shadow-xs flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center space-x-3">
-          <div className="w-10 h-10 rounded-xl bg-primary text-primary-foreground flex items-center justify-center font-bold text-sm shadow-xs">
-            CT
-          </div>
-          <div>
-            <div className="flex items-center space-x-2">
-              <h2 className="text-base sm:text-lg font-bold tracking-tight text-foreground">
-                Estúdio de Conversação & Fluência
-              </h2>
-              <div className="inline-flex items-center rounded-full border border-border/80 bg-secondary px-2.5 py-0.5 font-mono text-[10px] font-semibold text-muted-foreground uppercase">
-                GRAPH ACTIVE
+      {/* Barra Superior Compacta e Unificada do Chat */}
+      <div className="relative bg-[var(--surface)] border border-[var(--border)] rounded-2xl p-2.5 sm:p-3.5 mb-2 shadow-xs shrink-0">
+        <div className="flex flex-wrap items-center justify-between gap-2.5">
+          {/* Lado Esquerdo: Identificação do Tópico e Seletor de Conversa */}
+          <div className="flex items-center space-x-2.5 min-w-0">
+            <div className="w-8 h-8 rounded-xl bg-primary text-primary-foreground flex items-center justify-center font-bold text-xs shadow-xs shrink-0">
+              CT
+            </div>
+            <div className="min-w-0">
+              <div className="flex items-center space-x-2">
+                <h2 className="text-sm sm:text-base font-bold tracking-tight text-foreground truncate">
+                  {currentTopic}
+                </h2>
+                <span className="hidden sm:inline-flex items-center rounded-full border border-border/80 bg-secondary px-2 py-0.2 font-mono text-[9px] font-semibold text-muted-foreground uppercase shrink-0">
+                  {stats.idioma_ativo || 'Ativo'}
+                </span>
+              </div>
+
+              {/* Seletor Inline de Conversas */}
+              <div className="relative mt-0.5 flex items-center space-x-1.5">
+                <button
+                  type="button"
+                  onClick={() => setIsConvMenuOpen(!isConvMenuOpen)}
+                  className="inline-flex items-center space-x-1.5 bg-stone-100 dark:bg-stone-800/70 hover:bg-stone-200 dark:hover:bg-stone-800 border border-stone-200 dark:border-stone-700 px-2 py-0.5 rounded-md text-[11px] font-medium text-stone-700 dark:text-stone-300 transition cursor-pointer max-w-[220px] sm:max-w-[320px]"
+                  title="Alternar entre conversas salvas"
+                >
+                  <MessagesSquare className="w-3 h-3 text-stone-500 shrink-0" />
+                  <span className="truncate">
+                    {conversations.find((c) => c.id === activeConvId)?.titulo || 'Conversa Ativa'}
+                  </span>
+                  <span className="text-[9px] px-1 py-0.2 rounded bg-amber-500/15 text-amber-800 dark:text-amber-300 font-mono font-bold shrink-0">
+                    {messages.length} msg
+                  </span>
+                  <ChevronDown className="w-3 h-3 text-stone-400 shrink-0" />
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setIsNewConvModalOpen(true)}
+                  className="inline-flex items-center space-x-1 text-[11px] font-bold text-amber-700 dark:text-amber-400 hover:underline px-1.5 py-0.5 cursor-pointer"
+                  title="Criar nova conversa"
+                >
+                  <Plus className="w-3 h-3" />
+                  <span className="hidden sm:inline">Nova</span>
+                </button>
+
+                {/* Menu Dropdown de Conversas */}
+                {isConvMenuOpen && (
+                  <div className="absolute left-0 top-full mt-1.5 w-80 sm:w-96 bg-white dark:bg-zinc-900 border-2 border-stone-300 dark:border-zinc-700 rounded-xl shadow-2xl p-2.5 z-50 animate-in fade-in zoom-in-95 duration-150">
+                    <div className="flex items-center justify-between px-2 py-1 border-b border-stone-200 dark:border-zinc-800 mb-1.5">
+                      <span className="text-xs font-bold text-stone-900 dark:text-stone-100">Minhas Conversas</span>
+                      <span className="text-[10px] font-mono text-stone-500">
+                        {conversations.length} {conversations.length === 1 ? 'conversa' : 'conversas'}
+                      </span>
+                    </div>
+
+                    <div className="max-h-56 overflow-y-auto space-y-1 py-1">
+                      {conversations.map((c) => {
+                        const isSelected = c.id === activeConvId;
+                        return (
+                          <div
+                            key={c.id}
+                            onClick={() => handleSelectConversation(c.id)}
+                            className={`p-2 rounded-lg flex items-start justify-between gap-2 cursor-pointer transition text-xs ${
+                              isSelected
+                                ? 'bg-amber-500/10 border-2 border-amber-500 text-stone-900 dark:text-stone-100 font-bold'
+                                : 'bg-stone-50 dark:bg-zinc-800/80 hover:bg-stone-100 dark:hover:bg-zinc-800 text-stone-700 dark:text-stone-300 border border-stone-200 dark:border-zinc-700'
+                            }`}
+                          >
+                            <div className="flex items-start space-x-2 min-w-0">
+                              {c.material_id ? (
+                                <BookOpen className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400 mt-0.5 shrink-0" />
+                              ) : (
+                                <MessagesSquare className="w-3.5 h-3.5 text-stone-500 mt-0.5 shrink-0" />
+                              )}
+                              <div className="min-w-0">
+                                <p className="truncate text-stone-900 dark:text-stone-100 font-semibold">{c.titulo}</p>
+                                <p className="text-[10px] text-stone-500 dark:text-stone-400 truncate">
+                                  {c.topico} • {c.mensagens?.length || 0} msgs
+                                </p>
+                              </div>
+                            </div>
+
+                            <div className="flex items-center space-x-1 shrink-0">
+                              {isSelected && <Check className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />}
+                              {conversations.length > 1 && (
+                                <button
+                                  type="button"
+                                  onClick={(e) => handleDeleteConversation(c.id, e)}
+                                  className="p-1 text-stone-400 hover:text-rose-500 rounded hover:bg-rose-50 dark:hover:bg-rose-950/30 transition cursor-pointer"
+                                  title="Excluir conversa"
+                                >
+                                  <Trash2 className="w-3 h-3" />
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+
+                    <div className="pt-2 border-t border-stone-200 dark:border-zinc-800 mt-1">
+                      <Button
+                        size="sm"
+                        onClick={() => {
+                          setIsConvMenuOpen(false);
+                          setIsNewConvModalOpen(true);
+                        }}
+                        className="w-full gap-1.5 text-xs font-semibold cursor-pointer py-1.5"
+                      >
+                        <Plus className="w-3.5 h-3.5" />
+                        <span>Iniciar Nova Conversa</span>
+                      </Button>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
-            <p className="text-xs text-muted-foreground mt-0.5">
-              <span className="font-semibold text-muted-foreground/80">TÓPICO:</span>{' '}
-              <span className="font-semibold text-foreground">{currentTopic}</span>
-            </p>
+          </div>
+
+          {/* Lado Direito: Ações Principais e Modos */}
+          <div className="flex items-center flex-wrap gap-1.5">
+            {/* Voz Live Gemini API */}
+            <Button
+              size="sm"
+              variant="default"
+              onClick={() => setIsLiveModalOpen(true)}
+              className="gap-1.5 text-xs font-bold cursor-pointer rounded-full bg-[var(--fg)] text-[var(--bg)] hover:bg-[var(--fg)]/90 h-8 px-3"
+              title="Conversar por voz em tempo real com Gemini Live"
+            >
+              <Radio className="w-3 h-3 animate-pulse text-[var(--accent)]" />
+              <span>Voz Live (API)</span>
+            </Button>
+
+            {/* Modo Foco */}
+            <Button
+              variant={isFocusMode ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setIsFocusMode((prev) => !prev)}
+              className={`gap-1 text-xs font-bold cursor-pointer rounded-full h-8 px-2.5 transition-all ${
+                isFocusMode
+                  ? 'bg-amber-500 text-stone-900 border-amber-600 shadow-sm'
+                  : 'border-[var(--border)] hover:bg-[oklch(0.96_0.01_84)]'
+              }`}
+              title={isFocusMode ? 'Sair do Modo Foco' : 'Modo Foco: imersão total'}
+            >
+              {isFocusMode ? <Minimize2 className="w-3 h-3" /> : <Maximize2 className="w-3 h-3" />}
+              <span className="hidden sm:inline">{isFocusMode ? 'Sair do Foco' : 'Modo Foco'}</span>
+            </Button>
+
+            {/* Treino de Pronúncia */}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setIsPronunciationModalOpen(true)}
+              className="gap-1 text-xs font-bold cursor-pointer rounded-full h-8 px-2.5 hidden sm:inline-flex"
+              title="Praticar pronúncia"
+            >
+              <Mic className="w-3 h-3 text-[var(--fg)]" />
+              <span>Pronúncia</span>
+            </Button>
+
+            {/* Treinador WPM */}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setIsSpeechRateCoachOpen(true)}
+              className="gap-1 text-xs font-bold cursor-pointer rounded-full h-8 px-2.5 hidden md:inline-flex"
+              title="Taxa de fala em palavras por minuto"
+            >
+              <Gauge className="w-3 h-3 text-[var(--fg)]" />
+              <span>WPM</span>
+            </Button>
+
+            {/* Modo Ouvir */}
+            <Button
+              variant={isListenOnlyMode ? 'default' : 'outline'}
+              size="sm"
+              onClick={handleToggleListenOnly}
+              className="gap-1 text-xs font-bold cursor-pointer rounded-full h-8 px-2.5 hidden md:inline-flex"
+              title="Modo treino auditivo"
+            >
+              <Headphones className={`w-3 h-3 ${isListenOnlyMode ? 'animate-bounce text-[var(--accent)]' : 'text-[var(--fg)]'}`} />
+              <span>{isListenOnlyMode ? 'Ouvindo' : 'Ouvir'}</span>
+            </Button>
+
+            {/* Seletor de Adaptação */}
+            <div className="flex items-center space-x-1 bg-[oklch(0.96_0.01_84)] border border-[var(--border)] px-2 py-1 rounded-full text-[11px] h-8">
+              <Sliders className="w-3 h-3 text-[var(--fg)] shrink-0" />
+              <select
+                value={adaptationPreference}
+                onChange={(e) => setAdaptationPreference(e.target.value as any)}
+                className="bg-transparent font-bold text-[var(--fg)] focus:outline-none cursor-pointer text-[11px]"
+                title="Calibração pedagógica"
+              >
+                <option value="auto">🧠 Auto</option>
+                <option value="fundamental_analogico">🌱 Fundamental</option>
+                <option value="intermediario_aplicado">⚡ Intermediário</option>
+                <option value="avancado_analitico">🔬 Avançado</option>
+              </select>
+            </div>
+
+            {/* Seletor de Voz IA */}
+            <div className="flex items-center space-x-1 bg-[oklch(0.96_0.01_84)] border border-[var(--border)] px-2 py-1 rounded-full text-[11px] h-8 hidden sm:inline-flex">
+              <Volume2 className="w-3 h-3 text-[var(--fg)] shrink-0" />
+              <select
+                value={selectedVoice}
+                onChange={(e) => handleVoiceChange(e.target.value)}
+                className="bg-transparent font-bold text-[var(--fg)] focus:outline-none cursor-pointer text-[11px]"
+                title="Voz neural da IA"
+              >
+                {NEURAL_VOICES.map((v) => (
+                  <option key={v.id} value={v.id} className="bg-[var(--surface)] text-[var(--fg)]">
+                    ✨ {v.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Limpar Histórico */}
+            <button
+              type="button"
+              onClick={handleClearHistory}
+              className="p-1.5 text-[var(--muted)] hover:text-rose-500 rounded-full border border-transparent hover:border-[var(--border)] transition cursor-pointer"
+              title="Limpar histórico"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+            </button>
           </div>
         </div>
 
-        <div className="flex items-center flex-wrap gap-2">
-          {/* Botão de Destaque: Treinador de Taxa de Fala / Pacing Coach */}
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setIsSpeechRateCoachOpen(true)}
-            className="gap-1.5 text-xs font-bold cursor-pointer rounded-full"
-            title="Abrir treinador e medidor de taxa de fala (palavras por minuto)"
-          >
-            <Gauge className="w-3.5 h-3.5 text-[var(--fg)]" />
-            <span className="hidden sm:inline">Taxa de Fala (WPM)</span>
-            <span className="sm:hidden">WPM</span>
-          </Button>
-
-          {/* Botão de Modo Ouvir Apenas (Treinamento Auditivo & Onda Sonora) */}
-          <Button
-            variant={isListenOnlyMode ? 'default' : 'outline'}
-            size="sm"
-            onClick={handleToggleListenOnly}
-            className="gap-1.5 text-xs font-bold cursor-pointer rounded-full"
-            title="Ativar/desativar modo de treino auditivo (pausa microfone e foca na escuta e ondas sonoras)"
-          >
-            <Headphones className={`w-3.5 h-3.5 ${isListenOnlyMode ? 'animate-bounce text-[var(--accent)]' : 'text-[var(--fg)]'}`} />
-            <span className="hidden sm:inline">
-              {isListenOnlyMode ? 'Ouvir Apenas: ATIVO' : 'Modo Ouvir Apenas'}
-            </span>
-            <span className="sm:hidden">{isListenOnlyMode ? 'Ouvir ON' : 'Ouvir'}</span>
-          </Button>
-
-          {/* Botão de Destaque: Treino de Pronúncia & Espectro de Áudio */}
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setIsPronunciationModalOpen(true)}
-            className="gap-1.5 text-xs font-bold cursor-pointer rounded-full"
-            title="Praticar pronúncia com visualizador de espectro de áudio em tempo real"
-          >
-            <Mic className="w-3.5 h-3.5 text-[var(--fg)]" />
-            <span className="hidden sm:inline">Treino de Pronúncia</span>
-            <span className="sm:hidden">Pronúncia</span>
-          </Button>
-
-          {/* Botão de Destaque: Gemini Live Voice */}
-          <Button
-            size="sm"
-            variant="default"
-            onClick={() => setIsLiveModalOpen(true)}
-            className="gap-1.5 text-xs font-bold cursor-pointer rounded-full bg-[var(--fg)] text-[var(--bg)] hover:bg-[var(--fg)]/90"
-            title="Iniciar conversa por voz em tempo real com o Gemini Live API"
-          >
-            <Radio className="w-3.5 h-3.5 animate-pulse text-[var(--accent)]" />
-            <span>Voz Live (API)</span>
-          </Button>
-
-          {/* Seletor de Modo de Adaptação Dinâmica */}
-          <div className="flex items-center space-x-1.5 bg-[oklch(0.96_0.01_84)] border border-[var(--border)] px-3 py-1 rounded-full text-xs">
-            <Sliders className="w-3 h-3 text-[var(--fg)]" />
-            <span className="text-[var(--muted)] font-extrabold text-[10px] uppercase hidden lg:inline">ADAPTAÇÃO:</span>
-            <select
-              value={adaptationPreference}
-              onChange={(e) => setAdaptationPreference(e.target.value as any)}
-              className="bg-transparent font-bold text-[var(--fg)] focus:outline-none cursor-pointer text-xs"
-              title="Calibração da complexidade pedagógica"
-            >
-              <option value="auto">🧠 Auto (Grafo)</option>
-              <option value="fundamental_analogico">🌱 Fundamental</option>
-              <option value="intermediario_aplicado">⚡ Intermediário</option>
-              <option value="avancado_analitico">🔬 Avançado</option>
-            </select>
-          </div>
-
-          {/* Seletor de Voz Neural IA (Gemini 3.1 Flash TTS) */}
-          <div className="flex items-center space-x-1.5 bg-[oklch(0.96_0.01_84)] border border-[var(--border)] px-3 py-1 rounded-full text-xs">
-            <Volume2 className="w-3 h-3 text-[var(--fg)]" />
-            <span className="text-[var(--muted)] font-extrabold text-[10px] uppercase hidden md:inline">VOZ IA:</span>
-            <select
-              value={selectedVoice}
-              onChange={(e) => handleVoiceChange(e.target.value)}
-              className="bg-transparent font-bold text-[var(--fg)] focus:outline-none cursor-pointer text-xs"
-              title="Selecione a persona de voz neural do Gemini para reprodução hiper-realista"
-            >
-              {NEURAL_VOICES.map((v) => (
-                <option key={v.id} value={v.id} className="bg-[var(--surface)] text-[var(--fg)]">
-                  ✨ {v.name}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {/* Limpar Histórico */}
-          <button
-            onClick={handleClearHistory}
-            className="p-2 text-[var(--muted)] hover:text-[var(--fg)] hover:bg-[oklch(0.96_0.01_84)] rounded-full border border-transparent hover:border-[var(--border)] transition cursor-pointer"
-            title="Limpar histórico da conversa"
-          >
-            <Trash2 className="w-3.5 h-3.5" />
-          </button>
+        {/* Barra Compacta de Proficiência Integrada */}
+        <div className="mt-2 pt-2 border-t border-[var(--border)]">
+          <TopicProficiencyBar
+            currentTopic={currentTopic}
+            stats={stats}
+            messagesCount={messages.length}
+            isFocusMode={isFocusMode}
+          />
         </div>
       </div>
+
+      {/* Modal de Criação de Nova Conversa (Livre ou por Lição) */}
+      {isNewConvModalOpen && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-zinc-900 border-2 border-stone-300 dark:border-zinc-700 rounded-2xl max-w-lg w-full p-5 sm:p-6 shadow-2xl space-y-4 max-h-[90vh] flex flex-col animate-in fade-in zoom-in-95 duration-150 text-stone-900 dark:text-stone-100">
+            <div className="flex items-center justify-between border-b border-stone-200 dark:border-zinc-800 pb-3">
+              <div className="flex items-center space-x-2.5">
+                <div className="w-8 h-8 rounded-lg bg-amber-500/15 flex items-center justify-center text-amber-600 dark:text-amber-400">
+                  <MessageSquarePlus className="w-5 h-5" />
+                </div>
+                <h3 className="text-base font-bold text-stone-900 dark:text-stone-100 font-display">Iniciar Nova Conversa</h3>
+              </div>
+              <button
+                onClick={() => setIsNewConvModalOpen(false)}
+                className="text-stone-400 hover:text-stone-700 dark:hover:text-stone-200 text-base font-bold p-1 rounded-md hover:bg-stone-100 dark:hover:bg-zinc-800 transition cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Tabs de Seleção */}
+            <div className="flex border-b border-stone-200 dark:border-zinc-800 gap-2">
+              <button
+                onClick={() => setNewConvTab('lessons')}
+                className={`pb-2 px-3 text-xs font-bold border-b-2 transition cursor-pointer flex items-center gap-1.5 ${
+                  newConvTab === 'lessons'
+                    ? 'border-amber-600 text-amber-600 dark:text-amber-400 dark:border-amber-400'
+                    : 'border-transparent text-stone-500 hover:text-stone-800 dark:hover:text-stone-200'
+                }`}
+              >
+                <BookOpen className="w-3.5 h-3.5" />
+                <span>Por Lição ({StorageService.getMaterials().length})</span>
+              </button>
+              <button
+                onClick={() => setNewConvTab('prompts')}
+                className={`pb-2 px-3 text-xs font-bold border-b-2 transition cursor-pointer flex items-center gap-1.5 ${
+                  newConvTab === 'prompts'
+                    ? 'border-amber-600 text-amber-600 dark:text-amber-400 dark:border-amber-400'
+                    : 'border-transparent text-stone-500 hover:text-stone-800 dark:hover:text-stone-200'
+                }`}
+              >
+                <Sparkles className="w-3.5 h-3.5" />
+                <span>Tópicos Sugeridos</span>
+              </button>
+              <button
+                onClick={() => setNewConvTab('custom')}
+                className={`pb-2 px-3 text-xs font-bold border-b-2 transition cursor-pointer flex items-center gap-1.5 ${
+                  newConvTab === 'custom'
+                    ? 'border-amber-600 text-amber-600 dark:text-amber-400 dark:border-amber-400'
+                    : 'border-transparent text-stone-500 hover:text-stone-800 dark:hover:text-stone-200'
+                }`}
+              >
+                <Sliders className="w-3.5 h-3.5" />
+                <span>Personalizado</span>
+              </button>
+            </div>
+
+            {/* Conteúdo das Tabs */}
+            <div className="flex-1 overflow-y-auto space-y-3 py-1">
+              {newConvTab === 'lessons' && (
+                <div className="space-y-2">
+                  <p className="text-xs text-stone-600 dark:text-stone-400 leading-relaxed">
+                    Selecione uma lição para praticar com o tutor pedagógico. A conversa será
+                    contextualizada com os vocabulários e estruturas da lição:
+                  </p>
+                  {StorageService.getMaterials().length === 0 ? (
+                    <div className="p-5 bg-stone-50 dark:bg-zinc-800/80 rounded-xl border border-stone-200 dark:border-zinc-700 text-center space-y-2 text-xs text-stone-500 dark:text-stone-400">
+                      <BookOpen className="w-7 h-7 mx-auto text-stone-400" />
+                      <p className="font-semibold text-stone-700 dark:text-stone-300">Nenhuma lição cadastrada ainda no Estúdio de Materiais.</p>
+                      <p className="text-[11px]">
+                        Você também pode escolher um dos Tópicos Sugeridos ou criar uma conversa personalizada!
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="space-y-2 max-h-72 overflow-y-auto">
+                      {StorageService.getMaterials().map((mat) => (
+                        <div
+                          key={mat.id}
+                          onClick={() => handleCreateNewConversationForLesson(mat)}
+                          className="p-3 bg-stone-50 dark:bg-zinc-800/90 hover:bg-stone-100 dark:hover:bg-zinc-800 border border-stone-200 dark:border-zinc-700 hover:border-amber-500 rounded-xl cursor-pointer transition flex items-center justify-between gap-3 text-xs shadow-xs"
+                        >
+                          <div className="space-y-1 min-w-0">
+                            <div className="flex items-center space-x-2">
+                              <span className="font-bold text-stone-900 dark:text-stone-100 truncate">{mat.titulo}</span>
+                              <span className="px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-700 dark:text-amber-400 font-mono text-[10px] font-bold shrink-0">
+                                {mat.idioma_alvo} • {mat.nivel_cefr}
+                              </span>
+                            </div>
+                            <p className="text-[11px] text-stone-500 dark:text-stone-400 line-clamp-1">
+                              {mat.vocabulario?.length || 0} vocábulos • {mat.flashcards?.length || 0} flashcards
+                            </p>
+                          </div>
+                          <Button size="sm" className="shrink-0 text-xs gap-1 cursor-pointer">
+                            <span>Praticar</span>
+                            <ChevronRight className="w-3.5 h-3.5" />
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {newConvTab === 'prompts' && (
+                <div className="space-y-2">
+                  <p className="text-xs text-stone-600 dark:text-stone-400">
+                    Escolha um tema recomendado para iniciar um diálogo guiado:
+                  </p>
+                  <div className="space-y-2 max-h-72 overflow-y-auto">
+                    {quickPrompts.map((p, idx) => (
+                      <div
+                        key={idx}
+                        onClick={() => handleCreateNewCustomConversation(p, p.slice(0, 45) + '...')}
+                        className="p-3 bg-stone-50 dark:bg-zinc-800/90 hover:bg-stone-100 dark:hover:bg-zinc-800 border border-stone-200 dark:border-zinc-700 hover:border-amber-500 rounded-xl cursor-pointer transition text-xs flex items-center justify-between gap-2 shadow-xs"
+                      >
+                        <span className="text-stone-900 dark:text-stone-100 font-medium">{p}</span>
+                        <ChevronRight className="w-4 h-4 text-stone-400 shrink-0" />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {newConvTab === 'custom' && (
+                <form
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    if (customConvTopic.trim()) {
+                      handleCreateNewCustomConversation(customConvTopic, customConvTitle);
+                    }
+                  }}
+                  className="space-y-3"
+                >
+                  <div>
+                    <label className="block text-xs font-bold text-stone-900 dark:text-stone-100 mb-1">
+                      Título da Conversa (Opcional):
+                    </label>
+                    <input
+                      type="text"
+                      value={customConvTitle}
+                      onChange={(e) => setCustomConvTitle(e.target.value)}
+                      placeholder="Ex: Treino para Entrevista, Prática de Restaurante..."
+                      className="w-full bg-stone-50 dark:bg-zinc-800 border border-stone-300 dark:border-zinc-700 rounded-lg px-3 py-2 text-xs text-stone-900 dark:text-stone-100 placeholder-stone-400 focus:outline-none focus:ring-1 focus:ring-amber-500"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-stone-900 dark:text-stone-100 mb-1">
+                      Tópico ou Situação de Estudo:
+                    </label>
+                    <textarea
+                      value={customConvTopic}
+                      onChange={(e) => setCustomConvTopic(e.target.value)}
+                      placeholder="Ex: Simular uma negociação comercial em francês ou pedir comida em um restaurante em Paris..."
+                      rows={3}
+                      required
+                      className="w-full bg-stone-50 dark:bg-zinc-800 border border-stone-300 dark:border-zinc-700 rounded-lg p-3 text-xs text-stone-900 dark:text-stone-100 placeholder-stone-400 focus:outline-none focus:ring-1 focus:ring-amber-500"
+                    />
+                  </div>
+
+                  <div className="flex justify-end gap-2 pt-2 border-t border-stone-200 dark:border-zinc-800">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setIsNewConvModalOpen(false)}
+                      className="text-xs cursor-pointer"
+                    >
+                      Cancelar
+                    </Button>
+                    <Button
+                      type="submit"
+                      size="sm"
+                      disabled={!customConvTopic.trim()}
+                      className="text-xs gap-1.5 cursor-pointer"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                      <span>Iniciar Conversa</span>
+                    </Button>
+                  </div>
+                </form>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Painel Central de Mensagens */}
       <div className="relative flex-1 bg-[var(--surface)] border border-[var(--border)] rounded-[var(--r-lg)] p-4 sm:p-6 overflow-y-auto space-y-4 shadow-sm overflow-hidden flex flex-col">
@@ -1487,6 +1955,24 @@ export const ChatTutor: React.FC<ChatTutorProps> = ({
               Desativar
             </button>
           </div>
+        </div>
+      )}
+
+      {/* Dicas Pedagógicas de Como Responder (Modelos de Frase para Ensinar o Usuário) */}
+      {!isRecording && !transcribing && replyTips.length > 0 && (
+        <div className="mb-2">
+          <QuickRepliesContainer
+            tips={replyTips}
+            onApplyStarter={(starterText) => {
+              setInputText((prev) => {
+                const trimmed = prev.trim();
+                return trimmed ? `${trimmed} ${starterText}` : starterText;
+              });
+              const inputElem = document.getElementById('tutor-chat-input');
+              inputElem?.focus();
+            }}
+            disabled={isLoading}
+          />
         </div>
       )}
 

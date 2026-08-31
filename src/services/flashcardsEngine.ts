@@ -7,34 +7,27 @@ import {
   UserStats,
 } from '../types';
 import { StorageService } from './storage';
+import { getLanguageConfig } from '../config/languages';
+import { AchievementEngine } from './achievementEngine';
 
 export class FlashcardsEngine {
   /**
    * Converte nós do Grafo de Memória em Flashcards com agendamento SRS (SM-2 adaptado).
-   * Prioriza termos com menor domínio, maior frequência de erro e maior dificuldade.
+   * Prioriza termos com menor domínio, maior frequência de erro e maior dificuldade com isolamento estrito de idioma.
    */
   static getFlashcardsFromGraph(
     idiomaFiltro: string,
     filterMode: FlashcardFilterMode = 'todos'
   ): SRSFlashcard[] {
     const allNodes = StorageService.getNodes();
+    const targetLang = getLanguageConfig(idiomaFiltro);
     const now = new Date();
 
-    // Filtra por idioma
-    const normLang = (idiomaFiltro || '').toLowerCase();
+    // Filtra por idioma de forma estrita
     let langNodes = allNodes.filter((node) => {
-      const nodeLang = (node.idioma || '').toLowerCase();
-      if (!nodeLang) return true; // se não especificado, inclui
-      return (
-        normLang.includes(nodeLang) ||
-        nodeLang.includes(normLang) ||
-        node.titulo.toLowerCase().includes(normLang)
-      );
+      const nodeLang = getLanguageConfig(node.idioma || 'ingles');
+      return nodeLang.id === targetLang.id;
     });
-
-    if (langNodes.length === 0) {
-      langNodes = allNodes;
-    }
 
     // Aplica o filtro selecionado
     let filteredNodes = langNodes.filter((node) => {
@@ -53,10 +46,6 @@ export class FlashcardsEngine {
       }
       return true;
     });
-
-    if (filteredNodes.length === 0) {
-      filteredNodes = langNodes;
-    }
 
     // Ordena priorizando termos com menor domínio e maior dificuldade/erro
     filteredNodes.sort((a, b) => {
@@ -240,27 +229,20 @@ export class FlashcardsEngine {
     const currentLevelBase = Math.pow(currentStats.nivel, 2) * 80;
     const newLevel = newXp >= currentLevelBase ? currentStats.nivel + 1 : currentStats.nivel;
 
-    // Verifica Conquistas de Repetição Espaçada
-    const unlockedAchievements = [...(currentStats.conquistas_desbloqueadas || [])];
-    if (novo_dominio >= 80 && !unlockedAchievements.includes('mestre_conceitos_dificeis')) {
-      unlockedAchievements.push('mestre_conceitos_dificeis');
-    }
-    if (!unlockedAchievements.includes('memoria_blindada')) {
-      unlockedAchievements.push('memoria_blindada');
-    }
-
-    const updatedStats: UserStats = {
+    const interimStats: UserStats = {
       ...currentStats,
       xp: newXp,
       nivel: newLevel,
       total_respostas: newTotalAnswers,
       respostas_corretas: newCorrectAnswers,
       erros_corrigidos: newErrorsCorrected,
-      conquistas_desbloqueadas: unlockedAchievements,
-      minutos_hoje: (currentStats.minutos_hoje || 0) + 1,
     };
 
-    StorageService.saveStats(updatedStats);
+    StorageService.saveStats(interimStats);
+
+    // Avalia conquistas reais baseadas em regras de negócio verificadas
+    AchievementEngine.evaluateAll();
+    const updatedStats = StorageService.getStats();
 
     const result: SRSReviewResult = {
       cardId: card.id,

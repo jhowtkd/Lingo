@@ -258,26 +258,26 @@ export const GraphMemoryView: React.FC = () => {
   };
 
   return (
-    <div className="max-w-7xl mx-auto space-y-6">
+    <div className="max-w-7xl mx-auto space-y-6 text-left">
       {/* Cabeçalho */}
-      <div className="relative bg-card border border-border rounded-lg p-6 shadow-2xs flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+      <div className="relative view-card p-6 sm:p-7 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
         <CornerPlus />
         <div>
           <div className="flex items-center space-x-2">
-            <div className="inline-flex items-center rounded border border-border bg-muted/60 px-2 py-0.5 font-mono text-[10px] font-semibold text-muted-foreground uppercase">
+            <div className="inline-flex items-center rounded-full border border-[var(--border)] bg-[var(--surface)] px-2.5 py-0.5 font-mono text-[10px] font-bold text-[var(--muted)] uppercase">
               KNOWLEDGE GRAPH & MEMORY
             </div>
             {sessionNewNodeIds.size > 0 && (
-              <div className="inline-flex items-center gap-1 rounded border border-foreground/30 bg-foreground/10 px-2 py-0.5 font-mono text-[10px] font-bold text-foreground">
-                <Sparkles className="w-3 h-3 text-amber-500" />
+              <div className="inline-flex items-center gap-1 rounded-full border border-[var(--border)] bg-[var(--accent)] px-2.5 py-0.5 font-mono text-[10px] font-extrabold text-[var(--fg)]">
+                <Sparkles className="w-3 h-3 text-amber-600" />
                 <span>{sessionNewNodeIds.size} NOVO(S) NA SESSÃO</span>
               </div>
             )}
           </div>
-          <h2 className="text-xl font-bold tracking-tight text-foreground mt-1">
+          <h2 className="text-xl sm:text-2xl font-bold font-display tracking-tight text-[var(--fg)] mt-1.5">
             Memória em Grafo de Conhecimento
           </h2>
-          <p className="text-xs sm:text-sm text-muted-foreground font-mono mt-0.5">
+          <p className="text-xs sm:text-sm text-[var(--muted)] mt-1 max-w-2xl leading-relaxed">
             Acompanhamento relacional de conceitos, dificuldades, equívocos e repetição espaçada.
           </p>
         </div>

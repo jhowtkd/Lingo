@@ -233,7 +233,7 @@ export const AchievementsView: React.FC<AchievementsViewProps> = ({
       <motion.div
         initial={{ opacity: 0, y: -10 }}
         animate={{ opacity: 1, y: 0 }}
-        className="bg-[var(--surface)] border border-[var(--border)] rounded-[var(--r-lg)] p-6 sm:p-7 shadow-[var(--shadow-sm)] flex flex-col md:flex-row items-start md:items-center justify-between gap-4"
+        className="view-card p-6 sm:p-7 flex flex-col md:flex-row items-start md:items-center justify-between gap-4"
       >
         <div>
           <div className="flex items-center space-x-2.5">
@@ -269,7 +269,7 @@ export const AchievementsView: React.FC<AchievementsViewProps> = ({
           initial={{ opacity: 0, x: -15 }}
           animate={{ opacity: 1, x: 0 }}
           transition={{ duration: 0.3 }}
-          className="bg-[var(--surface)] border border-[var(--border)] rounded-[var(--r)] p-6 shadow-[var(--shadow-sm)] space-y-4 relative overflow-hidden text-left"
+          className="view-card p-6 sm:p-7 space-y-4 relative overflow-hidden text-left"
         >
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-3">
@@ -315,7 +315,7 @@ export const AchievementsView: React.FC<AchievementsViewProps> = ({
           initial={{ opacity: 0, x: 15 }}
           animate={{ opacity: 1, x: 0 }}
           transition={{ duration: 0.3 }}
-          className="bg-[var(--surface)] border border-[var(--border)] rounded-[var(--r)] p-6 shadow-[var(--shadow-sm)] space-y-4 text-left"
+          className="view-card p-6 sm:p-7 space-y-4 text-left"
         >
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-3">

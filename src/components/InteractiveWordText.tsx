@@ -71,7 +71,7 @@ export const InteractiveWordText: React.FC<InteractiveWordTextProps> = ({
                   <span
                     key={tokenIdx}
                     onClick={(e) => handleWordClick(e, cleanWord, line)}
-                    className="inline-block cursor-pointer px-0.5 -mx-0.5 rounded-sm hover:bg-[var(--accent)] hover:text-black hover:font-semibold transition-all duration-100 underline decoration-dotted decoration-[var(--accent-deep)]/60 underline-offset-3 hover:no-underline"
+                    className="inline-block cursor-pointer px-0.5 -mx-0.5 rounded-sm hover:bg-primary/15 hover:text-primary transition-all duration-100 hover:font-medium"
                     title={`Clique para ver sinônimos, IPA e tradução de "${cleanWord}"`}
                   >
                     {token}

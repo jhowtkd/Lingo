@@ -32,6 +32,7 @@ export default function App() {
   const [showSharedPacksModal, setShowSharedPacksModal] = useState(false);
   const [showOnboardingModal, setShowOnboardingModal] = useState(() => !StorageService.hasCompletedOnboarding());
   const [customTopicInput, setCustomTopicInput] = useState('');
+  const [targetMaterialId, setTargetMaterialId] = useState<string | undefined>(undefined);
 
   // Identificação do Tema do Idioma Ativo
   const activeLanguageTheme = getLanguageTheme(stats.idioma_ativo || currentTopic);
@@ -183,8 +184,20 @@ export default function App() {
               <HomeOverview
                 stats={stats}
                 currentTopic={currentTopic}
-                onNavigate={(tab) => setActiveTab(tab)}
+                onNavigate={(tab) => {
+                  if (tab !== 'materials') setTargetMaterialId(undefined);
+                  setActiveTab(tab);
+                }}
                 onOpenOnboarding={() => setShowOnboardingModal(true)}
+                onUpdateStats={handleUpdateStats}
+                onNavigateToMaterialsWithId={(matId) => {
+                  setTargetMaterialId(matId);
+                  setActiveTab('materials');
+                }}
+                onNavigateToChatWithTopic={(topic) => {
+                  setCurrentTopic(topic);
+                  setActiveTab('chat');
+                }}
               />
             )}
 
@@ -225,6 +238,7 @@ export default function App() {
 
             {activeTab === 'materials' && (
               <MaterialsView
+                selectedMaterialId={targetMaterialId}
                 onPracticeInChat={(topic, language) => {
                   setCurrentTopic(`${language}: ${topic}`);
                   setActiveTab('chat');

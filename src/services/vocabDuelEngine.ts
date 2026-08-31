@@ -7,37 +7,31 @@ import {
 } from '../types';
 import { StorageService } from './storage';
 import { GraphEngine } from './graphEngine';
+import { normalizeUnicodeText, getLanguageConfig } from '../config/languages';
 
 export const VocabDuelEngine = {
-  // Normalizador de texto para comparação tolerante
+  // Normalizador de texto para comparação tolerante preservando Unicode
   normalizeAnswer(text: string): string {
-    return (text || '')
-      .toLowerCase()
-      .normalize('NFD')
-      .replace(/[\u0300-\u036f]/g, '')
-      .replace(/[^\w\s]/gi, '')
-      .replace(/\s+/g, ' ')
-      .trim();
+    return normalizeUnicodeText(text);
   },
 
-  // Seleciona termos do Grafo de Memória e gera um lote de perguntas para o Duelo
+  // Seleciona termos do Grafo de Memória e gera um lote de perguntas para o Duelo com isolamento estrito de idioma
   generateDuelQuestions(idiomaAlvo: string = 'Inglês', totalQuestions: number = 8): DuelQuestion[] {
     const nodes = StorageService.getNodes();
-    const normIdioma = this.normalizeAnswer(idiomaAlvo);
+    const targetLang = getLanguageConfig(idiomaAlvo);
 
-    // Filtra nós relevantes para o idioma
+    // Filtra nós relevantes estritamente para o idioma
     let relevantNodes = nodes.filter((n) => {
-      const nLang = this.normalizeAnswer(n.idioma || 'ingles');
+      const nodeLang = getLanguageConfig(n.idioma || 'ingles');
       return (
-        nLang.includes(normIdioma) ||
-        normIdioma.includes(nLang) ||
-        (n.tipo === 'vocabulario' || n.tipo === 'falso_amigo' || n.tipo === 'expressao_idiomatica' || n.tipo === 'dificuldade')
+        nodeLang.id === targetLang.id &&
+        (n.tipo === 'vocabulario' ||
+          n.tipo === 'falso_amigo' ||
+          n.tipo === 'expressao_idiomatica' ||
+          n.tipo === 'dificuldade' ||
+          n.tipo === 'conceito')
       );
     });
-
-    if (relevantNodes.length === 0) {
-      relevantNodes = nodes;
-    }
 
     // Ordena nós priorizando os com menor domínio ou maior frequência de erro
     const sortedNodes = [...relevantNodes].sort((a, b) => {
@@ -54,15 +48,15 @@ export const VocabDuelEngine = {
       if (usedTitles.has(node.titulo)) continue;
       usedTitles.add(node.titulo);
 
-      const q = this.buildQuestionFromNode(node, idiomaAlvo);
+      const q = this.buildQuestionFromNode(node, targetLang.displayName);
       if (q) {
         questions.push(q);
       }
     }
 
-    // Se faltarem perguntas, completa com itens temáticos de vocabulário
+    // Se faltarem perguntas, completa com itens temáticos de vocabulário do mesmo idioma
     if (questions.length < totalQuestions) {
-      const fallbackQuestions = this.getFallbackQuestions(idiomaAlvo);
+      const fallbackQuestions = this.getFallbackQuestions(targetLang.displayName);
       for (const fq of fallbackQuestions) {
         if (questions.length >= totalQuestions) break;
         if (!usedTitles.has(fq.termo_principal)) {
@@ -196,9 +190,11 @@ export const VocabDuelEngine = {
   extractKeywords(text: string): string[] {
     if (!text) return [];
     const clean = this.normalizeAnswer(text);
-    const words = clean.split(' ').filter((w) => w.length > 3);
-    const parts = text.split(/[/|,;=]/).map((p) => this.normalizeAnswer(p)).filter(Boolean);
-    return Array.from(new Set([clean, ...parts, ...words]));
+    const parts = text
+      .split(/[/|,;=]/)
+      .map((p) => this.normalizeAnswer(p))
+      .filter((p) => p.length >= 2);
+    return Array.from(new Set([clean, ...parts]));
   },
 
   // Avalia a resposta do usuário (seja por texto ou fala transcrita)
@@ -211,7 +207,7 @@ export const VocabDuelEngine = {
   ): DuelRoundAnswer {
     const normUser = this.normalizeAnswer(userAnswer);
     const normExpected = this.normalizeAnswer(question.resposta_esperada);
-    const altNorms = question.respostas_alternativas.map((a) => this.normalizeAnswer(a));
+    const altNorms = question.respostas_alternativas.map((a) => this.normalizeAnswer(a)).filter(Boolean);
 
     let isCorrect = false;
     let accuracyPercent = 0;
@@ -232,37 +228,39 @@ export const VocabDuelEngine = {
       };
     }
 
-    // Verificação de acerto direto ou correspondência parcial
+    // 1. Verificação de acerto direto exato
     if (normUser === normExpected || altNorms.includes(normUser)) {
       isCorrect = true;
       accuracyPercent = 100;
       feedback = 'Resposta exata e precisa!';
     } else {
-      // Verifica se a resposta contém partes essenciais da resposta esperada
-      const containsExpected = normExpected.length > 3 && (normUser.includes(normExpected) || normExpected.includes(normUser));
-      const matchAlts = altNorms.some((alt) => alt.length > 3 && (normUser.includes(alt) || alt.includes(normUser)));
+      // 2. Cálculo de similaridade tokenizada estrita (Jaccard)
+      const userTokens = new Set(normUser.split(' ').filter(Boolean));
+      const expectedTokens = new Set(normExpected.split(' ').filter(Boolean));
+      const intersection = new Set([...userTokens].filter((x) => expectedTokens.has(x)));
+      const union = new Set([...userTokens, ...expectedTokens]);
+      const jaccard = union.size > 0 ? intersection.size / union.size : 0;
 
-      if (containsExpected || matchAlts) {
+      // Correspondência de alternativas com tokens
+      let bestAltJaccard = 0;
+      for (const alt of altNorms) {
+        const altTokens = new Set(alt.split(' ').filter(Boolean));
+        const altInter = new Set([...userTokens].filter((x) => altTokens.has(x)));
+        const altUnion = new Set([...userTokens, ...altTokens]);
+        const aj = altUnion.size > 0 ? altInter.size / altUnion.size : 0;
+        if (aj > bestAltJaccard) bestAltJaccard = aj;
+      }
+
+      const effectiveSimilarity = Math.max(jaccard, bestAltJaccard);
+
+      if (effectiveSimilarity >= 0.7 || (isAudio && audioConfidence >= 0.85 && effectiveSimilarity >= 0.55)) {
         isCorrect = true;
-        accuracyPercent = 85;
-        feedback = 'Muito bom! Compreensão do significado confirmada.';
+        accuracyPercent = Math.round(effectiveSimilarity * 100);
+        feedback = 'Resposta aceita com boa aproximação!';
       } else {
-        // Cálculo de similaridade simples (Jaccard token)
-        const userTokens = new Set(normUser.split(' '));
-        const expectedTokens = new Set(normExpected.split(' '));
-        const intersection = new Set([...userTokens].filter((x) => expectedTokens.has(x)));
-        const union = new Set([...userTokens, ...expectedTokens]);
-        const jaccard = union.size > 0 ? intersection.size / union.size : 0;
-
-        if (jaccard >= 0.4 || (isAudio && audioConfidence >= 0.8 && jaccard >= 0.3)) {
-          isCorrect = true;
-          accuracyPercent = Math.round(jaccard * 100);
-          feedback = 'Resposta aceita com boa aproximação!';
-        } else {
-          isCorrect = false;
-          accuracyPercent = Math.round(jaccard * 100);
-          feedback = `Incorreto. A resposta esperada era: "${question.resposta_esperada}".`;
-        }
+        isCorrect = false;
+        accuracyPercent = Math.round(effectiveSimilarity * 100);
+        feedback = `Incorreto. A resposta esperada era: "${question.resposta_esperada}".`;
       }
     }
 

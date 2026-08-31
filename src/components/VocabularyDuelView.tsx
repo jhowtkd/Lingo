@@ -258,7 +258,7 @@ export const VocabularyDuelView: React.FC<VocabularyDuelViewProps> = ({
   const timePercent = Math.max(0, Math.min(100, (timeLeft / maxTime) * 100));
 
   return (
-    <div className="flex flex-col h-full space-y-4">
+    <div className="view-card p-5 sm:p-7 md:p-8 space-y-6 max-w-4xl mx-auto w-full text-left">
       {/* Cabeçalho do Duelo */}
       <div className="flex items-center justify-between flex-wrap gap-3 pb-3 border-b border-[var(--border)]">
         <div className="flex items-center space-x-3">

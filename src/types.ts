@@ -149,6 +149,20 @@ export interface ChatMessage {
   is_audio_response?: boolean;
 }
 
+export interface ChatConversation {
+  id: string;
+  titulo: string;
+  topico: string;
+  idioma: string;
+  material_id?: string; // id da lição / material vinculado
+  material_titulo?: string;
+  criado_em: string;
+  atualizado_em: string;
+  mensagens: ChatMessage[];
+  nivel_cefr?: CEFRLevel;
+  total_mensagens?: number;
+}
+
 export interface UserStats {
   xp: number;
   nivel: number;

@@ -1,4 +1,5 @@
 import { CEFRLevel, SpeechRateMetrics, SpeechRatePacing } from '../types';
+import { normalizeCEFRLevel, countWordsForLanguage } from '../config/languages';
 
 export interface CEFRRateTarget {
   level: CEFRLevel;
@@ -69,28 +70,17 @@ export const CEFR_SPEECH_RATE_TARGETS: Record<CEFRLevel, CEFRRateTarget> = {
 
 export class SpeechRateService {
   /**
-   * Converte nível simplificado de estudante ('Iniciante', 'Intermediário', 'Avançado') para CEFRLevel
+   * Converte nível de estudante para CEFRLevel com ordem rigorosa de precedência
    */
   static mapStudentLevelToCEFR(studentLevel?: string): CEFRLevel {
-    if (!studentLevel) return 'B1';
-    const norm = studentLevel.toLowerCase();
-    if (norm.includes('iniciante') || norm.includes('básico') || norm === 'a1') return 'A1';
-    if (norm.includes('a2')) return 'A2';
-    if (norm.includes('intermediário') || norm === 'b1') return 'B1';
-    if (norm.includes('b2')) return 'B2';
-    if (norm.includes('avançado') || norm === 'c1') return 'C1';
-    if (norm === 'c2') return 'C2';
-    return 'B1';
+    return normalizeCEFRLevel(studentLevel);
   }
 
   /**
-   * Conta palavras limpas em um texto
+   * Conta palavras limpas em um texto com suporte multilíngue
    */
-  static countWords(text: string): number {
-    if (!text || !text.trim()) return 0;
-    const cleanText = text.trim().replace(/[.,/#!$%^&*;:{}=\-_`~()?"'«»]/g, ' ');
-    const tokens = cleanText.split(/\s+/).filter((t) => t.length > 0);
-    return tokens.length;
+  static countWords(text: string, language: string = 'Inglês'): number {
+    return countWordsForLanguage(text, language);
   }
 
   /**
@@ -100,9 +90,9 @@ export class SpeechRateService {
     text: string,
     durationSeconds: number,
     cefrLevel: CEFRLevel = 'B1',
-    _language: string = 'Inglês'
+    language: string = 'Inglês'
   ): SpeechRateMetrics {
-    const wordsCount = this.countWords(text);
+    const wordsCount = this.countWords(text, language);
     const safeDuration = Math.max(1, durationSeconds || 1);
 
     // WPM = (palavras / segundos) * 60

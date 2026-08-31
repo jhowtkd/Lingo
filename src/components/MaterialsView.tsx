@@ -42,9 +42,10 @@ import { Badge } from './ui/badge';
 
 interface MaterialsViewProps {
   onPracticeInChat?: (topic: string, language: string) => void;
+  selectedMaterialId?: string;
 }
 
-export const MaterialsView: React.FC<MaterialsViewProps> = ({ onPracticeInChat }) => {
+export const MaterialsView: React.FC<MaterialsViewProps> = ({ onPracticeInChat, selectedMaterialId }) => {
   const [materials, setMaterials] = useState<StudyMaterialItem[]>([]);
   const [selectedMaterial, setSelectedMaterial] = useState<StudyMaterialItem | null>(null);
   const [activeTab, setActiveTab] = useState<'vocab' | 'grammar' | 'dialogue' | 'flashcards' | 'quiz'>('vocab');
@@ -62,6 +63,8 @@ export const MaterialsView: React.FC<MaterialsViewProps> = ({ onPracticeInChat }
   // Estados dos Flashcards
   const [currentCardIndex, setCurrentCardIndex] = useState(0);
   const [isCardFlipped, setIsCardFlipped] = useState(false);
+  const [autoPronounceFlashcard, setAutoPronounceFlashcard] = useState(true);
+  const [isPlayingFlashcardAudio, setIsPlayingFlashcardAudio] = useState(false);
 
   // Estados do Quiz
   const [selectedQuizAnswers, setSelectedQuizAnswers] = useState<Record<number, string>>({});
@@ -75,9 +78,14 @@ export const MaterialsView: React.FC<MaterialsViewProps> = ({ onPracticeInChat }
     const list = StorageService.getMaterials();
     setMaterials(list);
     if (list.length > 0) {
-      setSelectedMaterial(list[0]);
+      if (selectedMaterialId) {
+        const found = list.find((m) => m.id === selectedMaterialId);
+        setSelectedMaterial(found || list[0]);
+      } else {
+        setSelectedMaterial(list[0]);
+      }
     }
-  }, []);
+  }, [selectedMaterialId]);
 
   // Extrai ID do YouTube
   const getYouTubeId = (url: string) => {
@@ -104,6 +112,25 @@ export const MaterialsView: React.FC<MaterialsViewProps> = ({ onPracticeInChat }
       rate: 0.88,
     });
   };
+
+  // Auto-pronúncia de Flashcard do Material
+  useEffect(() => {
+    if (
+      activeTab === 'flashcards' &&
+      autoPronounceFlashcard &&
+      selectedMaterial?.flashcards &&
+      selectedMaterial.flashcards[currentCardIndex]
+    ) {
+      const card = selectedMaterial.flashcards[currentCardIndex];
+      const timer = setTimeout(() => {
+        setIsPlayingFlashcardAudio(true);
+        speakText(card.frente, selectedMaterial.idioma_alvo);
+        const resetTimer = setTimeout(() => setIsPlayingFlashcardAudio(false), 1500);
+        return () => clearTimeout(resetTimer);
+      }, 250);
+      return () => clearTimeout(timer);
+    }
+  }, [activeTab, currentCardIndex, autoPronounceFlashcard, selectedMaterial]);
 
   // Geração de Novo Material
   const handleGenerateMaterial = async (e: React.FormEvent) => {
@@ -302,8 +329,17 @@ export const MaterialsView: React.FC<MaterialsViewProps> = ({ onPracticeInChat }
 
   // Praticar no Chat
   const handleStartPracticeInChat = () => {
-    if (selectedMaterial && onPracticeInChat) {
-      onPracticeInChat(selectedMaterial.titulo, selectedMaterial.idioma_alvo);
+    if (selectedMaterial) {
+      StorageService.createConversation({
+        materialId: selectedMaterial.id,
+        materialTitulo: selectedMaterial.titulo,
+        topico: selectedMaterial.titulo,
+        idioma: selectedMaterial.idioma_alvo,
+        nivelCefr: selectedMaterial.nivel_cefr as any,
+      });
+      if (onPracticeInChat) {
+        onPracticeInChat(selectedMaterial.titulo, selectedMaterial.idioma_alvo);
+      }
     }
   };
 
@@ -336,23 +372,23 @@ Camarero: ¡Enseguida se lo traigo!`,
   ];
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 w-full text-left">
       {/* Top Header com Botão de Criação */}
-      <div className="relative flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-card p-5 rounded-lg border border-border shadow-2xs">
+      <div className="relative flex flex-col sm:flex-row sm:items-center justify-between gap-4 view-card p-5 sm:p-7">
         <CornerPlus />
         <div>
           <div className="flex items-center space-x-2">
-            <div className="inline-flex items-center rounded border border-border bg-muted/60 px-2 py-0.5 font-mono text-[10px] font-semibold text-muted-foreground uppercase">
+            <div className="inline-flex items-center rounded-full border border-[var(--border)] bg-[var(--surface)] px-2.5 py-0.5 font-mono text-[10px] font-bold text-[var(--muted)] uppercase">
               STUDY SUITE
             </div>
-            <span className="px-2 py-0.5 rounded border border-border bg-muted font-mono text-[10px] font-semibold text-foreground">
+            <span className="px-2.5 py-0.5 rounded-full border border-[var(--border)] bg-[oklch(0.96_0.01_84)] font-mono text-[10px] font-bold text-[var(--fg)]">
               VÍDEOS & TEXTOS COM IA
             </span>
           </div>
-          <h2 className="text-lg sm:text-xl font-bold tracking-tight text-foreground mt-1">
+          <h2 className="text-xl sm:text-2xl font-bold font-display tracking-tight text-[var(--fg)] mt-1.5">
             Estúdio de Materiais & Imersão
           </h2>
-          <p className="text-xs sm:text-sm text-muted-foreground font-mono mt-0.5">
+          <p className="text-xs sm:text-sm text-[var(--muted)] mt-1 max-w-2xl leading-relaxed">
             Transforme links do YouTube, textos, artigos e diálogos em kits de estudos estruturados
             com transcrição fonética IPA, gramática contrastiva e flashcards.
           </p>
@@ -361,7 +397,7 @@ Camarero: ¡Enseguida se lo traigo!`,
         <Button
           onClick={() => setShowCreateForm(!showCreateForm)}
           size="sm"
-          className="gap-1.5 font-mono text-xs cursor-pointer shadow-2xs"
+          className="gap-1.5 text-xs font-bold cursor-pointer rounded-full px-4 py-2"
         >
           <Plus className="w-4 h-4" />
           <span>{showCreateForm ? 'Fechar Formulário' : 'Novo Material'}</span>
@@ -372,17 +408,17 @@ Camarero: ¡Enseguida se lo traigo!`,
       {showCreateForm && (
         <form
           onSubmit={handleGenerateMaterial}
-          className="relative bg-card p-6 rounded-lg border border-border shadow-md space-y-5 animate-in fade-in duration-200 font-mono"
+          className="relative view-card p-6 sm:p-8 space-y-6 animate-in fade-in duration-200 text-left"
         >
           <CornerPlus />
-          <div className="flex items-center justify-between border-b border-border pb-3">
+          <div className="flex items-center justify-between border-b border-[var(--border)] pb-3">
             <div className="flex items-center space-x-2">
-              <Sparkles className="w-5 h-5 text-foreground" />
-              <h3 className="text-sm sm:text-base font-bold tracking-tight text-foreground">
+              <Sparkles className="w-5 h-5 text-[var(--accent-deep)]" />
+              <h3 className="text-sm sm:text-base font-bold tracking-tight text-[var(--fg)]">
                 Transformar Fonte em Kit de Estudos
               </h3>
             </div>
-            <span className="text-xs text-muted-foreground">Processado via Gemini AI</span>
+            <span className="text-xs text-[var(--muted)]">Processado via Gemini AI</span>
           </div>
 
           {/* Seletores de Idioma e Nível */}
@@ -634,15 +670,15 @@ Camarero: ¡Enseguida se lo traigo!`,
           </div>
 
           {materials.length === 0 ? (
-            <div className="relative bg-card p-8 rounded-lg border border-border text-center space-y-3 shadow-2xs font-mono">
+            <div className="relative view-card-subtle p-8 text-center space-y-3 font-mono">
               <CornerPlus />
-              <BookOpen className="w-8 h-8 text-muted-foreground mx-auto" />
-              <p className="text-xs text-muted-foreground">Nenhum material adicionado ainda.</p>
+              <BookOpen className="w-8 h-8 text-[var(--muted)] mx-auto" />
+              <p className="text-xs text-[var(--muted)]">Nenhum material adicionado ainda.</p>
               <Button
                 onClick={() => setShowCreateForm(true)}
                 variant="outline"
                 size="sm"
-                className="text-xs cursor-pointer"
+                className="text-xs cursor-pointer rounded-full"
               >
                 + Adicionar Primeiro Material
               </Button>
@@ -662,25 +698,25 @@ Camarero: ¡Enseguida se lo traigo!`,
                       setSelectedQuizAnswers({});
                       setQuizSubmitted(false);
                     }}
-                    className={`relative p-3.5 rounded-lg border text-left cursor-pointer transition-all shadow-2xs ${
+                    className={`relative p-4 rounded-2xl border text-left cursor-pointer transition-all shadow-xs ${
                       isSelected
-                        ? 'bg-card border-foreground/50 ring-1 ring-foreground/20'
-                        : 'bg-card/80 border-border hover:bg-card hover:border-border/80'
+                        ? 'bg-[var(--surface)] border-[var(--accent-deep)] ring-2 ring-[var(--accent-deep)]/20 shadow-[var(--shadow-depth)]'
+                        : 'bg-[var(--surface)]/80 border-[var(--border)] hover:bg-[var(--surface)] hover:border-[var(--fg)]/30 hover:shadow-xs'
                     }`}
                   >
                     <CornerPlus size="size-3" />
                     <div className="flex items-start justify-between gap-2">
                       <div className="flex items-center space-x-1.5 font-mono">
                         {isYt ? (
-                          <span className="p-1 rounded bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/30">
+                          <span className="p-1 rounded-md bg-rose-500/10 text-rose-600 border border-rose-500/30">
                             <Youtube className="w-3.5 h-3.5" />
                           </span>
                         ) : (
-                          <span className="p-1 rounded bg-muted text-foreground border border-border">
+                          <span className="p-1 rounded-md bg-[var(--surface)] text-[var(--fg)] border border-[var(--border)]">
                             <FileText className="w-3.5 h-3.5" />
                           </span>
                         )}
-                        <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-muted border border-border text-foreground">
+                        <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-[oklch(0.96_0.01_84)] border border-[var(--border)] text-[var(--fg)]">
                           {mat.idioma_alvo} • {mat.nivel_cefr}
                         </span>
                       </div>
@@ -690,26 +726,26 @@ Camarero: ¡Enseguida se lo traigo!`,
                           e.stopPropagation();
                           handleDeleteMaterial(mat.id);
                         }}
-                        className="text-muted-foreground hover:text-rose-500 p-1 transition cursor-pointer"
+                        className="text-[var(--muted)] hover:text-rose-500 p-1 transition cursor-pointer"
                         title="Excluir material"
                       >
                         <Trash2 className="w-3.5 h-3.5" />
                       </button>
                     </div>
 
-                    <h4 className="text-xs sm:text-sm font-semibold text-foreground mt-2 line-clamp-2">
+                    <h4 className="text-xs sm:text-sm font-semibold text-[var(--fg)] mt-2 line-clamp-2">
                       {mat.titulo}
                     </h4>
 
-                    <div className="flex items-center justify-between text-[11px] text-muted-foreground mt-2 pt-2 border-t border-border font-mono">
+                    <div className="flex items-center justify-between text-[11px] text-[var(--muted)] mt-2 pt-2 border-t border-[var(--border)] font-mono">
                       <span>{mat.vocabulario?.length || 0} vocábulos • {mat.flashcards?.length || 0} cards</span>
                       {mat.adicionado_ao_grafo ? (
-                        <span className="text-emerald-600 dark:text-emerald-400 flex items-center space-x-0.5 font-medium">
+                        <span className="text-emerald-600 flex items-center space-x-0.5 font-bold">
                           <Check className="w-3 h-3" />
                           <span>No Grafo</span>
                         </span>
                       ) : (
-                        <span className="text-muted-foreground">Pendente</span>
+                        <span className="text-[var(--muted)]">Pendente</span>
                       )}
                     </div>
                   </div>
@@ -722,24 +758,24 @@ Camarero: ¡Enseguida se lo traigo!`,
         {/* Coluna 2: Detalhes e Estudo Interativo do Material Selecionado */}
         <div className="lg:col-span-8 space-y-4">
           {selectedMaterial ? (
-            <div className="relative bg-card rounded-lg border border-border shadow-2xs overflow-hidden">
+            <div className="relative view-card overflow-hidden text-left">
               <CornerPlus />
               {/* Header do Material Selecionado */}
-              <div className="p-5 border-b border-border bg-muted/20">
+              <div className="p-5 sm:p-6 border-b border-[var(--border)] bg-[var(--surface-card-subtle)]">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                   <div>
-                    <div className="flex items-center space-x-2 mb-1 font-mono">
-                      <span className="px-2 py-0.5 rounded text-[11px] font-bold bg-foreground text-background">
+                    <div className="flex items-center space-x-2 mb-1.5 font-mono">
+                      <span className="px-2 py-0.5 rounded text-[11px] font-bold bg-[var(--fg)] text-[var(--bg)]">
                         {selectedMaterial.idioma_alvo}
                       </span>
-                      <span className="px-2 py-0.5 rounded text-[11px] font-bold bg-muted border border-border text-foreground">
+                      <span className="px-2 py-0.5 rounded text-[11px] font-bold bg-[var(--surface)] border border-[var(--border)] text-[var(--fg)]">
                         Nível {selectedMaterial.nivel_cefr}
                       </span>
-                      <span className="text-xs text-muted-foreground">
+                      <span className="text-xs text-[var(--muted)]">
                         Criado em {new Date(selectedMaterial.criado_em).toLocaleDateString('pt-BR')}
                       </span>
                     </div>
-                    <h3 className="text-base sm:text-lg font-bold tracking-tight text-foreground">
+                    <h3 className="text-lg sm:text-xl font-bold font-display tracking-tight text-[var(--fg)]">
                       {selectedMaterial.titulo}
                     </h3>
                   </div>
@@ -749,7 +785,7 @@ Camarero: ¡Enseguida se lo traigo!`,
                     <Button
                       onClick={handleStartPracticeInChat}
                       size="sm"
-                      className="gap-1.5 font-mono text-xs cursor-pointer shadow-2xs"
+                      className="gap-1.5 text-xs font-bold cursor-pointer rounded-full px-3.5 py-1.5"
                       title="Abrir o Tutor de Línguas e praticar este material"
                     >
                       <MessageSquare className="w-3.5 h-3.5" />
@@ -761,10 +797,10 @@ Camarero: ¡Enseguida se lo traigo!`,
                       disabled={syncedToGraph || selectedMaterial.adicionado_ao_grafo}
                       variant="outline"
                       size="sm"
-                      className={`gap-1.5 font-mono text-xs cursor-pointer ${
+                      className={`gap-1.5 text-xs font-bold cursor-pointer rounded-full px-3.5 py-1.5 ${
                         syncedToGraph || selectedMaterial.adicionado_ao_grafo
-                          ? 'border-emerald-500/40 text-emerald-600 dark:text-emerald-400 bg-emerald-500/10'
-                          : ''
+                          ? 'border-emerald-500/40 text-emerald-600 bg-emerald-500/10'
+                          : 'border-[var(--border)]'
                       }`}
                       title="Salvar vocabulário no Grafo de Memória do aluno"
                     >
@@ -778,7 +814,7 @@ Camarero: ¡Enseguida se lo traigo!`,
 
                     <button
                       onClick={handleCopyMarkdown}
-                      className="p-2 rounded-lg border border-border text-muted-foreground hover:text-foreground hover:bg-muted transition cursor-pointer"
+                      className="p-2 rounded-full border border-[var(--border)] bg-[var(--surface)] text-[var(--muted)] hover:text-[var(--fg)] hover:border-[var(--fg)] transition cursor-pointer"
                       title="Copiar Guia em Markdown"
                     >
                       {copiedMarkdown ? (
@@ -1073,7 +1109,21 @@ Camarero: ¡Enseguida se lo traigo!`,
                           <span>
                             Cartão {currentCardIndex + 1} de {selectedMaterial.flashcards.length}
                           </span>
-                          <span>Clique no cartão para virar</span>
+                          <div className="flex items-center space-x-2">
+                            <button
+                              onClick={() => setAutoPronounceFlashcard((prev) => !prev)}
+                              className={`px-2.5 py-1 rounded-full text-[11px] font-bold border transition flex items-center space-x-1 cursor-pointer ${
+                                autoPronounceFlashcard
+                                  ? 'bg-[var(--accent)] text-[var(--fg)] border-[var(--border)]'
+                                  : 'bg-[var(--surface)] text-[var(--muted)] border-[var(--border)]'
+                              }`}
+                              title="Tocar áudio automaticamente ao avançar cartão"
+                            >
+                              <Volume2 className="w-3 h-3" />
+                              <span>Som Auto: {autoPronounceFlashcard ? 'ON' : 'OFF'}</span>
+                            </button>
+                            <span className="hidden sm:inline">Clique para virar</span>
+                          </div>
                         </div>
 
                         {/* Cartão de Flashcard Interativo */}
@@ -1085,15 +1135,22 @@ Camarero: ¡Enseguida se lo traigo!`,
                             {isCardFlipped ? 'Verso (Tradução / Significado)' : 'Frente (Termo Alvo)'}
                           </span>
 
+                          {isPlayingFlashcardAudio && (
+                            <div className="absolute top-3 left-3 px-2.5 py-0.5 rounded-full bg-amber-500/15 border border-amber-500/30 text-amber-900 dark:text-amber-300 text-[10px] font-bold flex items-center space-x-1 animate-pulse">
+                              <Volume2 className="w-3 h-3" />
+                              <span>Pronunciando...</span>
+                            </div>
+                          )}
+
                           {!isCardFlipped ? (
-                            <div className="space-y-2">
+                            <div className="space-y-2 my-2">
                               <h3 className="text-xl sm:text-2xl font-display font-bold text-[var(--fg)]">
                                 {selectedMaterial.flashcards[currentCardIndex].frente}
                               </h3>
-                              <p className="text-xs text-[var(--muted)]">Toque para ver a tradução</p>
+                              <p className="text-xs text-[var(--muted)]">🔊 Ouça e repita a pronúncia • Toque para virar</p>
                             </div>
                           ) : (
-                            <div className="space-y-2">
+                            <div className="space-y-2 my-2">
                               <h3 className="text-lg sm:text-xl font-display font-bold text-[var(--ok)]">
                                 {selectedMaterial.flashcards[currentCardIndex].verso}
                               </h3>
@@ -1108,9 +1165,18 @@ Camarero: ¡Enseguida se lo traigo!`,
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
-                              speakText(selectedMaterial.flashcards[currentCardIndex].frente);
+                              setIsPlayingFlashcardAudio(true);
+                              speakText(
+                                selectedMaterial.flashcards[currentCardIndex].frente,
+                                selectedMaterial.idioma_alvo
+                              );
+                              setTimeout(() => setIsPlayingFlashcardAudio(false), 1500);
                             }}
-                            className="absolute bottom-3 right-3 p-1.5 text-[var(--muted)] hover:text-[var(--fg)] rounded-full hover:bg-[oklch(0.96_0.01_84)] cursor-pointer"
+                            className={`absolute bottom-3 right-3 p-2 rounded-full transition cursor-pointer ${
+                              isPlayingFlashcardAudio
+                                ? 'bg-amber-500/20 text-amber-600 dark:text-amber-400 scale-110 border border-amber-400'
+                                : 'text-[var(--muted)] hover:text-[var(--fg)] hover:bg-[oklch(0.96_0.01_84)]'
+                            }`}
                             title="Ouvir Pronúncia"
                           >
                             <Volume2 className="w-4 h-4" />
