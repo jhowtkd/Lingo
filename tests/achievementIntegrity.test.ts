@@ -70,6 +70,19 @@ describe('AchievementEngine integrity', () => {
     ).toBeNull();
   });
 
+  it('stores new tutor graph nodes as unscored when mastery is omitted', () => {
+    vi.spyOn(StorageService, 'getNodes').mockReturnValue([]);
+    const addOrUpdateNode = vi
+      .spyOn(StorageService, 'addOrUpdateNode')
+      .mockImplementation(() => undefined);
+
+    GraphEngine.processNewNodesFromTutor([{ titulo: 'Viagens' }], 'Bonjour', 'Francês');
+
+    expect(addOrUpdateNode).toHaveBeenCalledWith(
+      expect.objectContaining({ dominio_estimado: 0 })
+    );
+  });
+
   it('keeps topic proficiency unscored before recorded evidence', () => {
     const source = readFileSync(
       new URL('../src/components/TopicProficiencyBar.tsx', import.meta.url),
@@ -78,5 +91,14 @@ describe('AchievementEngine integrity', () => {
 
     expect(source).toContain('hasProficiencyEvidence');
     expect(source).toContain('Aguardando evidências');
+  });
+
+  it('does not persist the tutor API adaptation text', () => {
+    const source = readFileSync(
+      new URL('../src/components/ChatTutor.tsx', import.meta.url),
+      'utf8'
+    );
+
+    expect(source).not.toContain('adaptacao: data.adaptacao');
   });
 });

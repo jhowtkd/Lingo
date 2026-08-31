@@ -211,7 +211,7 @@ export const GraphEngine = {
         createdOrUpdated.push(updated);
       } else {
         // Cria novo nó
-        const initialDominio = raw.dominio_estimado ?? (raw.tipo === 'dificuldade' || raw.tipo === 'equivoco' ? 40 : 70);
+        const initialDominio = raw.dominio_estimado ?? 0;
         const nextReview = this.calculateNextReview(initialDominio, 1);
 
         const newNode: GraphNode = {

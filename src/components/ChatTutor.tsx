@@ -695,7 +695,6 @@ export const ChatTutor: React.FC<ChatTutorProps> = ({
         conteudo: data.resposta_tutor,
         timestamp: new Date().toISOString(),
         xp_ganho: acertou ? 40 : 10,
-        adaptacao: data.adaptacao,
       };
 
       setMessages([...newMsgs, tutorConfirmMsg]);
