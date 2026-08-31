@@ -406,22 +406,23 @@ export const ChatTutor: React.FC<ChatTutorProps> = ({
         // Salva automaticamente na lista de Erros Frequentes do Firestore
         try {
           const currentAuthUser = auth.currentUser;
-          const targetUid = currentAuthUser ? currentAuthUser.uid : (stats.userId || 'guest_student');
-          saveFrequentErrorToCloud({
-            id: pedagogicalCorrection.id,
-            userId: targetUid,
-            userEmail: currentAuthUser?.email || undefined,
-            userName: currentAuthUser?.displayName || undefined,
-            conceito: pedagogicalCorrection.conceito,
-            erro: pedagogicalCorrection.erro,
-            explicacao: pedagogicalCorrection.explicacao,
-            resposta_corrigida: pedagogicalCorrection.resposta_corrigida,
-            gravidade: pedagogicalCorrection.gravidade,
-            evidencia: pedagogicalCorrection.evidencia,
-            topico: currentTopic,
-            categoria: 'gramatica',
-            data: pedagogicalCorrection.data,
-          });
+          if (currentAuthUser) {
+            await saveFrequentErrorToCloud({
+              id: pedagogicalCorrection.id,
+              userId: currentAuthUser.uid,
+              userEmail: currentAuthUser.email || undefined,
+              userName: currentAuthUser.displayName || undefined,
+              conceito: pedagogicalCorrection.conceito,
+              erro: pedagogicalCorrection.erro,
+              explicacao: pedagogicalCorrection.explicacao,
+              resposta_corrigida: pedagogicalCorrection.resposta_corrigida,
+              gravidade: pedagogicalCorrection.gravidade,
+              evidencia: pedagogicalCorrection.evidencia,
+              topico: currentTopic,
+              categoria: 'gramatica',
+              data: pedagogicalCorrection.data,
+            });
+          }
         } catch (cloudErr) {
           console.warn('Erro ao salvar erro frequente no Firestore:', cloudErr);
         }
