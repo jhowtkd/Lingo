@@ -1217,21 +1217,6 @@ export const StorageService = {
           timestamp: new Date().toISOString(),
           idioma: lang,
           conceitos_chave: plan?.interesses_principais,
-          adaptacao: plan
-            ? {
-                nivel:
-                  plan.nivel_cefr === 'A1' || plan.nivel_cefr === 'A2'
-                    ? 'fundamental_analogico'
-                    : plan.nivel_cefr === 'B1' || plan.nivel_cefr === 'B2'
-                    ? 'intermediario_aplicado'
-                    : 'avancado_analitico',
-                rotulo: `Nível ${plan.nivel_cefr} (${plan.motivo_principal})`,
-                dominio_avaliado:
-                  plan.nivel_cefr === 'A1' ? 35 : plan.nivel_cefr === 'A2' ? 50 : plan.nivel_cefr === 'B1' ? 65 : 85,
-                justificativa: `Início calibrado com base no plano de estudos gerado para ${plan.idioma}.`,
-                estrategia_pedagogica: plan.estrategia_pedagogica || 'Imersão conversacional adaptativa.',
-              }
-            : undefined,
         },
       ];
     }
@@ -1379,13 +1364,6 @@ export const StorageService = {
       timestamp: new Date().toISOString(),
       idioma: lang,
       conceitos_chave: materialItem ? materialItem.vocabulario?.slice(0, 4).map((v) => v.termo) : undefined,
-      adaptacao: {
-        nivel: cefr === 'A1' || cefr === 'A2' ? 'fundamental_analogico' : cefr === 'B1' || cefr === 'B2' ? 'intermediario_aplicado' : 'avancado_analitico',
-        rotulo: `Nível ${cefr} • ${options.materialTitulo || options.topico}`,
-        dominio_avaliado: cefr === 'A1' ? 40 : cefr === 'A2' ? 55 : cefr === 'B1' ? 70 : 85,
-        justificativa: materialItem ? `Sessão dedicada ao material de estudo "${materialItem.titulo}".` : `Nova conversa sobre ${options.topico}.`,
-        estrategia_pedagogica: 'Imersão conversacional orientada à lição.',
-      },
     };
 
     const newConv: ChatConversation = {
@@ -1494,21 +1472,6 @@ export const StorageService = {
         timestamp: new Date().toISOString(),
         idioma: lang,
         conceitos_chave: activePlan?.interesses_principais,
-        adaptacao: activePlan
-          ? {
-              nivel:
-                activePlan.nivel_cefr === 'A1' || activePlan.nivel_cefr === 'A2'
-                  ? 'fundamental_analogico'
-                  : activePlan.nivel_cefr === 'B1' || activePlan.nivel_cefr === 'B2'
-                  ? 'intermediario_aplicado'
-                  : 'avancado_analitico',
-              rotulo: `Nível ${activePlan.nivel_cefr} (${activePlan.motivo_principal})`,
-              dominio_avaliado:
-                activePlan.nivel_cefr === 'A1' ? 35 : activePlan.nivel_cefr === 'A2' ? 50 : activePlan.nivel_cefr === 'B1' ? 65 : 85,
-              justificativa: `Início calibrado com base no plano de estudos gerado para ${activePlan.idioma}.`,
-              estrategia_pedagogica: activePlan.estrategia_pedagogica || 'Imersão conversacional adaptativa.',
-            }
-          : undefined,
       },
     ];
 

@@ -43,7 +43,6 @@ import {
   StudyMaterialItem,
   PedagogicalCorrection,
   UserStats,
-  ExplanationAdaptation,
   PronunciationScoreData,
   CEFRLevel,
   SpeechRateMetrics,
@@ -207,12 +206,6 @@ export const ChatTutor: React.FC<ChatTutorProps> = ({
       setPlayingAudioId(isPlaying ? id : null);
     });
 
-    // Avalia conquistas ao iniciar
-    const evalRes = AchievementEngine.evaluateAll();
-    if (evalRes.newlyUnlocked.length > 0) {
-      onUpdateStats(StorageService.getStats());
-    }
-
     return () => {
       unsubscribeSpeech();
       SpeechService.stop();
@@ -341,11 +334,15 @@ export const ChatTutor: React.FC<ChatTutorProps> = ({
 
     try {
       // 1. Recupera memórias contextuais relevantes do grafo e analisa adaptação recomendada
-      const graphContext = GraphEngine.getRelevantContext(currentTopic, content, 5);
-      const recentCorrections = StorageService.getCorrections().slice(0, 3);
-      const computedAdaptation = GraphEngine.analyzeStudentComprehension(currentTopic, content);
       const activePlan = StorageService.getStudyPlan();
       const currentLanguage = stats.idioma_ativo || activePlan?.idioma || 'Inglês';
+      const graphContext = GraphEngine.getRelevantContext(
+        currentTopic,
+        content,
+        5,
+        currentLanguage
+      );
+      const recentCorrections = StorageService.getCorrections().slice(0, 3);
 
       // 2. Chama a API do Tutor Pedagógico
       const res = await fetch('/api/chat', {
@@ -378,12 +375,18 @@ export const ChatTutor: React.FC<ChatTutorProps> = ({
 
       // 3. Processa nós novos ou atualizados no Grafo
       if (data.novos_nos_grafo && data.novos_nos_grafo.length > 0) {
-        GraphEngine.processNewNodesFromTutor(data.novos_nos_grafo, content);
+        GraphEngine.processNewNodesFromTutor(data.novos_nos_grafo, content, currentLanguage);
       }
 
       // 4. Registra adaptação nos nós do grafo para rastreabilidade
-      const effectiveAdaptation: ExplanationAdaptation = data.adaptacao || computedAdaptation;
-      GraphEngine.recordAdaptationUsed(currentTopic, effectiveAdaptation);
+      const effectiveAdaptation = GraphEngine.analyzeStudentComprehension(
+        currentTopic,
+        content,
+        currentLanguage
+      );
+      if (effectiveAdaptation) {
+        GraphEngine.recordAdaptationUsed(currentTopic, effectiveAdaptation, currentLanguage);
+      }
 
       // 5. Registra correção pedagógica estruturada, se houver
       let pedagogicalCorrection: PedagogicalCorrection | undefined = undefined;
@@ -432,7 +435,6 @@ export const ChatTutor: React.FC<ChatTutorProps> = ({
       const xpAmount = data.xp_ganho || (data.possui_erro ? 15 : 25);
       const xpResult = StorageService.addXP(xpAmount);
       StorageService.recordAnswer(!data.possui_erro);
-      StorageService.recordMinutesStudied(3); // 3 minutos de estudo ativo por interação
       onUpdateStats(xpResult.stats);
 
       // Avalia conquistas desbloqueadas
@@ -461,7 +463,7 @@ export const ChatTutor: React.FC<ChatTutorProps> = ({
         correcao: pedagogicalCorrection,
         conceitos_chave: data.conceitos_chave,
         xp_ganho: xpAmount,
-        adaptacao: effectiveAdaptation,
+        adaptacao: effectiveAdaptation ?? undefined,
       };
 
       const finalMessages = [...updatedMessages, tutorMsg];

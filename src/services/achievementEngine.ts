@@ -11,12 +11,11 @@ export const ALL_SYSTEM_ACHIEVEMENTS: Achievement[] = [
   {
     id: 'primeira_conversa',
     titulo: 'Primeiro Passo',
-    descricao: 'Iniciou a jornada de estudos conversando ativamente com o tutor.',
+    descricao: 'Concluiu a primeira troca ativa com o tutor.',
     icone: 'Sparkles',
     xp_recompensa: 50,
-    desbloqueada: true,
-    data_desbloqueio: new Date().toISOString(),
-    progresso_atual: 1,
+    desbloqueada: false,
+    progresso_atual: 0,
     progresso_meta: 1,
     categoria: 'consistencia',
   },
@@ -156,8 +155,9 @@ export const AchievementEngine = {
 
       switch (template.id) {
         case 'primeira_conversa':
-          isUnlockedNow = true;
-          currentProgress = 1;
+          currentProgress = Math.min(stats.total_respostas, 1);
+          targetProgress = 1;
+          if (stats.total_respostas >= 1) isUnlockedNow = true;
           break;
         case 'mestre_conceitos_dificeis':
           currentProgress = maxDifficultDominio;

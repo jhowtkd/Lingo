@@ -18,7 +18,11 @@ export const GraphEngine = {
   },
 
   // Avalia o nível de compreensão do estudante no grafo e determina a estratégia de adaptação dinâmica
-  analyzeStudentComprehension(topic: string, userMessage = '', language = 'Inglês'): ExplanationAdaptation {
+  analyzeStudentComprehension(
+    topic: string,
+    userMessage = '',
+    language = 'Inglês'
+  ): ExplanationAdaptation | null {
     const nodes = StorageService.getNodes();
     const langConfig = getLanguageConfig(language);
     const normTopic = this.normalize(topic);
@@ -44,14 +48,19 @@ export const GraphEngine = {
 
     const activeNodes = relevantNodes.length > 0 ? relevantNodes : langNodes;
 
+    if (activeNodes.length === 0) return null;
+
     // Métricas do grafo para este contexto
     const activeMisconceptions = activeNodes.filter(
       (n) => n.tipo === 'equivoco' || (n.tipo === 'dificuldade' && n.dominio_estimado < 60)
     );
     const highDifficultyNodes = activeNodes.filter((n) => n.dificuldade >= 4);
 
-    const totalDominio = activeNodes.reduce((sum, n) => sum + (n.dominio_estimado || 50), 0);
-    const avgDominio = activeNodes.length > 0 ? Math.round(totalDominio / activeNodes.length) : 65;
+    const totalDominio = activeNodes.reduce(
+      (sum, node) => sum + Math.max(0, node.dominio_estimado ?? 0),
+      0
+    );
+    const avgDominio = Math.round(totalDominio / activeNodes.length);
 
     // Determina o nível de adaptação dinâmica
     let nivel: AdaptationLevel = 'intermediario_aplicado';
