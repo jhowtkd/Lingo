@@ -825,7 +825,7 @@ export const ChatTutor: React.FC<ChatTutorProps> = ({
       className={`flex flex-col transition-all duration-300 ${
         isFocusMode
           ? 'fixed inset-0 z-50 bg-[var(--bg)] p-3 sm:p-6 overflow-hidden h-screen max-w-none shadow-2xl backdrop-blur-md'
-          : 'h-[calc(100dvh-7rem)] min-h-0 max-w-5xl w-full mx-auto p-2 sm:p-4 overflow-hidden'
+          : 'h-[calc(100dvh-10rem)] lg:h-[calc(100dvh-7rem)] min-h-0 max-w-5xl w-full mx-auto p-2 sm:p-4 overflow-hidden'
       }`}
     >
       {/* Banner de Modo Foco Ativo (se ativado) */}
