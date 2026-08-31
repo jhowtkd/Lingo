@@ -75,6 +75,11 @@ import { CornerPlus } from './ui/corner-plus';
 import { Button } from './ui/button';
 import { Badge } from './ui/badge';
 import { SectionHeader } from './ui/section-header';
+import { getLanguageConfig } from '../config/languages';
+import {
+  buildListenOnlyPrompts,
+  buildQuickPrompts,
+} from '../services/languagePracticePrompts';
 
 interface ChatTutorProps {
   currentTopic: string;
@@ -472,7 +477,7 @@ export const ChatTutor: React.FC<ChatTutorProps> = ({
 
       // Se o usuário está no modo Ouvir Apenas, auto-reproduz com foco auditivo
       if (isListenOnlyMode && data.resposta_tutor) {
-        handlePlayPhraseAudio(tutorMsg.id, data.resposta_tutor, 'en-US');
+        handlePlayPhraseAudio(tutorMsg.id, data.resposta_tutor);
       }
     } catch (err: any) {
       console.error('Erro ao enviar mensagem:', err);
@@ -730,6 +735,7 @@ export const ChatTutor: React.FC<ChatTutorProps> = ({
         await SpeechService.speak(
           text,
           {
+            lang: targetLocale,
             voice: selectedVoice,
             rate: speechSpeed,
             useNeuralAI: true,
@@ -744,7 +750,11 @@ export const ChatTutor: React.FC<ChatTutorProps> = ({
     }
   };
 
-  const handlePlayPhraseAudio = async (phraseId: string, phrase: string, lang = 'en-US') => {
+  const handlePlayPhraseAudio = async (
+    phraseId: string,
+    phrase: string,
+    lang = targetLocale
+  ) => {
     if (playingAudioId === phraseId) {
       SpeechService.stop();
       setPlayingAudioId(null);
@@ -786,50 +796,10 @@ export const ChatTutor: React.FC<ChatTutorProps> = ({
 
   const activePlan = StorageService.getStudyPlan();
   const currentLang = stats.idioma_ativo || activePlan?.idioma || 'Inglês';
-
-  const getLanguageQuickPrompts = () => {
-    const topicClean = currentTopic.replace(/^(Francês|Inglês|Espanhol|Alemão|Italiano|Japonês):\s*/i, '');
-    if (activePlan) {
-      if (currentLang === 'Francês') {
-        return [
-          `Bonjour ! Comment puis-je me présenter naturellement en français ?`,
-          `Simule um diálogo prático sobre ${topicClean} em francês`,
-          `Quelles sont les expressions clés pour ${topicClean} ?`,
-          `Pode me fazer uma pergunta em francês sobre meu foco (${activePlan.motivo_principal})?`,
-        ];
-      }
-      if (currentLang === 'Espanhol') {
-        return [
-          `¡Hola! ¿Cómo puedo iniciar una conversación natural sobre ${topicClean}?`,
-          `Simule um diálogo casual de roleplay sobre ${topicClean} em espanhol`,
-          `¿Cuáles son los falsos amigos más comunes en ${topicClean}?`,
-          `Hazme una pregunta en español para poner a prueba mi fluidez`,
-        ];
-      }
-      if (currentLang === 'Inglês') {
-        return [
-          `Hello! Let's start our conversation about ${topicClean}`,
-          `Simule um diálogo casual de roleplay sobre ${topicClean}`,
-          `What are the most natural expressions and idioms for ${topicClean}?`,
-          `Ask me a challenging question in English about ${topicClean}`,
-        ];
-      }
-      return [
-        `Olá! Vamos começar nossa prática de ${currentLang} focada em ${topicClean}`,
-        `Simule um diálogo prático sobre ${topicClean} em ${currentLang}`,
-        `Quais expressões essenciais devo saber para ${topicClean}?`,
-        `Faça uma pergunta para testar minha conversação em ${currentLang}`,
-      ];
-    }
-    return [
-      `Simule um diálogo casual de roleplay sobre ${currentTopic}`,
-      `Quais falsos cognatos e erros de tradução ocorrem em ${currentTopic}?`,
-      `Me dê 3 expressões naturais e práticas sobre ${currentTopic}`,
-      `Faça uma pergunta desafiadora em ${currentLang} para testar minha resposta`,
-    ];
-  };
-
-  const quickPrompts = getLanguageQuickPrompts();
+  const languageConfig = getLanguageConfig(currentLang);
+  const targetLocale = languageConfig.ttsLocale;
+  const quickPrompts = buildQuickPrompts(currentLang, currentTopic, activePlan);
+  const listenOnlyPrompts = buildListenOnlyPrompts(currentLang, currentTopic);
 
   const handleResetToPlan = () => {
     const updated = StorageService.resetChatToStudyPlan(activePlan || undefined);
@@ -1656,7 +1626,7 @@ export const ChatTutor: React.FC<ChatTutorProps> = ({
                   <div className="mt-3">
                     <PronunciationScoreCard
                       scoreData={msg.pronunciation_score}
-                      targetLang={msg.idioma || 'en-US'}
+                      targetLang={msg.idioma || targetLocale}
                     />
                   </div>
                 )}
@@ -1751,7 +1721,7 @@ export const ChatTutor: React.FC<ChatTutorProps> = ({
                             handlePlayPhraseAudio(
                               `corr-${msg.correcao!.id || msg.id}`,
                               msg.correcao!.resposta_corrigida,
-                              'en-US'
+                              targetLocale
                             )
                           }
                           className={`flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-mono transition cursor-pointer border ${
@@ -1927,28 +1897,16 @@ export const ChatTutor: React.FC<ChatTutorProps> = ({
             </div>
           </div>
           <div className="flex items-center gap-1.5 flex-wrap">
-            <button
-              type="button"
-              onClick={() =>
-                handleSendMessage(
-                  `Por favor, fale um exemplo em inglês com connected speech sobre ${currentTopic} e explique os fonemas ligados.`
-                )
-              }
-              className="px-2 py-0.5 rounded bg-background hover:bg-muted border border-border text-[10px] text-foreground transition cursor-pointer"
-            >
-              🎧 Treinar Linking Sounds
-            </button>
-            <button
-              type="button"
-              onClick={() =>
-                handleSendMessage(
-                  `Faça um desafio de ditado auditivo em inglês sobre ${currentTopic}: diga uma frase para eu tentar compreender.`
-                )
-              }
-              className="px-2 py-0.5 rounded bg-background hover:bg-muted border border-border text-[10px] text-foreground transition cursor-pointer"
-            >
-              📝 Desafio de Ditado
-            </button>
+            {listenOnlyPrompts.map((item) => (
+              <button
+                key={item.label}
+                type="button"
+                onClick={() => handleSendMessage(item.prompt)}
+                className="px-2 py-0.5 rounded bg-background hover:bg-muted border border-border text-[10px] text-foreground transition cursor-pointer"
+              >
+                {item.label}
+              </button>
+            ))}
             <button
               type="button"
               onClick={() => setIsListenOnlyMode(false)}
