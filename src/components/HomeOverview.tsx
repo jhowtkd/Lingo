@@ -392,7 +392,8 @@ export const HomeOverview: React.FC<HomeOverviewProps> = ({
           {studySpaces.map((tile) => {
             const Icon = tile.icon;
             return (
-              <div
+              <button
+                type="button"
                 key={tile.id}
                 onClick={() => onNavigate(tile.id)}
                 className="group bg-[var(--surface)] border border-[var(--border)] rounded-[var(--r-sm)] p-5 sm:p-6 shadow-xs flex flex-col gap-3.5 transition-all duration-200 hover:-translate-y-1 hover:shadow-[var(--shadow-depth)] cursor-pointer text-left"
@@ -416,7 +417,7 @@ export const HomeOverview: React.FC<HomeOverviewProps> = ({
                   <span>{tile.action}</span>
                   <ArrowRight className="w-4 h-4" />
                 </div>
-              </div>
+              </button>
             );
           })}
         </div>

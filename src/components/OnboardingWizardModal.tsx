@@ -33,6 +33,7 @@ import { CEFRLevel, GeneratedStudyPlan, OnboardingAnswers, UserStats } from '../
 import { StorageService } from '../services/storage';
 import { LANGUAGE_THEMES } from '../services/languageThemes';
 import { createFallbackStudyPlan } from '../services/studyPlanFallback';
+import { useModalFocusTrap } from '../hooks/useModalFocusTrap';
 
 interface OnboardingWizardModalProps {
   isOpen: boolean;
@@ -119,6 +120,7 @@ export const OnboardingWizardModal: React.FC<OnboardingWizardModalProps> = ({
   const [generationStepText, setGenerationStepText] = useState<string>('Analisando preferências...');
   const [generatedPlan, setGeneratedPlan] = useState<GeneratedStudyPlan | null>(null);
   const [generationSource, setGenerationSource] = useState<'api' | 'local' | null>(null);
+  const dialogRef = useModalFocusTrap<HTMLDivElement>(isOpen, onClose);
 
   if (!isOpen) return null;
 
@@ -223,7 +225,14 @@ export const OnboardingWizardModal: React.FC<OnboardingWizardModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 bg-[oklch(0.25_0.05_280_/_0.55)] backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 overflow-y-auto animate-fade-in">
-      <div className="relative bg-[var(--surface)] border border-[var(--border)] rounded-[var(--r-xl)] max-w-3xl w-full p-6 sm:p-8 space-y-6 shadow-[var(--shadow)] text-[var(--fg)] max-h-[92vh] flex flex-col overflow-hidden">
+      <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="onboarding-dialog-title"
+        tabIndex={-1}
+        className="relative bg-[var(--surface)] border border-[var(--border)] rounded-[var(--r-xl)] max-w-3xl w-full p-6 sm:p-8 space-y-6 shadow-[var(--shadow)] text-[var(--fg)] max-h-[92vh] flex flex-col overflow-hidden"
+      >
         {/* Header com Stepper e Botão Fechar */}
         <div className="flex items-center justify-between border-b border-[var(--border)] pb-4 shrink-0">
           <div className="space-y-1">
@@ -231,7 +240,7 @@ export const OnboardingWizardModal: React.FC<OnboardingWizardModalProps> = ({
               <Sparkles className="w-3.5 h-3.5" />
               <span>ASSISTENTE DE CONFIGURAÇÃO INICIAL</span>
             </div>
-            <h2 className="text-xl sm:text-2xl font-bold font-display text-[var(--fg)]">
+            <h2 id="onboarding-dialog-title" className="text-xl sm:text-2xl font-bold font-display text-[var(--fg)]">
               {step === 1 && 'Escolha seu Idioma & Nível'}
               {step === 2 && 'Qual é o seu Objetivo Principal?'}
               {step === 3 && 'Seus Interesses & Afinidades'}
@@ -242,6 +251,7 @@ export const OnboardingWizardModal: React.FC<OnboardingWizardModalProps> = ({
 
           <button
             onClick={onClose}
+            aria-label="Fechar configuração"
             className="p-2 rounded-full text-[var(--muted)] hover:text-[var(--fg)] hover:bg-[oklch(0.95_0.01_84)] transition cursor-pointer"
             title="Fechar assistente"
           >

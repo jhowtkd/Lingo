@@ -19,6 +19,7 @@ import { UserStats, LanguageThemeId, UserProfile, GeneratedStudyPlan } from './t
 import { StorageService } from './services/storage';
 import { getLanguageTheme, detectLanguageTheme } from './services/languageThemes';
 import { onAuthChange, syncUserProfile } from './services/firebase';
+import { useModalFocusTrap } from './hooks/useModalFocusTrap';
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<string>('home');
@@ -33,6 +34,10 @@ export default function App() {
   const [showOnboardingModal, setShowOnboardingModal] = useState(() => !StorageService.hasCompletedOnboarding());
   const [customTopicInput, setCustomTopicInput] = useState('');
   const [targetMaterialId, setTargetMaterialId] = useState<string | undefined>(undefined);
+  const topicDialogRef = useModalFocusTrap<HTMLDivElement>(
+    showTopicModal,
+    () => setShowTopicModal(false)
+  );
 
   // Identificação do Tema do Idioma Ativo
   const activeLanguageTheme = getLanguageTheme(stats.idioma_ativo || currentTopic);
@@ -308,13 +313,20 @@ export default function App() {
       {/* Modal para Alteração de Tópico & Idioma */}
       {showTopicModal && (
         <div className="fixed inset-0 z-50 bg-[oklch(0.32_0.07_285_/_0.42)] backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="relative bg-[var(--surface)] border border-[var(--border)] rounded-[var(--r-lg)] max-w-2xl w-full p-6 sm:p-8 space-y-6 shadow-[var(--shadow)] text-[var(--fg)] max-h-[90vh] overflow-y-auto">
+          <div
+            ref={topicDialogRef}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="topic-dialog-title"
+            tabIndex={-1}
+            className="relative bg-[var(--surface)] border border-[var(--border)] rounded-[var(--r-lg)] max-w-2xl w-full p-6 sm:p-8 space-y-6 shadow-[var(--shadow)] text-[var(--fg)] max-h-[90vh] overflow-y-auto"
+          >
             <div className="flex items-center justify-between border-b border-[var(--border)] pb-4">
               <div className="space-y-1">
                 <div className="inline-flex items-center rounded-full bg-[var(--sunny)] px-2.5 py-0.5 text-[11px] font-extrabold text-[var(--fg)]">
                   IDIOMA & FOCO
                 </div>
-                <h3 className="text-xl font-bold font-display text-[var(--fg)] flex items-center gap-2">
+                <h3 id="topic-dialog-title" className="text-xl font-bold font-display text-[var(--fg)] flex items-center gap-2">
                   <span>Alterar Idioma & Tópico</span>
                   <span className="text-xs px-2.5 py-0.5 rounded-full border border-[var(--border)] bg-[oklch(0.965_0.01_84)] font-bold">
                     {activeLanguageTheme.bandeira} {activeLanguageTheme.nome}
@@ -323,6 +335,7 @@ export default function App() {
               </div>
               <button
                 onClick={() => setShowTopicModal(false)}
+                aria-label="Fechar seleção de idioma e tópico"
                 className="text-[var(--muted)] hover:text-[var(--fg)] p-2 rounded-full hover:bg-[oklch(0.955_0.012_84)] transition cursor-pointer"
               >
                 ✕

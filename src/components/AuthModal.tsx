@@ -9,6 +9,7 @@ import {
 import { UserProfile, UserRole } from '../types';
 import { Button } from './ui/button';
 import { playSfx } from '../services/soundEffects';
+import { useModalFocusTrap } from '../hooks/useModalFocusTrap';
 import {
   ShieldCheck,
   User,
@@ -35,6 +36,7 @@ export function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps) {
   const [displayName, setDisplayName] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const dialogRef = useModalFocusTrap<HTMLDivElement>(isOpen, onClose);
 
   if (!isOpen) return null;
 
@@ -114,7 +116,14 @@ export function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps) {
 
   return (
     <div className="fixed inset-0 z-50 bg-[oklch(0.25_0.05_280_/_0.55)] backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-200">
-      <div className="relative bg-[var(--surface)] border border-[var(--border)] rounded-[var(--r-lg)] max-w-md w-full p-6 sm:p-8 space-y-6 shadow-[var(--shadow)] text-[var(--fg)] max-h-[92vh] overflow-y-auto">
+      <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="auth-dialog-title"
+        tabIndex={-1}
+        className="relative bg-[var(--surface)] border border-[var(--border)] rounded-[var(--r-lg)] max-w-md w-full p-6 sm:p-8 space-y-6 shadow-[var(--shadow)] text-[var(--fg)] max-h-[92vh] overflow-y-auto"
+      >
         
         {/* Header do Modal */}
         <div className="flex items-start justify-between">
@@ -123,7 +132,7 @@ export function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps) {
               <ShieldCheck className="w-3.5 h-3.5" />
               <span>SINCRONIZAÇÃO EM NUVEM (OPCIONAL)</span>
             </div>
-            <h2 className="text-xl font-bold font-display text-[var(--fg)]">
+            <h2 id="auth-dialog-title" className="text-xl font-bold font-display text-[var(--fg)]">
               {mode === 'login' && 'Entrar na sua Conta'}
               {mode === 'register' && 'Criar Nova Conta'}
               {mode === 'guest' && 'Modo Teste / Convidado'}
@@ -134,6 +143,7 @@ export function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps) {
           </div>
           <button
             onClick={onClose}
+            aria-label="Fechar autenticação"
             className="text-[var(--muted)] hover:text-[var(--fg)] p-1.5 rounded-full hover:bg-[oklch(0.955_0.012_84)] transition cursor-pointer"
           >
             ✕
