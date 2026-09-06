@@ -13,10 +13,19 @@ import { transcriptionRouter } from './server/routes/transcription';
 import { pronunciationRouter } from './server/routes/pronunciation';
 import { AiTelemetry } from './server/observability/aiTelemetry';
 import { GeminiResponseCache } from './server/ai/geminiCache';
+import { loadEnvConfig } from './server/config/env';
 
 dotenv.config();
 
-const PORT = 3000;
+// Configuração de ambiente validada em um único lugar (PORT, chave Gemini,
+// projeto Firebase, admins, timeout). Avisos de config faltante vão para o log
+// de startup, antes de qualquer rota subir.
+const appEnv = loadEnvConfig();
+const PORT = appEnv.port;
+
+for (const warning of appEnv.warnings) {
+  console.warn(`[Config] ${warning}`);
+}
 
 let ai: GoogleGenAI | null = null;
 
@@ -162,11 +171,11 @@ async function startServer() {
   app.use(express.json({ limit: '64kb' }));
   app.use(express.urlencoded({ extended: true, limit: '64kb' }));
 
-  // Health check (aberto, para load balancers)
+  // Health check (aberto, para load balancers). Sem expor detalhes de config
+  // (ex.: presença de API key) — o endpoint é público.
   app.get('/api/health', (req, res) => {
     res.json({
       status: 'ok',
-      hasApiKey: Boolean(process.env.GEMINI_API_KEY),
       timestamp: new Date().toISOString(),
     });
   });

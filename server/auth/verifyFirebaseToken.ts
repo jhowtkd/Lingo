@@ -11,12 +11,12 @@ const CERTS_URL =
 const ISSUER = `https://securetoken.google.com/${PROJECT_ID}`;
 
 // E-mails com poder administrativo (devem estar reservados no Firebase Auth).
-const ADMIN_EMAILS = (
-  process.env.ADMIN_EMAILS ||
-  'jhonatan.marcela@gmail.com,admin@lingo.app,adm@lingo.com'
-)
+// Default vazio: nenhum e-mail placeholder/reall vive no código — admins são
+// definidos exclusivamente via variável de ambiente.
+const ADMIN_EMAILS = (process.env.ADMIN_EMAILS || '')
   .split(',')
-  .map((e) => e.trim().toLowerCase());
+  .map((e) => e.trim().toLowerCase())
+  .filter(Boolean);
 
 interface CachedCerts {
   keys: Record<string, string>;
