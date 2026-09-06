@@ -1009,9 +1009,13 @@ export const StorageService = {
   saveMaterials(materials: StudyMaterialItem[], sync = true) {
     // Limita a lista de materiais antes de persistir (corta os mais antigos,
     // que ficam no fim após o unshift de addMaterial).
-    writeJsonCached(this.getKey(STORAGE_KEYS.MATERIALS), materials.slice(0, STORAGE_LIMITS.maxMaterials));
-    // Registra a mutação local (carimbo) para a decisão de sync por carimbo.
-    this.touchLocalSyncStamp('materials');
+    // Só avança o carimbo local quando a escrita teve sucesso: um touch após
+    // falha de cota faria o sync pular uma coleção que ficou desatualizada.
+    const ok = writeJsonCached(
+      this.getKey(STORAGE_KEYS.MATERIALS),
+      materials.slice(0, STORAGE_LIMITS.maxMaterials)
+    );
+    if (ok) this.touchLocalSyncStamp('materials');
     if (sync) this.scheduleCloudSync();
   },
 
@@ -1046,9 +1050,9 @@ export const StorageService = {
   },
 
   saveNodes(nodes: GraphNode[], sync = true) {
-    writeJsonCached(this.getKey(STORAGE_KEYS.NODES), nodes);
-    // Registra a mutação local (carimbo) para a decisão de sync por carimbo.
-    this.touchLocalSyncStamp('nodes');
+    // Só avança o carimbo local quando a escrita teve sucesso (ver saveMaterials).
+    const ok = writeJsonCached(this.getKey(STORAGE_KEYS.NODES), nodes);
+    if (ok) this.touchLocalSyncStamp('nodes');
     if (sync) this.scheduleCloudSync();
   },
 
@@ -1080,9 +1084,9 @@ export const StorageService = {
   },
 
   saveRelations(relations: GraphRelation[], sync = true) {
-    writeJsonCached(this.getKey(STORAGE_KEYS.RELATIONS), relations);
-    // Registra a mutação local (carimbo) para a decisão de sync por carimbo.
-    this.touchLocalSyncStamp('relations');
+    // Só avança o carimbo local quando a escrita teve sucesso (ver saveMaterials).
+    const ok = writeJsonCached(this.getKey(STORAGE_KEYS.RELATIONS), relations);
+    if (ok) this.touchLocalSyncStamp('relations');
     if (sync) this.scheduleCloudSync();
   },
 
@@ -1106,9 +1110,9 @@ export const StorageService = {
   },
 
   saveCorrections(corrections: PedagogicalCorrection[], sync = true) {
-    writeJsonCached(this.getKey(STORAGE_KEYS.CORRECTIONS), corrections);
-    // Registra a mutação local (carimbo) para a decisão de sync por carimbo.
-    this.touchLocalSyncStamp('corrections');
+    // Só avança o carimbo local quando a escrita teve sucesso (ver saveMaterials).
+    const ok = writeJsonCached(this.getKey(STORAGE_KEYS.CORRECTIONS), corrections);
+    if (ok) this.touchLocalSyncStamp('corrections');
     if (sync) this.scheduleCloudSync();
   },
 
@@ -1357,9 +1361,12 @@ export const StorageService = {
   saveConversations(conversations: ChatConversation[], sync = true) {
     // Aplica limite de tamanho antes de persistir: mantém só as N conversas
     // mais recentes com as últimas M mensagens de cada (evita estourar a cota).
-    writeJsonCached(this.getKey(STORAGE_KEYS.CONVERSATIONS), trimConversations(conversations));
-    // Registra a mutação local (carimbo) para a decisão de sync por carimbo.
-    this.touchLocalSyncStamp('conversations');
+    // Só avança o carimbo local quando a escrita teve sucesso (ver saveMaterials).
+    const ok = writeJsonCached(
+      this.getKey(STORAGE_KEYS.CONVERSATIONS),
+      trimConversations(conversations)
+    );
+    if (ok) this.touchLocalSyncStamp('conversations');
     if (sync) {
       const active = this.getActiveConversation();
       if (active) {
@@ -1693,9 +1700,11 @@ export const StorageService = {
   },
 
   saveStats(stats: UserStats, sync = true) {
-    localStorage.setItem(this.getKey(STORAGE_KEYS.STATS), JSON.stringify(stats));
-    // Registra a mutação local (carimbo) para a decisão de sync por carimbo.
-    this.touchLocalSyncStamp('stats');
+    // Escrita via writeJsonCached: é o write mais quente do app (XP a cada
+    // resposta) e era o único que ainda lançava em QuotaExceededError.
+    // Só avança o carimbo local quando a escrita teve sucesso (ver saveMaterials).
+    const ok = writeJsonCached(this.getKey(STORAGE_KEYS.STATS), stats);
+    if (ok) this.touchLocalSyncStamp('stats');
     if (sync) this.scheduleCloudSync();
   },
 
