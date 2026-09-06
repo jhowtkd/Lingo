@@ -17,6 +17,7 @@ import { createMaterialsRouter } from './server/routes/materials';
 import { createOnboardingRouter } from './server/routes/onboarding';
 import { createInsightsRouter } from './server/routes/insights';
 import { AiTelemetry } from './server/observability/aiTelemetry';
+import { createUserDailyQuota } from './server/middleware/userQuota';
 import { loadEnvConfig } from './server/config/env';
 
 dotenv.config();
@@ -105,6 +106,11 @@ async function startServer() {
   app.use('/api/tts', jsonLimiter(20));
   app.use(AUDIO_ROUTES, jsonLimiter(20));
 
+  // Cotas diárias por usuário (uid) nas gerações mais caras de IA: proteção de
+  // custo adicional além do rate limit por minuto (ajustáveis via .env).
+  const materialsQuota = createUserDailyQuota(Number(process.env.AI_DAILY_MATERIALS_LIMIT) || 20);
+  const onboardingQuota = createUserDailyQuota(Number(process.env.AI_DAILY_ONBOARDING_LIMIT) || 10);
+
   // Rotas Modulares do Tutor de Inteligência Artificial
   app.use('/api/chat', chatRouter);
   app.use('/api/transcribe', transcriptionRouter);
@@ -112,7 +118,8 @@ async function startServer() {
   app.use('/api/pronunciation-assessment', pronunciationRouter);
   app.use('/api/pronunciation', pronunciationRouter);
 
-  app.use('/api/materials/generate', createMaterialsRouter(getGeminiClient));
+  // Cota diária por usuário + burst/min restrito (6/min) na geração de materiais.
+  app.use('/api/materials/generate', materialsQuota, jsonLimiter(6), createMaterialsRouter(getGeminiClient));
 
   app.use('/api/word-context', createWordContextRouter(getGeminiClient));
 
@@ -120,7 +127,13 @@ async function startServer() {
 
   app.use('/api', createInsightsRouter(getGeminiClient));
 
-  app.use('/api/onboarding/generate-plan', createOnboardingRouter(getGeminiClient));
+  // Cota diária por usuário + burst/min restrito (6/min) na geração de planos.
+  app.use(
+    '/api/onboarding/generate-plan',
+    onboardingQuota,
+    jsonLimiter(6),
+    createOnboardingRouter(getGeminiClient)
+  );
 
 
   // ==========================================
@@ -146,6 +159,12 @@ async function startServer() {
   const liveConnectionsByIp = new Map<string, number>();
   const MAX_LIVE_CONNECTIONS_PER_IP = 3;
 
+  // Limites por usuário (uid Firebase): cada sessão Live é paga, então 1 conexão
+  // por usuário e no máximo 30 minutos por sessão.
+  const liveConnectionsByUser = new Map<string, number>();
+  const MAX_LIVE_CONNECTIONS_PER_USER = 1;
+  const MAX_LIVE_SESSION_MS = 30 * 60_000;
+
   wss.on('connection', async (clientWs: WebSocket, request) => {
     (clientWs as WebSocket & { isAlive?: boolean }).isAlive = true;
     clientWs.on('pong', () => {
@@ -167,8 +186,32 @@ async function startServer() {
       clientWs.close(4408, 'TOO_MANY_CONNECTIONS');
       return;
     }
+
+    // Limite de sessões simultâneas por usuário: um uid só pode abrir uma
+    // sessão Live paga por vez (mesmo trocando de IP/dispositivo). Checado
+    // antes de qualquer incremento para não vazar vaga por rejeição.
+    const uid = firebaseUser.sub;
+    const activeForUser = liveConnectionsByUser.get(uid) ?? 0;
+    if (activeForUser >= MAX_LIVE_CONNECTIONS_PER_USER) {
+      clientWs.close(4408, 'TOO_MANY_CONNECTIONS');
+      return;
+    }
+
     liveConnectionsByIp.set(ip, activeForIp + 1);
+    liveConnectionsByUser.set(uid, activeForUser + 1);
+
+    // Duração máxima da sessão: encerra o socket para conter o custo de uma
+    // sessão paga esquecida (o 'close' abaixo limpa contador e timer).
+    const sessionTimer = setTimeout(
+      () => clientWs.close(1000, 'SESSION_LIMIT'),
+      MAX_LIVE_SESSION_MS
+    );
+
     clientWs.on('close', () => {
+      clearTimeout(sessionTimer);
+      const nu = liveConnectionsByUser.get(uid) ?? 1;
+      if (nu <= 1) liveConnectionsByUser.delete(uid);
+      else liveConnectionsByUser.set(uid, nu - 1);
       const n = liveConnectionsByIp.get(ip) ?? 1;
       if (n <= 1) liveConnectionsByIp.delete(ip);
       else liveConnectionsByIp.set(ip, n - 1);
