@@ -40,6 +40,7 @@ import {
   PedagogicalCorrection,
   FrequentErrorItem,
 } from '../types';
+import { reassembleChunkedCollection, type ChunkDocEntry } from './chunkAssembly';
 
 // Configuração do Firebase
 const firebaseConfig = {
@@ -417,12 +418,13 @@ export async function fetchPersonalKnowledgeFromCloud(
     const data: Partial<UserPersonalKnowledgeBase> = {};
     const updatedAt: FetchedKnowledgeBase['updatedAt'] = {};
 
-    // Docs de chunk (`{colecao}_{i}`) são acumulados por coleção/índice e
-    // remontados após o loop. Um chunk só existe se foi gravado, então a
-    // presença de chunks sobrepõe o doc legado da mesma coleção — mesmo que a
-    // remontagem resulte em zero itens.
-    const chunks = new Map<ChunkableCollection, Map<number, unknown[]>>();
-    const chunkStamps = new Map<ChunkableCollection, string>();
+    // Docs de chunk (`{colecao}_{i}`) são acumulados e remontados depois via
+    // reassembleChunkedCollection, que considera apenas a geração mais recente
+    // (chunks órfãos de gerações antigas — deixados por outro dispositivo com
+    // contagem desatualizada — não são misturados na remontagem). Um chunk só
+    // existe se foi gravado, então a presença de chunks sobrepõe o doc legado
+    // da mesma coleção — mesmo que a remontagem resulte em zero itens.
+    const chunkEntries: ChunkDocEntry[] = [];
 
     const kbCol = collection(db, 'users', userId, 'knowledge_base');
     const snap = await getDocs(kbCol);
@@ -432,13 +434,7 @@ export async function fetchPersonalKnowledgeFromCloud(
         /^(nodes|relations|materials|corrections|conversations)_(\d+)$/
       );
       if (match) {
-        const col = match[1] as ChunkableCollection;
-        if (!chunks.has(col)) chunks.set(col, new Map());
-        chunks.get(col)!.set(Number(match[2]), payload.items || []);
-        if (typeof payload.updatedAt === 'string') {
-          const prev = chunkStamps.get(col);
-          if (!prev || payload.updatedAt > prev) chunkStamps.set(col, payload.updatedAt);
-        }
+        chunkEntries.push({ id: entry.id, data: payload });
         return;
       }
       const cloudStamp =
@@ -478,12 +474,22 @@ export async function fetchPersonalKnowledgeFromCloud(
       }
     });
 
-    // Remonta cada coleção chunkada em ordem de índice; o carimbo da nuvem é
-    // o mais recente entre os chunks da coleção.
-    for (const [col, byIndex] of chunks) {
-      const ordered = [...byIndex.keys()].sort((a, b) => a - b).flatMap((i) => byIndex.get(i)!);
-      (data as Record<string, unknown>)[col] = ordered;
-      if (chunkStamps.has(col)) updatedAt[col] = chunkStamps.get(col)!;
+    // Remonta cada coleção chunkada na geração mais recente (ordem de índice
+    // dentro da geração). `items: null` significa "nenhum chunk da coleção":
+    // mantemos então o doc legado lido no switch acima, se houver.
+    const chunkable: ChunkableCollection[] = [
+      'nodes',
+      'relations',
+      'materials',
+      'corrections',
+      'conversations',
+    ];
+    for (const col of chunkable) {
+      const reassembled = reassembleChunkedCollection(col, chunkEntries);
+      if (reassembled.items !== null) {
+        (data as Record<string, unknown>)[col] = reassembled.items;
+        if (reassembled.updatedAt) updatedAt[col] = reassembled.updatedAt;
+      }
     }
 
     return { data, updatedAt };
