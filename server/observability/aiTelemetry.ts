@@ -68,21 +68,28 @@ export class AiTelemetry {
     this.persistenceFilePath = filePath;
     void this.loadPersisted(filePath);
     this.persistenceTimer = setInterval(() => {
-      void this.flushToDisk();
+      // Fire-and-forget, mas com erro tratado: rejeição não tratada crasha o
+      // processo no Node moderno (unhandled-rejections=throw).
+      this.flushToDisk().catch((err) => console.error('[Telemetry] Falha ao persistir snapshot:', err));
     }, intervalMs);
     this.persistenceTimer.unref?.();
   }
 
   static async flushToDisk(): Promise<void> {
     if (!this.persistenceFilePath) return;
-    const fs = await import('fs');
-    const path = await import('path');
-    await fs.promises.mkdir(path.dirname(this.persistenceFilePath), { recursive: true });
-    await fs.promises.writeFile(
-      this.persistenceFilePath,
-      JSON.stringify({ savedAt: new Date().toISOString(), logs: this.logs }, null, 2),
-      'utf8'
-    );
+    try {
+      const fs = await import('fs');
+      const path = await import('path');
+      await fs.promises.mkdir(path.dirname(this.persistenceFilePath), { recursive: true });
+      await fs.promises.writeFile(
+        this.persistenceFilePath,
+        JSON.stringify({ savedAt: new Date().toISOString(), logs: this.logs }, null, 2),
+        'utf8'
+      );
+    } catch (err) {
+      // Falha de disco (cheio, permissão, ENOTDIR) jamais pode rejeitar para fora.
+      console.error('[Telemetry] Falha ao persistir snapshot:', err);
+    }
   }
 
   static async loadPersisted(filePath: string): Promise<void> {
@@ -100,5 +107,12 @@ export class AiTelemetry {
 
   static resetForTests(): void {
     this.logs = [];
+    // Isolamento completo entre testes: sem timer vazando e sem caminho
+    // residual, cada teste pode reconfigurar a persistência do zero.
+    if (this.persistenceTimer) {
+      clearInterval(this.persistenceTimer);
+      this.persistenceTimer = null;
+    }
+    this.persistenceFilePath = null;
   }
 }

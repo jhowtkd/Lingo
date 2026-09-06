@@ -1,7 +1,7 @@
-import { mkdtemp, readFile } from 'node:fs/promises';
+import { mkdtemp, readFile, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { AiTelemetry } from '../server/observability/aiTelemetry';
 
 const baseLog = {
@@ -41,5 +41,28 @@ describe('AiTelemetry', () => {
     expect(AiTelemetry.getRecentLogs(10)).toHaveLength(1);
     const saved = JSON.parse(await readFile(file, 'utf8'));
     expect(saved.logs).toHaveLength(1);
+  });
+
+  it('não rejeita quando o flush falha (erro engolido e logado)', async () => {
+    // Caminho impossível: um ARQUIVO no meio do caminho faz o mkdir falhar
+    // (ENOTDIR), simulando disco cheio / permissão negada. Se flushToDisk
+    // rejeitasse, o flush periódico viraria unhandled rejection e crasharia
+    // o servidor no Node moderno.
+    const dir = await mkdtemp(join(tmpdir(), 'lingo-telemetry-bad-'));
+    const blocker = join(dir, 'blocker.txt');
+    await writeFile(blocker, 'x', 'utf8');
+    AiTelemetry.enablePersistence(join(blocker, 'sub', 'ai-telemetry.json'), 60_000);
+
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    try {
+      // Deve resolver (engolir + logar), nunca rejeitar.
+      await expect(AiTelemetry.flushToDisk()).resolves.toBeUndefined();
+      expect(errorSpy).toHaveBeenCalledWith(
+        '[Telemetry] Falha ao persistir snapshot:',
+        expect.any(Error)
+      );
+    } finally {
+      errorSpy.mockRestore();
+    }
   });
 });
