@@ -25,7 +25,7 @@ import {
   Info,
   Calendar,
 } from 'lucide-react';
-import confetti from 'canvas-confetti';
+import { fireConfetti as confetti } from '../lib/confetti';
 import {
   SRSFlashcard,
   SRSGrade,

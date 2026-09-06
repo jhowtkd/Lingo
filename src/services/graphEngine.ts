@@ -167,24 +167,36 @@ export const GraphEngine = {
     return scored.slice(0, limit).map((s) => s.node);
   },
 
-  // Deduplica e insere novos nós vindos da análise pedagógica
+  // Deduplica e insere novos nós vindos da análise pedagógica.
+  // Processa tudo em memória (índices pré-normalizados) e persiste o grafo
+  // uma única vez ao final — evita re-parsear/re-serializar a coleção inteira
+  // por nó e dispara um único cloud sync.
   processNewNodesFromTutor(
     newNodes: Partial<GraphNode & { relacionado_com?: string; tipo_relacao?: RelationType }>[],
     evidence: string,
     language = 'Inglês'
   ): GraphNode[] {
     const existingNodes = StorageService.getNodes();
+    let existingRelations: GraphRelation[] | null = null;
+    const ensureRelations = () => (existingRelations ??= StorageService.getRelations());
     const langConfig = getLanguageConfig(language);
     const createdOrUpdated: GraphNode[] = [];
+    const newRelations: GraphRelation[] = [];
+
+    // Índice pré-computado: evita renormalizar (NFKC + regex) o título de cada
+    // nó existente para cada nó novo dentro do loop (O(k·n) normalizações).
+    const langNodesNorm = existingNodes
+      .filter((n) => getLanguageConfig(n.idioma || 'ingles').id === langConfig.id)
+      .map((n) => ({ n, norm: this.normalize(n.titulo) }));
 
     for (const raw of newNodes) {
       if (!raw.titulo) continue;
 
       const normTitle = this.normalize(raw.titulo);
-      const existing = existingNodes.find((n) => {
-        const nLang = getLanguageConfig(n.idioma || 'ingles');
-        return nLang.id === langConfig.id && (this.normalize(n.titulo) === normTitle || normTitle.includes(this.normalize(n.titulo)));
-      });
+      const match = langNodesNorm.find(
+        (e) => e.norm === normTitle || normTitle.includes(e.norm)
+      );
+      const existing = match?.n;
 
       const now = new Date().toISOString();
 
@@ -208,7 +220,7 @@ export const GraphEngine = {
           atualizado_em: now,
         };
 
-        StorageService.addOrUpdateNode(updated);
+        Object.assign(existing, updated);
         createdOrUpdated.push(updated);
       } else {
         // Cria novo nó
@@ -231,19 +243,17 @@ export const GraphEngine = {
           atualizado_em: now,
         };
 
-        StorageService.addOrUpdateNode(newNode);
+        existingNodes.push(newNode);
+        langNodesNorm.push({ n: newNode, norm: normTitle });
         createdOrUpdated.push(newNode);
 
         // Se houver relação sugerida
         if (raw.relacionado_com) {
           const targetNorm = this.normalize(raw.relacionado_com);
-          const targetNode = existingNodes.find((n) => {
-            const nLang = getLanguageConfig(n.idioma || 'ingles');
-            return nLang.id === langConfig.id && this.normalize(n.titulo).includes(targetNorm);
-          });
+          const targetNode = langNodesNorm.find((e) => e.norm.includes(targetNorm))?.n;
 
           if (targetNode) {
-            const rel: GraphRelation = {
+            newRelations.push({
               id: `rel-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
               origem_id: newNode.id,
               destino_id: targetNode.id,
@@ -251,11 +261,17 @@ export const GraphEngine = {
               peso: 0.8,
               evidencia: evidence,
               criado_em: now,
-            };
-            StorageService.addRelation(rel);
+            });
           }
         }
       }
+    }
+
+    if (createdOrUpdated.length > 0) {
+      StorageService.saveNodes(existingNodes);
+    }
+    if (newRelations.length > 0) {
+      StorageService.saveRelations([...ensureRelations(), ...newRelations]);
     }
 
     return createdOrUpdated;
@@ -437,11 +453,28 @@ export const GraphEngine = {
     }
 
     // Filtra apenas nós específicos com alto valor pedagógico (evita o nó raiz genérico se houver itens filhos)
+    const childCount = new Map<string, number>();
+    for (const n of nodes) {
+      if (n.topico_pai) childCount.set(n.topico_pai, (childCount.get(n.topico_pai) ?? 0) + 1);
+    }
     const specificNodes = nodes.filter(
-      (n) => n.tipo !== 'topico' || nodes.filter((sub) => sub.topico_pai === n.id).length === 0
+      (n) => n.tipo !== 'topico' || (childCount.get(n.id) ?? 0) === 0
     );
 
     const candidateNodes = specificNodes.length >= limit ? specificNodes : nodes;
+
+    // Índices pré-computados: normalizações e varreduras O(N·C)/O(N·R) saem
+    // do caminho por-nó e viram uma passada de indexação + lookups O(1).
+    const normCorrections = corrections.map((c) => ({ c, norm: this.normalize(c.conceito) }));
+    const relationsByNode = new Map<string, typeof relations>();
+    for (const r of relations) {
+      for (const nodeId of [r.origem_id, r.destino_id]) {
+        const list = relationsByNode.get(nodeId);
+        if (list) list.push(r);
+        else relationsByNode.set(nodeId, [r]);
+      }
+    }
+    const nodeById = new Map(nodes.map((n) => [n.id, n]));
 
     // Calcula score ponderado de prioridade para cada nó
     const scoredNodes = candidateNodes.map((node) => {
@@ -473,26 +506,23 @@ export const GraphEngine = {
 
       // 6. Correções recentes associadas que precisam de revisão
       const normTitle = this.normalize(node.titulo);
-      const pendingCorrections = corrections.filter((c) => {
-        const normConceito = this.normalize(c.conceito);
+      const pendingCorrections = normCorrections.filter(({ c, norm }) => {
         return (
-          (normConceito.includes(normTitle) || normTitle.includes(normConceito)) &&
+          (norm.includes(normTitle) || normTitle.includes(norm)) &&
           (c.estado_posterior === 'precisa_revisar' || !c.respondido_corretamente)
         );
       });
       score += pendingCorrections.length * 20;
 
       // 7. Relações e conexões no grafo (Gargalos)
-      const connectedEdges = relations.filter(
-        (r) => r.origem_id === node.id || r.destino_id === node.id
-      );
+      const connectedEdges = relationsByNode.get(node.id) ?? [];
       score += Math.min(connectedEdges.length * 4, 20);
 
       // Descobre nomes dos nós vizinhos no grafo
       const neighborNames = connectedEdges
         .map((r) => {
           const neighborId = r.origem_id === node.id ? r.destino_id : r.origem_id;
-          const neighborNode = nodes.find((n) => n.id === neighborId);
+          const neighborNode = nodeById.get(neighborId);
           return neighborNode ? neighborNode.titulo : null;
         })
         .filter(Boolean) as string[];

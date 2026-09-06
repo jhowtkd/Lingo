@@ -21,6 +21,10 @@
       ]
     },
     "allowImportingTsExtensions": true,
+    "resolveJsonModule": true,
+    "incremental": true,
     "noEmit": true
-  }
+  },
+  "include": ["src", "server", "tests", "evals", "*.ts"],
+  "exclude": ["dist", "out", "node_modules", ".worktrees"]
 }

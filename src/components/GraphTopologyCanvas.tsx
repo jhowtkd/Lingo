@@ -48,6 +48,9 @@ export const GraphTopologyCanvas: React.FC<GraphTopologyCanvasProps> = ({
   onNavigateToChat,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
+  const transformRef = useRef<HTMLDivElement>(null);
+  const panRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
+  const panRafRef = useRef<number | null>(null);
   const [zoom, setZoom] = useState<number>(1);
   const [pan, setPan] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
   const [isPanning, setIsPanning] = useState(false);
@@ -123,6 +126,12 @@ export const GraphTopologyCanvas: React.FC<GraphTopologyCanvasProps> = ({
     setStartPan({ x: e.clientX - pan.x, y: e.clientY - pan.y });
   };
 
+  const applyPanTransform = (nextPan: { x: number; y: number }, nextZoom: number) => {
+    if (transformRef.current) {
+      transformRef.current.style.transform = `translate3d(${nextPan.x}px, ${nextPan.y}px, 0) scale(${nextZoom})`;
+    }
+  };
+
   const handleMouseMove = (e: React.MouseEvent) => {
     if (draggingNodeId && containerRef.current) {
       const rect = containerRef.current.getBoundingClientRect();
@@ -137,14 +146,30 @@ export const GraphTopologyCanvas: React.FC<GraphTopologyCanvasProps> = ({
         },
       }));
     } else if (isPanning) {
-      setPan({
+      panRef.current = {
         x: e.clientX - startPan.x,
         y: e.clientY - startPan.y,
-      });
+      };
+      // Escreve a translação direto no DOM (rAF) para não re-renderizar o grafo a cada mousemove
+      if (panRafRef.current === null) {
+        const nextPan = panRef.current;
+        panRafRef.current = requestAnimationFrame(() => {
+          panRafRef.current = null;
+          applyPanTransform(nextPan, zoom);
+        });
+      }
     }
   };
 
   const handleMouseUp = () => {
+    if (isPanning) {
+      if (panRafRef.current !== null) {
+        cancelAnimationFrame(panRafRef.current);
+        panRafRef.current = null;
+      }
+      applyPanTransform(panRef.current, zoom);
+      setPan(panRef.current);
+    }
     setIsPanning(false);
     setDraggingNodeId(null);
   };
@@ -166,6 +191,12 @@ export const GraphTopologyCanvas: React.FC<GraphTopologyCanvasProps> = ({
   };
 
   const resetView = () => {
+    if (panRafRef.current !== null) {
+      cancelAnimationFrame(panRafRef.current);
+      panRafRef.current = null;
+    }
+    panRef.current = { x: 0, y: 0 };
+    applyPanTransform(panRef.current, 1);
     setZoom(1);
     setPan({ x: 0, y: 0 });
   };
@@ -187,7 +218,18 @@ export const GraphTopologyCanvas: React.FC<GraphTopologyCanvasProps> = ({
     );
   }, [relations, visibleNodeIds]);
 
+  const nodeById = useMemo(() => new Map(nodes.map((n) => [n.id, n])), [nodes]);
+
+  const selectedRelations = useMemo(() => {
+    if (!selectedNode) return [];
+    return relations.filter(
+      (r) => r.origem_id === selectedNode.id || r.destino_id === selectedNode.id
+    );
+  }, [relations, selectedNode]);
+
   const sessionNewCount = sessionNewNodeIds.size;
+
+  const now = new Date();
 
   return (
     <div className="space-y-4">
@@ -313,6 +355,7 @@ export const GraphTopologyCanvas: React.FC<GraphTopologyCanvasProps> = ({
 
           {/* Container de Transformação Zoom/Pan */}
           <div
+            ref={transformRef}
             style={{
               transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
               transformOrigin: '0 0',
@@ -425,7 +468,7 @@ export const GraphTopologyCanvas: React.FC<GraphTopologyCanvasProps> = ({
               const isNew = sessionNewNodeIds.has(node.id);
               const isSelected = selectedNode?.id === node.id;
               const badge = getTypeBadge(node.tipo);
-              const isPendingReview = new Date(node.proxima_revisao) <= new Date();
+              const isPendingReview = new Date(node.proxima_revisao) <= now;
 
               return (
                 <div
@@ -442,7 +485,7 @@ export const GraphTopologyCanvas: React.FC<GraphTopologyCanvasProps> = ({
                     top: `${pos.y}px`,
                     transform: 'translate(-50%, -50%)',
                   }}
-                  className={`absolute z-10 w-54 rounded-[var(--r)] border bg-[var(--surface)] p-3.5 shadow-[var(--shadow-sm)] transition-all duration-150 cursor-pointer select-none text-left ${
+                  className={`absolute z-10 w-54 rounded-[var(--r)] border bg-[var(--surface)] p-3.5 shadow-[var(--shadow-sm)] cursor-pointer select-none text-left ${
                     isSelected
                       ? 'border-2 border-[var(--fg)] ring-3 ring-[var(--accent)]/40 shadow-[var(--shadow)] scale-105'
                       : isNew
@@ -601,15 +644,14 @@ export const GraphTopologyCanvas: React.FC<GraphTopologyCanvasProps> = ({
               {/* Conexões Diretas */}
               <div>
                 <span className="text-xs text-[var(--muted)] uppercase font-bold block mb-1.5">
-                  Conexões no Grafo ({relations.filter(r => r.origem_id === selectedNode.id || r.destino_id === selectedNode.id).length}):
+                  Conexões no Grafo ({selectedRelations.length}):
                 </span>
                 <div className="space-y-1.5 max-h-40 overflow-y-auto pr-1">
-                  {relations
-                    .filter((r) => r.origem_id === selectedNode.id || r.destino_id === selectedNode.id)
+                  {selectedRelations
                     .map((r) => {
                       const isOrigin = r.origem_id === selectedNode.id;
                       const otherId = isOrigin ? r.destino_id : r.origem_id;
-                      const otherNode = nodes.find((n) => n.id === otherId);
+                      const otherNode = nodeById.get(otherId);
                       const isSessionNewRel = sessionNewRelationIds.has(r.id);
 
                       return (

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Camera, Download, Loader2, CheckCircle2, Copy, Sparkles } from 'lucide-react';
 import { toPng } from 'html-to-image';
 import { Button } from './ui/button';
@@ -22,6 +22,14 @@ export const ScreenCaptureModal: React.FC<ScreenCaptureModalProps> = ({
   >([]);
   const [currentCapturingScreen, setCurrentCapturingScreen] = useState('');
   const [copiedId, setCopiedId] = useState<string | null>(null);
+
+  // Capturas PNG em base64 (até ~10MB no heap) não devem sobreviver ao
+  // fechamento do modal: o componente fica montado, então limpa ao fechar.
+  useEffect(() => {
+    if (!isOpen && capturedImages.length > 0) {
+      setCapturedImages([]);
+    }
+  }, [isOpen, capturedImages.length]);
 
   const screens = [
     { id: 'chat', label: '1. Chat Tutor de Línguas' },
@@ -207,6 +215,8 @@ export const ScreenCaptureModal: React.FC<ScreenCaptureModalProps> = ({
                     <img
                       src={img.dataUrl}
                       alt={img.title}
+                      loading="lazy"
+                      decoding="async"
                       className="w-full h-full object-contain"
                     />
                   </div>

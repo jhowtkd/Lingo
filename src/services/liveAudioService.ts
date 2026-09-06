@@ -1,3 +1,5 @@
+import { auth } from './firebase';
+
 export type LiveConnectionState =
   | 'idle'
   | 'connecting'
@@ -25,6 +27,9 @@ export class GeminiLiveVoiceService {
 
   private isConnected = false;
   private isMuted = false;
+  private shouldReconnect = false;
+  private reconnectAttempts = 0;
+  private connectArgs: { topic: string; studentLevel: string; options?: { voice?: string; lang?: string } } | null = null;
   private nextStartTime = 0;
   private activeSources: AudioBufferSourceNode[] = [];
 
@@ -40,6 +45,9 @@ export class GeminiLiveVoiceService {
     options?: { voice?: string; lang?: string }
   ): Promise<void> {
     this.onStateChange?.('connecting');
+    this.connectArgs = { topic, studentLevel, options };
+    this.shouldReconnect = true;
+    this.reconnectAttempts = 0;
 
     try {
       // 1. Inicia conexões de áudio do navegador
@@ -59,7 +67,12 @@ export class GeminiLiveVoiceService {
       const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
       const voiceParam = options?.voice ? `&voice=${encodeURIComponent(options.voice)}` : '';
       const langParam = options?.lang ? `&lang=${encodeURIComponent(options.lang)}` : '';
-      const wsUrl = `${protocol}//${window.location.host}/live?topic=${encodeURIComponent(topic)}&level=${encodeURIComponent(studentLevel)}${voiceParam}${langParam}`;
+      // O servidor exige ID token Firebase válido no handshake (?token=...).
+      let tokenParam = '';
+      if (auth.currentUser) {
+        tokenParam = `&token=${encodeURIComponent(await auth.currentUser.getIdToken())}`;
+      }
+      const wsUrl = `${protocol}//${window.location.host}/live?topic=${encodeURIComponent(topic)}&level=${encodeURIComponent(studentLevel)}${voiceParam}${langParam}${tokenParam}`;
       this.ws = new WebSocket(wsUrl);
 
       this.ws.onopen = async () => {
@@ -83,10 +96,15 @@ export class GeminiLiveVoiceService {
         this.onStateChange?.('error', 'Erro na conexão com o servidor');
       };
 
-      this.ws.onclose = () => {
+      this.ws.onclose = (event) => {
         this.isConnected = false;
         this.cleanupAudio();
-        this.onStateChange?.('closed');
+        // 4401/4408 são recusas do servidor (auth/limite): não insistir.
+        if (!this.shouldReconnect || event.code === 4401 || event.code === 4408 || event.code === 1000) {
+          this.onStateChange?.('closed');
+          return;
+        }
+        this.scheduleReconnect();
       };
     } catch (err: any) {
       console.error('Erro ao inicializar Gemini Live:', err);
@@ -94,6 +112,21 @@ export class GeminiLiveVoiceService {
       this.onStateChange?.('error', err.message || 'Erro ao acessar microfone');
       throw err;
     }
+  }
+
+  private scheduleReconnect() {
+    if (this.reconnectAttempts >= 4) {
+      this.onStateChange?.('error', 'Conexão de voz perdida. Tente novamente.');
+      return;
+    }
+    const delayMs = Math.min(8000, 1000 * 2 ** this.reconnectAttempts) + Math.random() * 500;
+    this.reconnectAttempts += 1;
+    this.onStateChange?.('connecting', `Reconectando (${this.reconnectAttempts})...`);
+    window.setTimeout(() => {
+      if (this.shouldReconnect && this.connectArgs) {
+        void this.connect(this.connectArgs.topic, this.connectArgs.studentLevel, this.connectArgs.options);
+      }
+    }, delayMs);
   }
 
   private async startMicrophoneCapture(): Promise<void> {
@@ -259,6 +292,9 @@ export class GeminiLiveVoiceService {
   }
 
   disconnect(): void {
+    // Encerramento pelo usuário: desliga a reconexão automática antes de fechar.
+    this.shouldReconnect = false;
+    this.connectArgs = null;
     this.stopCurrentAudioPlayback();
     if (this.ws) {
       this.ws.close();
@@ -299,11 +335,13 @@ export class GeminiLiveVoiceService {
       const s = Math.max(-1, Math.min(1, float32Array[i]));
       view.setInt16(i * 2, s < 0 ? s * 0x8000 : s * 0x7fff, true);
     }
-    let binary = '';
+    // Conversão em blocos via apply: concatenar byte a byte gera churn de
+    // strings ~8x/segundo durante toda a sessão de voz.
     const bytes = new Uint8Array(buffer);
     const len = bytes.byteLength;
-    for (let i = 0; i < len; i++) {
-      binary += String.fromCharCode(bytes[i]);
+    let binary = '';
+    for (let i = 0; i < len; i += 8192) {
+      binary += String.fromCharCode.apply(null, bytes.subarray(i, Math.min(i + 8192, len)) as unknown as number[]);
     }
     return btoa(binary);
   }

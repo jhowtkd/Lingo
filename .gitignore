@@ -7,3 +7,8 @@ coverage/
 *.log
 .env*
 !.env.example
+
+# tsc incremental
+tsconfig.tsbuildinfo
+.video_agent/
+package-lock.json

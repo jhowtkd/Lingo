@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { UserProfile } from '../types';
 import { logoutUser } from '../services/firebase';
 import { StorageService } from '../services/storage';
@@ -45,9 +45,9 @@ export function UserProfileMenu({
   const [isOpen, setIsOpen] = useState(false);
   const [syncStatus, setSyncStatus] = useState<string | null>(null);
 
-  const stats = StorageService.getStats();
-  const nodes = StorageService.getNodes();
-  const materials = StorageService.getMaterials();
+  const stats = useMemo(() => StorageService.getStats(), []);
+  const nodes = useMemo(() => StorageService.getNodes(), []);
+  const materials = useMemo(() => StorageService.getMaterials(), []);
 
   const handleLogout = async () => {
     playSfx('click');
@@ -105,6 +105,8 @@ export function UserProfileMenu({
             <img
               src={currentUser.photoURL}
               alt="Avatar"
+              loading="lazy"
+              decoding="async"
               className="w-7 h-7 rounded-full object-cover border border-[var(--border)]"
             />
           ) : (
@@ -174,6 +176,8 @@ export function UserProfileMenu({
                     <img
                       src={currentUser.photoURL}
                       alt="Avatar"
+                      loading="lazy"
+                      decoding="async"
                       className="w-10 h-10 rounded-full object-cover border border-[var(--border)]"
                     />
                   ) : (

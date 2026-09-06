@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import {
   MessageSquare,
   Layers,
@@ -44,11 +44,15 @@ export const HomeOverview: React.FC<HomeOverviewProps> = ({
   const currentMinutes = stats.minutos_hoje || 0;
   const progressPercent = Math.min(100, Math.round((currentMinutes / goalMinutes) * 100));
 
-  const studyPlan = StorageService.getStudyPlan();
-  const graphNodes = StorageService.getNodes();
-  const materials = StorageService.getMaterials();
-  const resumableConversation = StorageService.getConversations(false).find((conversation) =>
-    conversation.mensagens.some((message) => message.remetente === 'user')
+  const studyPlan = useMemo(() => StorageService.getStudyPlan(), []);
+  const graphNodes = useMemo(() => StorageService.getNodes(), []);
+  const materials = useMemo(() => StorageService.getMaterials(), []);
+  const resumableConversation = useMemo(
+    () =>
+      StorageService.getConversations(false).find((conversation) =>
+        conversation.mensagens.some((message) => message.remetente === 'user')
+      ),
+    []
   );
   const hasResumeContext = Boolean(resumableConversation || materials.length > 0);
   const resumeDestination = resumableConversation ? 'chat' : 'materials';

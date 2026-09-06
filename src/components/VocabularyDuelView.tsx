@@ -19,7 +19,7 @@ import {
   Award,
   AlertTriangle,
 } from 'lucide-react';
-import confetti from 'canvas-confetti';
+import { fireConfetti as confetti } from '../lib/confetti';
 import {
   DuelQuestion,
   DuelRoundAnswer,

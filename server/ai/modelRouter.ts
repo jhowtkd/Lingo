@@ -108,30 +108,38 @@ export class ModelRouter {
 
       try {
         const attemptStart = Date.now();
-        const callPromise = client.models.generateContent({
-          model: modelName,
-          contents: params.contents,
-          config: {
-            ...params.config,
-            systemInstruction: params.systemInstruction || params.config?.systemInstruction,
-          },
-        });
 
-        // Timeout por tentativa
-        const timeoutPromise = new Promise((_, reject) => {
-          const t = setTimeout(() => {
-            reject(new ModelRouterError('TIMEOUT', `Timeout de ${perAttemptTimeoutMs}ms no modelo ${modelName}`, true));
-          }, perAttemptTimeoutMs);
+        // Abort real da request upstream no timeout ou no cancelamento do
+        // cliente (antes: a chamada abandonada continuava queimando quota).
+        const attemptCtrl = new AbortController();
+        const onClientAbort = () =>
+          attemptCtrl.abort(new ModelRouterError('ABORTED', 'Requisição abortada pelo cliente.', false));
+        if (options.signal) {
+          options.signal.addEventListener('abort', onClientAbort, { once: true });
+        }
+        const timeoutTimer = setTimeout(
+          () => attemptCtrl.abort(new ModelRouterError('TIMEOUT', `Timeout de ${perAttemptTimeoutMs}ms no modelo ${modelName}`, true)),
+          perAttemptTimeoutMs
+        );
 
+        let response: any;
+        try {
+          response = await client.models.generateContent({
+            model: modelName,
+            contents: params.contents,
+            config: {
+              ...params.config,
+              systemInstruction: params.systemInstruction || params.config?.systemInstruction,
+              abortSignal: attemptCtrl.signal,
+            },
+          });
+        } finally {
+          clearTimeout(timeoutTimer);
           if (options.signal) {
-            options.signal.addEventListener('abort', () => {
-              clearTimeout(t);
-              reject(new ModelRouterError('ABORTED', 'Requisição abortada pelo cliente.', false));
-            });
+            options.signal.removeEventListener('abort', onClientAbort);
           }
-        });
+        }
 
-        const response: any = await Promise.race([callPromise, timeoutPromise]);
         const durationMs = Date.now() - attemptStart;
 
         // Limpa cooldown em caso de sucesso

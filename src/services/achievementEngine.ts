@@ -1,102 +1,14 @@
 import { Achievement, GraphNode, PedagogicalCorrection, UserStats } from '../types';
 import { StorageService } from './storage';
-import confetti from 'canvas-confetti';
+import { fireConfetti as confetti } from '../lib/confetti';
+import { ACHIEVEMENT_TEMPLATES } from './achievementTemplates';
 
 export interface AchievementEvaluationResult {
   achievements: Achievement[];
   newlyUnlocked: Achievement[];
 }
 
-export const ALL_SYSTEM_ACHIEVEMENTS: Achievement[] = [
-  {
-    id: 'primeira_conversa',
-    titulo: 'Primeiro Passo',
-    descricao: 'Concluiu a primeira troca ativa com o tutor.',
-    icone: 'Sparkles',
-    xp_recompensa: 50,
-    desbloqueada: false,
-    progresso_atual: 0,
-    progresso_meta: 1,
-    categoria: 'consistencia',
-  },
-  {
-    id: 'mestre_conceitos_dificeis',
-    titulo: 'Mestre de Conceitos Difíceis',
-    descricao: 'Alcançou domínio de 80% ou mais em um conceito complexo (dificuldade nível 4 ou 5) no grafo.',
-    icone: 'Award',
-    xp_recompensa: 250,
-    desbloqueada: false,
-    progresso_atual: 0,
-    progresso_meta: 80,
-    categoria: 'dominio',
-  },
-  {
-    id: 'maratonista_estudos',
-    titulo: 'Maratonista de Estudos',
-    descricao: 'Manteve uma sequência de pelo menos 3 dias consecutivos de estudo ativo.',
-    icone: 'Flame',
-    xp_recompensa: 200,
-    desbloqueada: false,
-    progresso_atual: 0,
-    progresso_meta: 3,
-    categoria: 'consistencia',
-  },
-  {
-    id: 'detetive_erros',
-    titulo: 'Detetive de Erros',
-    descricao: 'Identificou, esclareceu e consolidou com sucesso 3 ou mais equívocos conceituais com checagem.',
-    icone: 'CheckCircle2',
-    xp_recompensa: 180,
-    desbloqueada: false,
-    progresso_atual: 0,
-    progresso_meta: 3,
-    categoria: 'correcao',
-  },
-  {
-    id: 'arquiteto_saber',
-    titulo: 'Arquiteto do Saber',
-    descricao: 'Mapeou e conectou 5 ou mais nós no Grafo de Conhecimento com relacionamentos conceituais.',
-    icone: 'Network',
-    xp_recompensa: 220,
-    desbloqueada: false,
-    progresso_atual: 0,
-    progresso_meta: 5,
-    categoria: 'grafo',
-  },
-  {
-    id: 'voz_sabedoria',
-    titulo: 'Voz da Sabedoria',
-    descricao: 'Praticou conversação oral em tempo real com o Gemini Live API ou gravou explicações faladas.',
-    icone: 'Mic',
-    xp_recompensa: 150,
-    desbloqueada: false,
-    progresso_atual: 0,
-    progresso_meta: 2,
-    categoria: 'voz',
-  },
-  {
-    id: 'memoria_blindada',
-    titulo: 'Memória Blindada',
-    descricao: 'Concluiu revisões espaçadas de conceitos e vocabulário antes da expiração da memória.',
-    icone: 'Brain',
-    xp_recompensa: 160,
-    desbloqueada: false,
-    progresso_atual: 0,
-    progresso_meta: 2,
-    categoria: 'dominio',
-  },
-  {
-    id: 'criador_materiais',
-    titulo: 'Estúdio de Materiais',
-    descricao: 'Transformou vídeos do YouTube ou textos em kits de estudos completos com vocabulário e diálogos.',
-    icone: 'BookOpen',
-    xp_recompensa: 150,
-    desbloqueada: false,
-    progresso_atual: 0,
-    progresso_meta: 1,
-    categoria: 'materiais',
-  },
-];
+export const ALL_SYSTEM_ACHIEVEMENTS: Achievement[] = ACHIEVEMENT_TEMPLATES;
 
 export const AchievementEngine = {
   // Avalia todos os critérios das conquistas baseado no estado atual
@@ -146,8 +58,9 @@ export const AchievementEngine = {
     const newlyUnlocked: Achievement[] = [];
 
     // Mescla com a lista mestre
+    const savedById = new Map(savedAchievements.map((a) => [a.id, a]));
     const updatedAchievements: Achievement[] = ALL_SYSTEM_ACHIEVEMENTS.map((template) => {
-      const existing = savedAchievements.find((a) => a.id === template.id);
+      const existing = savedById.get(template.id);
       const isAlreadyUnlocked = Boolean(existing?.desbloqueada);
       let isUnlockedNow = isAlreadyUnlocked;
       let currentProgress = existing?.progresso_atual || 0;

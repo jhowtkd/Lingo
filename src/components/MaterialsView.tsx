@@ -22,7 +22,7 @@ import {
   Check,
   Zap,
 } from 'lucide-react';
-import confetti from 'canvas-confetti';
+import { fireConfetti as confetti } from '../lib/confetti';
 import {
   StudyMaterialItem,
   VocabularyItem,
@@ -34,6 +34,7 @@ import {
   GraphRelation,
 } from '../types';
 import { StorageService } from '../services/storage';
+import { apiFetch } from '../lib/api';
 import { GraphEngine } from '../services/graphEngine';
 import { SpeechService } from '../services/speechSynthesisService';
 import { getLanguageConfig } from '../config/languages';
@@ -137,7 +138,7 @@ export const MaterialsView: React.FC<MaterialsViewProps> = ({ onPracticeInChat, 
 
     setIsGenerating(true);
     try {
-      const res = await fetch('/api/materials/generate', {
+      const res = await apiFetch('/api/materials/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -520,6 +521,8 @@ Camarero: ¡Enseguida se lo traigo!`,
                   <img
                     src={`https://img.youtube.com/vi/${getYouTubeId(youtubeUrl)}/mqdefault.jpg`}
                     alt="Thumbnail"
+                    loading="lazy"
+                    decoding="async"
                     className="w-24 h-16 object-cover rounded-lg border border-[var(--border)]"
                   />
                   <div className="text-xs space-y-1">

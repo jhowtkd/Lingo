@@ -2,6 +2,9 @@ import http from 'http';
 import express from 'express';
 import path from 'path';
 import dotenv from 'dotenv';
+import compression from 'compression';
+import rateLimit from 'express-rate-limit';
+import { requireAuth, requireAdmin, verifyWsToken } from './server/auth/verifyFirebaseToken';
 import { GoogleGenAI, Type, Modality } from '@google/genai';
 import { WebSocketServer, WebSocket } from 'ws';
 import { createServer as createViteServer } from 'vite';
@@ -9,6 +12,7 @@ import { chatRouter } from './server/routes/chat';
 import { transcriptionRouter } from './server/routes/transcription';
 import { pronunciationRouter } from './server/routes/pronunciation';
 import { AiTelemetry } from './server/observability/aiTelemetry';
+import { GeminiResponseCache } from './server/ai/geminiCache';
 
 dotenv.config();
 
@@ -38,6 +42,10 @@ function getGeminiClient(): GoogleGenAI | null {
  * Gerenciador de cooldown de modelos para evitar chamadas repetidas a endpoints em 503
  */
 const modelCooldownMap = new Map<string, number>();
+
+// LRU de contextos de palavra: consultas repetidas (muito comuns em app de
+// idioma) deixam de virar chamada Gemini nova a cada clique.
+const wordContextCache = new GeminiResponseCache<any>(500, 10 * 60_000);
 
 let ttsAuthFailedUntil = 0;
 function isTtsAuthFailed(): boolean {
@@ -83,10 +91,24 @@ async function generateContentWithRetryAndFallback(
     }
 
     try {
-      const response = await client.models.generateContent({
-        ...params,
-        model: modelName,
-      });
+      // Deadline por tentativa: sem isso um Gemini travado pendura a conexão
+      // por minutos e o fallback nunca é acionado. Aborta a request real.
+      const perAttemptTimeoutMs = Number(process.env.GEMINI_TIMEOUT_MS) || 60000;
+      const attemptCtrl = new AbortController();
+      const timeoutTimer = setTimeout(
+        () => attemptCtrl.abort(new Error(`Timeout de ${perAttemptTimeoutMs}ms excedido no modelo ${modelName}`)),
+        perAttemptTimeoutMs
+      );
+      let response: any;
+      try {
+        response = await client.models.generateContent({
+          ...params,
+          model: modelName,
+          config: { ...(params.config || {}), abortSignal: attemptCtrl.signal },
+        });
+      } finally {
+        clearTimeout(timeoutTimer);
+      }
       // Sucesso: remove do cooldown se estiver lá
       modelCooldownMap.delete(modelName);
       return response;
@@ -124,10 +146,23 @@ async function startServer() {
   const app = express();
   const server = http.createServer(app);
 
-  app.use(express.json({ limit: '25mb' }));
-  app.use(express.urlencoded({ extended: true, limit: '25mb' }));
+  // Respeita X-Forwarded-For atrás de proxy (necessário para rate limit por IP)
+  app.set('trust proxy', 1);
+  app.use(compression());
 
-  // Health check
+  // Parse grande (25MB, base64 de áudio) apenas nas rotas de áudio; todo o
+  // resto fica em 64kb para evitar exaustão de memória por payload gigante.
+  const AUDIO_ROUTES = [
+    '/api/transcribe',
+    '/api/transcribe-audio',
+    '/api/pronunciation-assessment',
+    '/api/pronunciation',
+  ];
+  app.use(AUDIO_ROUTES, express.json({ limit: '25mb' }));
+  app.use(express.json({ limit: '64kb' }));
+  app.use(express.urlencoded({ extended: true, limit: '64kb' }));
+
+  // Health check (aberto, para load balancers)
   app.get('/api/health', (req, res) => {
     res.json({
       status: 'ok',
@@ -136,13 +171,24 @@ async function startServer() {
     });
   });
 
-  // Telemetria & Observabilidade AI
-  app.get('/api/telemetry', (_req, res) => {
+  // Telemetria & Observabilidade AI (restrita a administradores)
+  app.get('/api/telemetry', requireAdmin, (_req, res) => {
     res.json({
       summary: AiTelemetry.getMetricsSummary(),
       recentLogs: AiTelemetry.getRecentLogs(50),
     });
   });
+
+  // --- Auth + Rate Limiting: rotas de IA custam dinheiro real (Gemini) ---
+  const jsonLimiter = (max: number) =>
+    rateLimit({ windowMs: 60_000, limit: max, standardHeaders: true, legacyHeaders: false });
+
+  // Toda rota /api exige ID token Firebase válido (login anônimo conta).
+  app.use('/api', jsonLimiter(120), requireAuth);
+  // Limites mais rígidos nas rotas caras:
+  app.use('/api/chat', jsonLimiter(30));
+  app.use('/api/tts', jsonLimiter(20));
+  app.use(AUDIO_ROUTES, jsonLimiter(20));
 
   // Rotas Modulares do Tutor de Inteligência Artificial
   app.use('/api/chat', chatRouter);
@@ -163,6 +209,12 @@ async function startServer() {
         foco_aprendizagem = 'Vocabulário, Expressões e Diálogo',
       } = req.body;
 
+      if (typeof conteudo_ou_url === 'string' && conteudo_ou_url.length > 20_000) {
+        return res.status(413).json({ error: 'Conteúdo excede o limite de 20.000 caracteres.' });
+      }
+      if (typeof transcricao_manual === 'string' && transcricao_manual.length > 50_000) {
+        return res.status(413).json({ error: 'Transcrição excede o limite de 50.000 caracteres.' });
+      }
       if (!conteudo_ou_url && !transcricao_manual) {
         return res.status(400).json({ error: 'Conteúdo, texto ou link do YouTube é obrigatório.' });
       }
@@ -389,6 +441,8 @@ Forneça um objeto JSON estruturado com:
 14. "origem_etimologia": Curiosidade etimológica curta e memorável (opcional).
 `;
 
+      const cacheKey = `${idioma}|${topico}|${cleanWord.toLowerCase()}|${(frase_contexto || '').slice(0, 200)}`;
+      const parsed = await wordContextCache.run(cacheKey, async () => {
       const response = await generateContentWithRetryAndFallback(client, {
         model: 'gemini-3.7-flash',
         contents: prompt,
@@ -446,8 +500,8 @@ Forneça um objeto JSON estruturado com:
           },
         },
       });
-
-      const parsed = JSON.parse(response.text || '{}');
+        return JSON.parse(response.text || '{}');
+      });
       return res.json({ contexto: parsed });
     } catch (err: any) {
       console.warn('Erro ao gerar contexto de palavra com IA, usando fallback:', err?.message || err);
@@ -505,6 +559,9 @@ Forneça um objeto JSON estruturado com:
 
       if (!text || typeof text !== 'string' || !text.trim()) {
         return res.status(400).json({ error: 'Texto para síntese é obrigatório.' });
+      }
+      if (text.length > 5000) {
+        return res.status(413).json({ error: 'Texto para síntese excede o limite de 5.000 caracteres.' });
       }
 
       if (isTtsAuthFailed()) {
@@ -1212,9 +1269,54 @@ Gere uma resposta JSON estruturada estritamente de acordo com o schema com:
   // ==========================================
   // WEBSOCKET BRIDGE: GEMINI LIVE VOICE API (LANGUAGE TUTOR)
   // ==========================================
-  const wss = new WebSocketServer({ server, path: '/live' });
+  // --- Hardening do /live: cada conexão abre uma sessão Gemini Live paga ---
+  const wss = new WebSocketServer({ server, path: '/live', maxPayload: 512 * 1024 });
+
+  // Heartbeat: reivindica sessões órfãs (rede móvel, sleep) via ping/pong
+  const heartbeat = setInterval(() => {
+    for (const ws of wss.clients) {
+      const client = ws as WebSocket & { isAlive?: boolean };
+      if (client.isAlive === false) {
+        client.terminate();
+        continue;
+      }
+      client.isAlive = false;
+      client.ping();
+    }
+  }, 30000);
+  wss.on('close', () => clearInterval(heartbeat));
+
+  const liveConnectionsByIp = new Map<string, number>();
+  const MAX_LIVE_CONNECTIONS_PER_IP = 3;
 
   wss.on('connection', async (clientWs: WebSocket, request) => {
+    (clientWs as WebSocket & { isAlive?: boolean }).isAlive = true;
+    clientWs.on('pong', () => {
+      (clientWs as WebSocket & { isAlive?: boolean }).isAlive = true;
+    });
+
+    // Autenticação obrigatória no handshake (?token=<Firebase ID token>):
+    // sem token válido nenhuma sessão Live paga é aberta.
+    const firebaseUser = await verifyWsToken(request);
+    if (!firebaseUser) {
+      clientWs.close(4401, 'UNAUTHENTICATED');
+      return;
+    }
+
+    // Limite de sessões simultâneas por IP
+    const ip = request.socket.remoteAddress || 'unknown';
+    const activeForIp = liveConnectionsByIp.get(ip) ?? 0;
+    if (activeForIp >= MAX_LIVE_CONNECTIONS_PER_IP) {
+      clientWs.close(4408, 'TOO_MANY_CONNECTIONS');
+      return;
+    }
+    liveConnectionsByIp.set(ip, activeForIp + 1);
+    clientWs.on('close', () => {
+      const n = liveConnectionsByIp.get(ip) ?? 1;
+      if (n <= 1) liveConnectionsByIp.delete(ip);
+      else liveConnectionsByIp.set(ip, n - 1);
+    });
+
     const client = getGeminiClient();
     const url = new URL(request.url || '', `http://${request.headers.host}`);
     const topic = url.searchParams.get('topic') || 'Conversação Geral';
@@ -1249,6 +1351,8 @@ Gere uma resposta JSON estruturada estritamente de acordo com o schema com:
       });
       return;
     }
+
+    let sessionClosed = false;
 
     try {
       const liveSession = await client.live.connect({
@@ -1324,14 +1428,21 @@ Diretrizes Pedagógicas para Voz em Tempo Real:
             }
           },
           onclose: () => {
+            sessionClosed = true;
             if (clientWs.readyState === WebSocket.OPEN) {
               clientWs.send(JSON.stringify({ type: 'closed' }));
+            }
+            // Encerra também o socket do cliente: sem isso o navegador segue
+            // transmitindo áudio para uma sessão morta.
+            if (clientWs.readyState === WebSocket.OPEN) {
+              clientWs.close(1000, 'SESSION_CLOSED');
             }
           },
         },
       });
 
       clientWs.on('message', (raw) => {
+        if (sessionClosed) return;
         try {
           const payload = JSON.parse(raw.toString());
           if (payload.audio) {
@@ -1341,9 +1452,9 @@ Diretrizes Pedagógicas para Voz em Tempo Real:
                 mimeType: 'audio/pcm;rate=16000',
               },
             });
-          } else if (payload.text) {
+          } else if (typeof payload.text === 'string' && payload.text) {
             liveSession.sendRealtimeInput({
-              text: payload.text,
+              text: payload.text.slice(0, 4000),
             });
           }
         } catch (e) {
@@ -1378,139 +1489,47 @@ Diretrizes Pedagógicas para Voz em Tempo Real:
     app.use(vite.middlewares);
   } else {
     const distPath = path.join(process.cwd(), 'dist');
-    app.use(express.static(distPath));
+    // Assets com hash de conteúdo: cache imutável de 1 ano. HTML revalida.
+    app.use(
+      '/assets',
+      express.static(path.join(distPath, 'assets'), { maxAge: '1y', immutable: true })
+    );
+    app.use(
+      express.static(distPath, {
+        setHeaders: (res, filePath) => {
+          if (filePath.endsWith('.html')) res.setHeader('Cache-Control', 'no-cache');
+        },
+      })
+    );
     app.get('*', (req, res) => {
       res.sendFile(path.join(distPath, 'index.html'));
     });
   }
+
+  // Middleware de erro global: contrato JSON uniforme + log centralizado
+  app.use((err: any, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
+    console.error('[Unhandled route error]', err);
+    if (!res.headersSent) {
+      res.status(500).json({ error: 'Erro interno', code: 'INTERNAL_ERROR', retryable: true });
+    }
+  });
 
   server.listen(PORT, '0.0.0.0', () => {
     console.log(`Tutor de Línguas Server rodando em http://0.0.0.0:${PORT}`);
   });
 }
 
+// Rede de segurança: rejeições não tratadas não devem derrubar o processo
+// (derrubaria todas as sessões de voz ativas junto).
+process.on('unhandledRejection', (reason) => {
+  console.error('[unhandledRejection]', reason);
+});
+
 function extractYouTubeVideoId(url: string): string | undefined {
   if (!url || typeof url !== 'string') return undefined;
   const regExp = /(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=))([\w-]{11})/;
   const match = url.match(regExp);
   return match ? match[1] : undefined;
-}
-
-function generateLocalLanguageTutorResponse(
-  mensagem: string,
-  topico: string,
-  idiomaAlvo: string,
-  contextoGrafo: any[],
-  preferenciaAdaptacao?: string,
-  planoEstudo?: any
-) {
-  const lower = mensagem.toLowerCase();
-  const hasCommonPortugueseTransfer =
-    lower.includes('make a question') ||
-    lower.includes('i have 20 years') ||
-    lower.includes('depend of') ||
-    lower.includes('actually') ||
-    lower.includes('pretend') ||
-    lower.includes('intend');
-
-  const totalDominio = (contextoGrafo || []).reduce((acc: number, n: any) => acc + (n.dominio_estimado || 50), 0);
-  const avgDominio = contextoGrafo?.length > 0 ? Math.round(totalDominio / contextoGrafo.length) : 62;
-
-  if (hasCommonPortugueseTransfer) {
-    return {
-      resposta_tutor: `Muito bom você tentar formular a frase em **${idiomaAlvo}**! Notei um detalhe sutil de interferência do português: em ${idiomaAlvo === 'Francês' ? 'francês, dizemos *"poser une question"*' : idiomaAlvo === 'Espanhol' ? 'espanhol, dizemos *"hacer una pregunta"* ou *"tengo 20 años"*' : 'inglês, dizemos *"ask a question"* (e não "make a question") ou *"I am 20 years old"*'}. Vamos tentar reformular?`,
-      possui_erro: true,
-      adaptacao: {
-        nivel: 'fundamental_analogico' as const,
-        rotulo: 'A1/A2 - Básico com Dicas de Falsos Amigos',
-        dominio_avaliado: Math.min(avgDominio, 50),
-        justificativa: `Grafo detectou padrão de tradução literal do Português no tópico ${topico}.`,
-        estrategia_pedagogica: 'Alinhamento de collocations nativas e falsos cognatos com reforço positivo.',
-        conceitos_relacionados: [topico, 'Collocations', 'False Friends'],
-      },
-      correcao: {
-        conceito: 'Collocation e Padrão Idiomático',
-        erro: 'Tradução literal direta da estrutura do português',
-        explicacao:
-          `Em ${idiomaAlvo}, certas combinações de palavras (collocations) são fixas. Por exemplo, em ${idiomaAlvo}, usamos estruturas próprias para perguntas e descrições.`,
-        resposta_corrigida: idiomaAlvo === 'Francês' ? `Je voudrais poser une question sur ${topico}.` : idiomaAlvo === 'Espanhol' ? `Me gustaría hacer una pregunta sobre ${topico}.` : `I would like to ask a question regarding ${topico}.`,
-        gravidade: 'leve' as const,
-        evidencia: mensagem,
-        pergunta_confirmacao: `Como você diria agora "Posso fazer uma pergunta sobre isso?" em ${idiomaAlvo}?`,
-        dica_pronuncia_ou_gramatica: `Dica de ritmo: mantenha a entonação natural da frase em ${idiomaAlvo}.`,
-      },
-      novos_nos_grafo: [
-        {
-          tipo: 'falso_amigo' as const,
-          titulo: `Padrão de Uso em ${idiomaAlvo}`,
-          descricao: `Ajuste de uso natural identificado na prática: "${mensagem.slice(0, 50)}"`,
-          dominio_estimado: 55,
-          dificuldade: 2,
-          evidencia: mensagem,
-          relacionado_com: topico,
-          tipo_relacao: 'dificuldade_em' as const,
-          traducao: `Expressão natural em ${idiomaAlvo}`,
-          exemplo_uso: idiomaAlvo === 'Francês' ? 'Puis-je vous poser une question ?' : idiomaAlvo === 'Espanhol' ? '¿Puedo hacerte una pregunta?' : 'Can I ask you a quick question?',
-        },
-      ],
-      xp_ganho: 25,
-      conceitos_chave: [topico, 'Natural Collocations'],
-    };
-  }
-
-  const isAdvanced = avgDominio >= 80 || preferenciaAdaptacao === 'avancado_analitico';
-
-  const responsesByLang: Record<string, { advanced: string; standard: string }> = {
-    'Francês': {
-      advanced: `Très bien formulé ! Votre phrase en **Français** est claire et naturelle. Pour aller encore plus loin dans notre thème **${topico}**, comment exprimeriez-vous cette idée dans une conversation fluide ?`,
-      standard: `C'est une excellente phrase en **Français** ! Vous avez bien communiqué votre intention sur le thème **${topico}**. Que diriez-vous si nous continuions avec une question pratique ?`,
-    },
-    'Espanhol': {
-      advanced: `¡Excelente formulación! Tu estructura en **Español** es muy natural y fluida. Para avanzar en **${topico}**, ¿cómo expresarías esto en un contexto formal o cotidiano?`,
-      standard: `¡Muy bien! Tu frase en **Español** se entiende perfectamente para practicar **${topico}**. ¿Qué te gustaría añadir o preguntar a continuación?`,
-    },
-    'Inglês': {
-      advanced: `That was spot on! Your sentence structure in **English** is very natural and articulate. To elevate it further in **${topico}**, how would you express this in a professional or spontaneous context?`,
-      standard: `Great sentence in **English**! You communicated your idea clearly regarding **${topico}**. To practice even more, how would you describe a personal experience or ask me a follow-up question about this?`,
-    },
-  };
-
-  const langResponses = responsesByLang[idiomaAlvo] || {
-    advanced: `Ótima formulação em **${idiomaAlvo}**! A estrutura foi muito bem empregada no tópico **${topico}**. Como você continuaria desenvolvendo essa ideia?`,
-    standard: `Muito bem em **${idiomaAlvo}**! Você se expressou com clareza no tema **${topico}**. Vamos dar o próximo passo prático?`,
-  };
-
-  return {
-    resposta_tutor: isAdvanced ? langResponses.advanced : langResponses.standard,
-    possui_erro: false,
-    adaptacao: {
-      nivel: isAdvanced ? ('avancado_analitico' as const) : ('intermediario_aplicado' as const),
-      rotulo: isAdvanced ? 'C1/C2 - Avançado e Fluência Idiomática' : 'B1/B2 - Intermediário Conversacional',
-      dominio_avaliado: avgDominio,
-      justificativa: isAdvanced
-        ? `Grafo identificou alto domínio lexical (${avgDominio}%) em ${idiomaAlvo}.`
-        : `Grafo identificou boa compreensão prática (${avgDominio}%) em ${idiomaAlvo}.`,
-      estrategia_pedagogica: isAdvanced
-        ? 'Refinamento estilístico, idioms e precisão contextual.'
-        : 'Prática de conversação ativa e consolidação de vocabulário.',
-      conceitos_relacionados: [topico],
-    },
-    novos_nos_grafo: [
-      {
-        tipo: 'vocabulario' as const,
-        titulo: `Expressão em ${topico}`,
-        descricao: `Compreensão demonstrada com sucesso na conversa em ${idiomaAlvo}.`,
-        dominio_estimado: Math.min(100, avgDominio + 6),
-        dificuldade: 2,
-        evidencia: mensagem,
-        relacionado_com: topico,
-        tipo_relacao: 'relacionado_a' as const,
-        traducao: `Vocabulário chave de ${idiomaAlvo}`,
-      },
-    ],
-    xp_ganho: 30,
-    conceitos_chave: [topico, `${idiomaAlvo} Practice`],
-  };
 }
 
 function generateLocalStudyMaterial(

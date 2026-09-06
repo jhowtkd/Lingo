@@ -19,7 +19,7 @@ import {
   Brain,
   Layers,
 } from 'lucide-react';
-import confetti from 'canvas-confetti';
+import { fireConfetti as confetti } from '../lib/confetti';
 import { GraphNode, StudyMaterialItem, UserStats } from '../types';
 import { StorageService } from '../services/storage';
 import { SpeechService } from '../services/speechSynthesisService';
@@ -94,6 +94,19 @@ export const DailyTipCard: React.FC<DailyTipCardProps> = ({
 
     const candidateNodes = langNodes.length > 0 ? langNodes : nodes;
 
+    // Pré-normaliza 1x: antes, cada nó re-normalizava (NFKC + regex) todas as
+    // correções e todo o vocabulário de todos os materiais.
+    const normCorrections = corrections.map((c) => ({
+      c,
+      normConceito: normalizeUnicodeText(c.conceito),
+    }));
+    const normMaterials = materials.map((m) => ({
+      m,
+      normMatTitle: normalizeUnicodeText(m.titulo),
+      normMatSummary: normalizeUnicodeText(m.resumo),
+      normVocab: m.vocabulario.map((v) => normalizeUnicodeText(v.termo)).join(' '),
+    }));
+
     // Calcula a pontuação de criticidade da lacuna
     const scoredGaps = candidateNodes.map((node) => {
       let score = 0;
@@ -120,27 +133,21 @@ export const DailyTipCard: React.FC<DailyTipCardProps> = ({
 
       // 5. Correções pedagógicas associadas não assimiladas
       const normTitle = normalizeUnicodeText(node.titulo);
-      const pendingCorrs = corrections.filter((c) => {
-        const normConceito = normalizeUnicodeText(c.conceito);
-        return (
+      const pendingCorrs = normCorrections.filter(
+        ({ c, normConceito }) =>
           (normConceito.includes(normTitle) || normTitle.includes(normConceito)) &&
           (c.estado_posterior === 'precisa_revisar' || !c.respondido_corretamente)
-        );
-      });
+      );
       score += pendingCorrs.length * 18;
 
       // Procura material existente no Estúdio correspondente
-      const matchingMaterial = materials.find((m) => {
-        const normMatTitle = normalizeUnicodeText(m.titulo);
-        const normMatSummary = normalizeUnicodeText(m.resumo);
-        const normVocab = m.vocabulario.map((v) => normalizeUnicodeText(v.termo)).join(' ');
-        return (
+      const matchingMaterial = normMaterials.find(
+        ({ normMatTitle, normMatSummary, normVocab }) =>
           normMatTitle.includes(normTitle) ||
           normTitle.includes(normMatTitle) ||
           normMatSummary.includes(normTitle) ||
           normVocab.includes(normTitle)
-        );
-      });
+      )?.m;
 
       // Gera diagnóstico pedagógico
       let gapReason = 'Baixo Domínio & Equívocos Frequentes';

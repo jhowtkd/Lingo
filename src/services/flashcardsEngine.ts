@@ -252,7 +252,8 @@ export class FlashcardsEngine {
     nextDate.setDate(nextDate.getDate() + novo_intervalo_dias);
     const proxima_revisao = nextDate.toISOString();
 
-    // Atualiza o nó original no Grafo de Memória do StorageService
+    // Atualiza o nó original no Grafo de Memória: uma única leitura/escrita
+    // (antes eram dois parses completos da coleção + reescrita por avaliação).
     const allNodes = StorageService.getNodes();
     const targetNode = allNodes.find((n) => n.id === card.nodeId);
     if (targetNode) {
@@ -261,7 +262,7 @@ export class FlashcardsEngine {
       targetNode.ultima_revisao = now.toISOString();
       targetNode.proxima_revisao = proxima_revisao;
       targetNode.atualizado_em = now.toISOString();
-      StorageService.addOrUpdateNode(targetNode);
+      StorageService.saveNodes(allNodes);
     }
 
     // Status do Cartão Atualizado

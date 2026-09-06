@@ -76,8 +76,8 @@ describe('honest empty learning states', () => {
       />
     );
 
-    expect(html).toContain('domínio de apenas 0%');
-    expect(html).not.toContain('domínio de apenas 50%');
+    expect(html).toContain('0% domínio');
+    expect(html).not.toContain('50% domínio');
   });
 
   it('clears multi-conversation state during an explicit reset', () => {

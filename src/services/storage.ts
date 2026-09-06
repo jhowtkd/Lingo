@@ -16,6 +16,7 @@ import {
   OnboardingAnswers,
   CEFRLevel,
 } from '../types';
+import { ACHIEVEMENT_TEMPLATES } from './achievementTemplates';
 import {
   syncPersonalKnowledgeToCloud,
   fetchPersonalKnowledgeFromCloud,
@@ -41,97 +42,8 @@ const STORAGE_KEYS = {
   ONBOARDING_COMPLETED: 'tutor_onboarding_completed_v1',
 };
 
-// Conquistas Iniciais Personalizadas para Tutor de Línguas (Iniciam bloqueadas com 0 de progresso)
-export const DEFAULT_ACHIEVEMENTS: Achievement[] = [
-  {
-    id: 'primeira_conversa',
-    titulo: 'Primeira Palavra',
-    descricao: 'Iniciou sua primeira sessão de conversação e imersão com o tutor de línguas.',
-    icone: 'Sparkles',
-    xp_recompensa: 50,
-    desbloqueada: false,
-    progresso_atual: 0,
-    progresso_meta: 1,
-    categoria: 'consistencia',
-  },
-  {
-    id: 'mestre_conceitos_dificeis',
-    titulo: 'Mestre da Fluência',
-    descricao: 'Alcançou domínio de 80% ou mais em uma estrutura gramatical ou vocabulário avançado no grafo.',
-    icone: 'Award',
-    xp_recompensa: 250,
-    desbloqueada: false,
-    progresso_atual: 0,
-    progresso_meta: 80,
-    categoria: 'dominio',
-  },
-  {
-    id: 'maratonista_estudos',
-    titulo: 'Maratonista de Idiomas',
-    descricao: 'Manteve uma sequência de pelo menos 3 dias consecutivos de imersão e prática diária.',
-    icone: 'Flame',
-    xp_recompensa: 200,
-    desbloqueada: false,
-    progresso_atual: 0,
-    progresso_meta: 3,
-    categoria: 'consistencia',
-  },
-  {
-    id: 'detetive_erros',
-    titulo: 'Caçador de Falsos Amigos',
-    descricao: 'Identificou, corrigiu e consolidou 3 ou mais falsos cognatos ou vícios de tradução literal.',
-    icone: 'CheckCircle2',
-    xp_recompensa: 180,
-    desbloqueada: false,
-    progresso_atual: 0,
-    progresso_meta: 3,
-    categoria: 'correcao',
-  },
-  {
-    id: 'arquiteto_saber',
-    titulo: 'Léxico Vivo',
-    descricao: 'Mapeou e conectou 5 ou mais termos de vocabulário e regras no Grafo de Memória.',
-    icone: 'Network',
-    xp_recompensa: 220,
-    desbloqueada: false,
-    progresso_atual: 0,
-    progresso_meta: 5,
-    categoria: 'grafo',
-  },
-  {
-    id: 'voz_sabedoria',
-    titulo: 'Voz da Fluência',
-    descricao: 'Praticou conversação oral em tempo real com o Gemini Live API ou gravou transcrições faladas.',
-    icone: 'Mic',
-    xp_recompensa: 150,
-    desbloqueada: false,
-    progresso_atual: 0,
-    progresso_meta: 2,
-    categoria: 'voz',
-  },
-  {
-    id: 'memoria_blindada',
-    titulo: 'Memória de Longo Prazo',
-    descricao: 'Concluiu revisões espaçadas de cartões e vocabulário antes da expiração da retenção.',
-    icone: 'Brain',
-    xp_recompensa: 160,
-    desbloqueada: false,
-    progresso_atual: 0,
-    progresso_meta: 2,
-    categoria: 'dominio',
-  },
-  {
-    id: 'criador_materiais',
-    titulo: 'Estúdio de Materiais',
-    descricao: 'Transformou vídeos do YouTube ou textos em kits de estudos completos com vocabulário e diálogos.',
-    icone: 'BookOpen',
-    xp_recompensa: 150,
-    desbloqueada: false,
-    progresso_atual: 0,
-    progresso_meta: 1,
-    categoria: 'materiais',
-  },
-];
+// Conquistas do sistema: seed usa a fonte única em achievementTemplates.ts
+export const DEFAULT_ACHIEVEMENTS: Achievement[] = ACHIEVEMENT_TEMPLATES;
 
 // Dados Iniciais de Materiais de Estudo para o MVP
 export const SEED_MATERIALS: StudyMaterialItem[] = [
@@ -916,11 +828,44 @@ let _currentUserId = 'default_user';
 let _currentUserProfile: UserProfile | null = null;
 let _syncTimeout: any = null;
 
+// Cache em memória por chave (namespaced por usuário): evita re-parsear JSON
+// profundo do localStorage a cada leitura — getNodes/getStats e afins são
+// chamados dezenas de vezes por render. A validade é verificada comparando a
+// string crua; escritas atualizam o cache na mesma passada. Getters devolvem
+// cópia rasa para proteger o cache de mutações in-place dos chamadores.
+const _storeCache = new Map<string, { raw: string; value: unknown }>();
+
+function readJsonCached<T>(storageKey: string): T | null {
+  const raw = localStorage.getItem(storageKey);
+  if (raw === null) return null;
+  const hit = _storeCache.get(storageKey);
+  let parsed: unknown;
+  if (hit && hit.raw === raw) {
+    parsed = hit.value;
+  } else {
+    try {
+      parsed = JSON.parse(raw);
+    } catch {
+      return null;
+    }
+    _storeCache.set(storageKey, { raw, value: parsed });
+  }
+  return (Array.isArray(parsed) ? [...parsed] : { ...(parsed as object) }) as T;
+}
+
+function writeJsonCached(storageKey: string, value: unknown) {
+  const raw = JSON.stringify(value);
+  localStorage.setItem(storageKey, raw);
+  _storeCache.set(storageKey, { raw, value });
+}
+
+
 export const StorageService = {
   // Configuração do Usuário Atual para isolamento de dados
   setCurrentUser(user: UserProfile | null) {
     _currentUserProfile = user;
     _currentUserId = user ? user.uid : 'default_user';
+    _storeCache.clear();
   },
 
   getCurrentUser(): UserProfile | null {
@@ -1012,19 +957,11 @@ export const StorageService = {
 
   // Materiais de Estudo (YouTube, Textos, Arquivos)
   getMaterials(): StudyMaterialItem[] {
-    const raw = localStorage.getItem(this.getKey(STORAGE_KEYS.MATERIALS));
-    if (!raw) {
-      return [];
-    }
-    try {
-      return JSON.parse(raw);
-    } catch {
-      return [];
-    }
+    return readJsonCached<StudyMaterialItem[]>(this.getKey(STORAGE_KEYS.MATERIALS)) ?? [];
   },
 
   saveMaterials(materials: StudyMaterialItem[], sync = true) {
-    localStorage.setItem(this.getKey(STORAGE_KEYS.MATERIALS), JSON.stringify(materials));
+    writeJsonCached(this.getKey(STORAGE_KEYS.MATERIALS), materials);
     if (sync) this.scheduleCloudSync();
   },
 
@@ -1055,19 +992,11 @@ export const StorageService = {
 
   // Nós do Grafo
   getNodes(): GraphNode[] {
-    const raw = localStorage.getItem(this.getKey(STORAGE_KEYS.NODES));
-    if (!raw) {
-      return [];
-    }
-    try {
-      return JSON.parse(raw);
-    } catch {
-      return [];
-    }
+    return readJsonCached<GraphNode[]>(this.getKey(STORAGE_KEYS.NODES)) ?? [];
   },
 
   saveNodes(nodes: GraphNode[], sync = true) {
-    localStorage.setItem(this.getKey(STORAGE_KEYS.NODES), JSON.stringify(nodes));
+    writeJsonCached(this.getKey(STORAGE_KEYS.NODES), nodes);
     if (sync) this.scheduleCloudSync();
   },
 
@@ -1095,19 +1024,11 @@ export const StorageService = {
 
   // Relações do Grafo
   getRelations(): GraphRelation[] {
-    const raw = localStorage.getItem(this.getKey(STORAGE_KEYS.RELATIONS));
-    if (!raw) {
-      return [];
-    }
-    try {
-      return JSON.parse(raw);
-    } catch {
-      return [];
-    }
+    return readJsonCached<GraphRelation[]>(this.getKey(STORAGE_KEYS.RELATIONS)) ?? [];
   },
 
   saveRelations(relations: GraphRelation[], sync = true) {
-    localStorage.setItem(this.getKey(STORAGE_KEYS.RELATIONS), JSON.stringify(relations));
+    writeJsonCached(this.getKey(STORAGE_KEYS.RELATIONS), relations);
     if (sync) this.scheduleCloudSync();
   },
 
@@ -1127,19 +1048,11 @@ export const StorageService = {
 
   // Correções Pedagógicas
   getCorrections(): PedagogicalCorrection[] {
-    const raw = localStorage.getItem(this.getKey(STORAGE_KEYS.CORRECTIONS));
-    if (!raw) {
-      return [];
-    }
-    try {
-      return JSON.parse(raw);
-    } catch {
-      return [];
-    }
+    return readJsonCached<PedagogicalCorrection[]>(this.getKey(STORAGE_KEYS.CORRECTIONS)) ?? [];
   },
 
   saveCorrections(corrections: PedagogicalCorrection[], sync = true) {
-    localStorage.setItem(this.getKey(STORAGE_KEYS.CORRECTIONS), JSON.stringify(corrections));
+    writeJsonCached(this.getKey(STORAGE_KEYS.CORRECTIONS), corrections);
     if (sync) this.scheduleCloudSync();
   },
 
@@ -1165,16 +1078,9 @@ export const StorageService = {
   // SISTEMA DE MULTI-CONVERSAS & SESSÕES POR LIÇÃO (ChatConversation)
   // =========================================================================
   getConversations(initialize = true): ChatConversation[] {
-    const raw = localStorage.getItem(this.getKey(STORAGE_KEYS.CONVERSATIONS));
-    if (raw) {
-      try {
-        const parsed = JSON.parse(raw);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          return parsed;
-        }
-      } catch (e) {
-        console.warn('Erro ao carregar conversas do storage:', e);
-      }
+    const cached = readJsonCached<ChatConversation[]>(this.getKey(STORAGE_KEYS.CONVERSATIONS));
+    if (cached && cached.length > 0) {
+      return cached;
     }
 
     if (!initialize) return [];
@@ -1393,11 +1299,11 @@ export const StorageService = {
   },
 
   saveConversations(conversations: ChatConversation[], sync = true) {
-    localStorage.setItem(this.getKey(STORAGE_KEYS.CONVERSATIONS), JSON.stringify(conversations));
+    writeJsonCached(this.getKey(STORAGE_KEYS.CONVERSATIONS), conversations);
     if (sync) {
       const active = this.getActiveConversation();
       if (active) {
-        localStorage.setItem(this.getKey(STORAGE_KEYS.CHATS), JSON.stringify(active.mensagens));
+        writeJsonCached(this.getKey(STORAGE_KEYS.CHATS), active.mensagens);
       }
     }
   },
@@ -1685,7 +1591,6 @@ export const StorageService = {
 
   // Estatísticas e Gamificação
   getStats(): UserStats {
-    const raw = localStorage.getItem(this.getKey(STORAGE_KEYS.STATS));
     const today = new Date().toISOString().split('T')[0];
     const cleanDefaultStats: UserStats = {
       xp: 0,
@@ -1703,13 +1608,13 @@ export const StorageService = {
       materiais_gerados: 0,
     };
 
-    if (!raw) {
+    const parsed = readJsonCached<UserStats>(this.getKey(STORAGE_KEYS.STATS));
+    if (!parsed) {
       this.saveStats(cleanDefaultStats, false);
       return cleanDefaultStats;
     }
 
-    try {
-      const parsed = JSON.parse(raw);
+    {
       if (parsed.ultimo_dia_estudo !== today) {
         const last = new Date(parsed.ultimo_dia_estudo || today);
         const curr = new Date(today);
@@ -1724,8 +1629,6 @@ export const StorageService = {
         this.saveStats(parsed);
       }
       return parsed;
-    } catch {
-      return cleanDefaultStats;
     }
   },
 
@@ -1798,20 +1701,14 @@ export const StorageService = {
 
   // Conquistas
   getAchievements(): Achievement[] {
-    const raw = localStorage.getItem(this.getKey(STORAGE_KEYS.ACHIEVEMENTS));
-    if (!raw) {
-      this.saveAchievements(DEFAULT_ACHIEVEMENTS);
-      return DEFAULT_ACHIEVEMENTS;
-    }
-    try {
-      return JSON.parse(raw);
-    } catch {
-      return DEFAULT_ACHIEVEMENTS;
-    }
+    const parsed = readJsonCached<Achievement[]>(this.getKey(STORAGE_KEYS.ACHIEVEMENTS));
+    if (parsed) return parsed;
+    this.saveAchievements(DEFAULT_ACHIEVEMENTS);
+    return [...DEFAULT_ACHIEVEMENTS];
   },
 
   saveAchievements(achievements: Achievement[]) {
-    localStorage.setItem(this.getKey(STORAGE_KEYS.ACHIEVEMENTS), JSON.stringify(achievements));
+    writeJsonCached(this.getKey(STORAGE_KEYS.ACHIEVEMENTS), achievements);
   },
 
   unlockAchievement(id: string): Achievement | null {
@@ -1829,19 +1726,11 @@ export const StorageService = {
 
   // Sessões
   getSessions(): StudySession[] {
-    const raw = localStorage.getItem(this.getKey(STORAGE_KEYS.SESSIONS));
-    if (!raw) {
-      return [];
-    }
-    try {
-      return JSON.parse(raw);
-    } catch {
-      return [];
-    }
+    return readJsonCached<StudySession[]>(this.getKey(STORAGE_KEYS.SESSIONS)) ?? [];
   },
 
   saveSessions(sessions: StudySession[]) {
-    localStorage.setItem(this.getKey(STORAGE_KEYS.SESSIONS), JSON.stringify(sessions));
+    writeJsonCached(this.getKey(STORAGE_KEYS.SESSIONS), sessions);
   },
 
   addSession(session: StudySession) {
@@ -2053,17 +1942,11 @@ export const StorageService = {
   },
 
   getStudyPlan(): GeneratedStudyPlan | null {
-    const raw = localStorage.getItem(this.getKey(STORAGE_KEYS.ONBOARDING_PLAN));
-    if (!raw) return null;
-    try {
-      return JSON.parse(raw);
-    } catch {
-      return null;
-    }
+    return readJsonCached<GeneratedStudyPlan>(this.getKey(STORAGE_KEYS.ONBOARDING_PLAN));
   },
 
   saveStudyPlan(plan: GeneratedStudyPlan) {
-    localStorage.setItem(this.getKey(STORAGE_KEYS.ONBOARDING_PLAN), JSON.stringify(plan));
+    writeJsonCached(this.getKey(STORAGE_KEYS.ONBOARDING_PLAN), plan);
   },
 
   /**

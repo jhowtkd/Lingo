@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useCallback, memo } from 'react';
 import {
   ResponsiveContainer,
   BarChart,
@@ -184,13 +184,16 @@ export const WeeklyLanguageDistributionChart: React.FC<WeeklyLanguageDistributio
     };
   }, []);
 
-  const handleBarClick = (data: any) => {
-    if (!data) return;
-    const langId = data.id as LanguageThemeId;
-    if (onSelectLanguage && data.nome) {
-      onSelectLanguage(data.nome, langId);
-    }
-  };
+  const handleBarClick = useCallback(
+    (data: any) => {
+      if (!data) return;
+      const langId = data.id as LanguageThemeId;
+      if (onSelectLanguage && data.nome) {
+        onSelectLanguage(data.nome, langId);
+      }
+    },
+    [onSelectLanguage]
+  );
 
   return (
     <section className="view-card p-6 sm:p-8 space-y-6 text-left">
@@ -309,147 +312,12 @@ export const WeeklyLanguageDistributionChart: React.FC<WeeklyLanguageDistributio
 
       {/* Gráfico de Barras com Recharts */}
       <div className="w-full h-72 sm:h-80 pt-2">
-        <ResponsiveContainer width="100%" height="100%">
-          <BarChart
-            data={metricsPorIdioma}
-            margin={{ top: 15, right: 15, left: -10, bottom: 25 }}
-            onClick={(state: any) => {
-              if (state && state.activePayload && state.activePayload[0]) {
-                handleBarClick(state.activePayload[0].payload);
-              }
-            }}
-          >
-            <CartesianGrid strokeDasharray="3 3" stroke="rgba(0, 0, 0, 0.06)" vertical={false} />
-            <XAxis
-              dataKey="rotuloFormatado"
-              stroke="#64748b"
-              fontSize={12}
-              tickLine={false}
-              axisLine={{ stroke: 'rgba(0, 0, 0, 0.1)' }}
-              interval={0}
-            />
-
-            {/* Eixo Esquerdo: Minutos de Estudo */}
-            {(viewMode === 'ambos' || viewMode === 'tempo') && (
-              <YAxis
-                yAxisId="left"
-                stroke="#059669"
-                fontSize={11}
-                tickLine={false}
-                axisLine={false}
-                tickFormatter={(val) => `${val}m`}
-                domain={[0, 'auto']}
-              />
-            )}
-
-            {/* Eixo Direito: Frequência de Conversas */}
-            {(viewMode === 'ambos' || viewMode === 'frequencia') && (
-              <YAxis
-                yAxisId="right"
-                orientation="right"
-                stroke="#2563eb"
-                fontSize={11}
-                tickLine={false}
-                axisLine={false}
-                tickFormatter={(val) => `${val} conv`}
-                domain={[0, 'auto']}
-              />
-            )}
-
-            <Tooltip
-              cursor={{ fill: 'rgba(0, 0, 0, 0.04)' }}
-              content={({ active, payload }) => {
-                if (active && payload && payload.length) {
-                  const item: LanguageWeeklyMetric = payload[0].payload;
-                  return (
-                    <div className="bg-[#0f172a] text-white rounded-xl p-3.5 border border-white/10 shadow-xl text-xs space-y-2 min-w-[190px]">
-                      <div className="flex items-center gap-2 border-b border-white/10 pb-2">
-                        <span className="text-base">{item.bandeira}</span>
-                        <span className="font-bold text-sm text-slate-100">{item.nome}</span>
-                        <span className="ml-auto text-[10px] bg-white/10 px-2 py-0.5 rounded-full text-slate-300 font-mono">
-                          {item.percentualTempo}% do tempo
-                        </span>
-                      </div>
-                      <div className="space-y-1.5 pt-0.5">
-                        <div className="flex items-center justify-between text-emerald-400 font-semibold">
-                          <span className="flex items-center gap-1.5">
-                            <Clock className="w-3.5 h-3.5" />
-                            Tempo de Estudo:
-                          </span>
-                          <span className="font-mono font-bold text-white">{item.tempoEstudoMinutos} min</span>
-                        </div>
-                        <div className="flex items-center justify-between text-blue-400 font-semibold">
-                          <span className="flex items-center gap-1.5">
-                            <MessageSquare className="w-3.5 h-3.5" />
-                            Frequência:
-                          </span>
-                          <span className="font-mono font-bold text-white">{item.frequenciaConversas} conversas</span>
-                        </div>
-                        <div className="flex items-center justify-between text-slate-400 text-[11px]">
-                          <span>Mensagens trocadas:</span>
-                          <span className="font-mono text-slate-200">{item.totalMensagens}</span>
-                        </div>
-                      </div>
-                      <div className="text-[10px] text-slate-400 border-t border-white/10 pt-1.5 text-center">
-                        💡 Clique na barra para praticar {item.nome}
-                      </div>
-                    </div>
-                  );
-                }
-                return null;
-              }}
-            />
-
-            <Legend
-              verticalAlign="top"
-              align="right"
-              wrapperStyle={{ paddingBottom: 12, fontSize: 12 }}
-              formatter={(value) => <span className="text-[var(--fg)] font-semibold text-xs ml-1">{value}</span>}
-            />
-
-            {/* Barra 1: Tempo de Estudo (minutos) */}
-            {(viewMode === 'ambos' || viewMode === 'tempo') && (
-              <Bar
-                yAxisId="left"
-                dataKey="tempoEstudoMinutos"
-                name="Tempo de Estudo (min)"
-                fill="#059669"
-                radius={[6, 6, 0, 0]}
-                maxBarSize={32}
-              >
-                {metricsPorIdioma.map((entry) => (
-                  <Cell
-                    key={`tempo-${entry.id}`}
-                    fill={viewMode === 'tempo' ? entry.corHex : '#059669'}
-                    opacity={highlightedLang && highlightedLang !== entry.id ? 0.4 : 1}
-                    className="cursor-pointer transition-opacity duration-200"
-                  />
-                ))}
-              </Bar>
-            )}
-
-            {/* Barra 2: Frequência de Conversas */}
-            {(viewMode === 'ambos' || viewMode === 'frequencia') && (
-              <Bar
-                yAxisId={viewMode === 'frequencia' ? 'right' : 'right'}
-                dataKey="frequenciaConversas"
-                name="Frequência de Conversas (sessões)"
-                fill="#2563eb"
-                radius={[6, 6, 0, 0]}
-                maxBarSize={32}
-              >
-                {metricsPorIdioma.map((entry) => (
-                  <Cell
-                    key={`freq-${entry.id}`}
-                    fill={viewMode === 'frequencia' ? entry.corHex : '#2563eb'}
-                    opacity={highlightedLang && highlightedLang !== entry.id ? 0.4 : 1}
-                    className="cursor-pointer transition-opacity duration-200"
-                  />
-                ))}
-              </Bar>
-            )}
-          </BarChart>
-        </ResponsiveContainer>
+        <WeeklyLanguageBarChart
+          data={metricsPorIdioma}
+          viewMode={viewMode}
+          highlightedLang={highlightedLang}
+          onSelectBar={handleBarClick}
+        />
       </div>
 
       {/* Grid de Detalhamento Interativo por Idioma */}
@@ -533,3 +401,162 @@ export const WeeklyLanguageDistributionChart: React.FC<WeeklyLanguageDistributio
     </section>
   );
 };
+
+interface WeeklyLanguageBarChartProps {
+  data: LanguageWeeklyMetric[];
+  viewMode: ChartViewMode;
+  highlightedLang: string | null;
+  onSelectBar: (data: LanguageWeeklyMetric) => void;
+}
+
+// Gráfico extraído e memoizado para evitar re-renderizar a subárvore Recharts
+// a cada hover nos cards de detalhamento.
+const WeeklyLanguageBarChart = memo(function WeeklyLanguageBarChart({
+  data,
+  viewMode,
+  highlightedLang,
+  onSelectBar,
+}: WeeklyLanguageBarChartProps) {
+  const renderTooltip = useCallback(({ active, payload }: any) => {
+    if (active && payload && payload.length) {
+      const item: LanguageWeeklyMetric = payload[0].payload;
+      return (
+        <div className="bg-[#0f172a] text-white rounded-xl p-3.5 border border-white/10 shadow-xl text-xs space-y-2 min-w-[190px]">
+          <div className="flex items-center gap-2 border-b border-white/10 pb-2">
+            <span className="text-base">{item.bandeira}</span>
+            <span className="font-bold text-sm text-slate-100">{item.nome}</span>
+            <span className="ml-auto text-[10px] bg-white/10 px-2 py-0.5 rounded-full text-slate-300 font-mono">
+              {item.percentualTempo}% do tempo
+            </span>
+          </div>
+          <div className="space-y-1.5 pt-0.5">
+            <div className="flex items-center justify-between text-emerald-400 font-semibold">
+              <span className="flex items-center gap-1.5">
+                <Clock className="w-3.5 h-3.5" />
+                Tempo de Estudo:
+              </span>
+              <span className="font-mono font-bold text-white">{item.tempoEstudoMinutos} min</span>
+            </div>
+            <div className="flex items-center justify-between text-blue-400 font-semibold">
+              <span className="flex items-center gap-1.5">
+                <MessageSquare className="w-3.5 h-3.5" />
+                Frequência:
+              </span>
+              <span className="font-mono font-bold text-white">{item.frequenciaConversas} conversas</span>
+            </div>
+            <div className="flex items-center justify-between text-slate-400 text-[11px]">
+              <span>Mensagens trocadas:</span>
+              <span className="font-mono text-slate-200">{item.totalMensagens}</span>
+            </div>
+          </div>
+          <div className="text-[10px] text-slate-400 border-t border-white/10 pt-1.5 text-center">
+            💡 Clique na barra para praticar {item.nome}
+          </div>
+        </div>
+      );
+    }
+    return null;
+  }, []);
+
+  return (
+    <ResponsiveContainer width="100%" height="100%">
+      <BarChart
+        data={data}
+        margin={{ top: 15, right: 15, left: -10, bottom: 25 }}
+        onClick={(state: any) => {
+          if (state && state.activePayload && state.activePayload[0]) {
+            onSelectBar(state.activePayload[0].payload);
+          }
+        }}
+      >
+        <CartesianGrid strokeDasharray="3 3" stroke="rgba(0, 0, 0, 0.06)" vertical={false} />
+        <XAxis
+          dataKey="rotuloFormatado"
+          stroke="#64748b"
+          fontSize={12}
+          tickLine={false}
+          axisLine={{ stroke: 'rgba(0, 0, 0, 0.1)' }}
+          interval={0}
+        />
+
+        {/* Eixo Esquerdo: Minutos de Estudo */}
+        {(viewMode === 'ambos' || viewMode === 'tempo') && (
+          <YAxis
+            yAxisId="left"
+            stroke="#059669"
+            fontSize={11}
+            tickLine={false}
+            axisLine={false}
+            tickFormatter={(val) => `${val}m`}
+            domain={[0, 'auto']}
+          />
+        )}
+
+        {/* Eixo Direito: Frequência de Conversas */}
+        {(viewMode === 'ambos' || viewMode === 'frequencia') && (
+          <YAxis
+            yAxisId="right"
+            orientation="right"
+            stroke="#2563eb"
+            fontSize={11}
+            tickLine={false}
+            axisLine={false}
+            tickFormatter={(val) => `${val} conv`}
+            domain={[0, 'auto']}
+          />
+        )}
+
+        <Tooltip cursor={{ fill: 'rgba(0, 0, 0, 0.04)' }} content={renderTooltip} />
+
+        <Legend
+          verticalAlign="top"
+          align="right"
+          wrapperStyle={{ paddingBottom: 12, fontSize: 12 }}
+          formatter={(value) => <span className="text-[var(--fg)] font-semibold text-xs ml-1">{value}</span>}
+        />
+
+        {/* Barra 1: Tempo de Estudo (minutos) */}
+        {(viewMode === 'ambos' || viewMode === 'tempo') && (
+          <Bar
+            yAxisId="left"
+            dataKey="tempoEstudoMinutos"
+            name="Tempo de Estudo (min)"
+            fill="#059669"
+            radius={[6, 6, 0, 0]}
+            maxBarSize={32}
+          >
+            {data.map((entry) => (
+              <Cell
+                key={`tempo-${entry.id}`}
+                fill={viewMode === 'tempo' ? entry.corHex : '#059669'}
+                opacity={highlightedLang && highlightedLang !== entry.id ? 0.4 : 1}
+                className="cursor-pointer transition-opacity duration-200"
+              />
+            ))}
+          </Bar>
+        )}
+
+        {/* Barra 2: Frequência de Conversas */}
+        {(viewMode === 'ambos' || viewMode === 'frequencia') && (
+          <Bar
+            yAxisId={viewMode === 'frequencia' ? 'right' : 'right'}
+            dataKey="frequenciaConversas"
+            name="Frequência de Conversas (sessões)"
+            fill="#2563eb"
+            radius={[6, 6, 0, 0]}
+            maxBarSize={32}
+          >
+            {data.map((entry) => (
+              <Cell
+                key={`freq-${entry.id}`}
+                fill={viewMode === 'frequencia' ? entry.corHex : '#2563eb'}
+                opacity={highlightedLang && highlightedLang !== entry.id ? 0.4 : 1}
+                className="cursor-pointer transition-opacity duration-200"
+              />
+            ))}
+          </Bar>
+        )}
+      </BarChart>
+    </ResponsiveContainer>
+  );
+});

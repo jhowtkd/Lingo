@@ -8,7 +8,7 @@ import {
   Zap,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import confetti from 'canvas-confetti';
+import { fireConfetti as confetti } from '../lib/confetti';
 import { PronunciationChallenge, UserStats } from '../types';
 import { PronunciationWaveformVisualizer } from './PronunciationWaveformVisualizer';
 import { requestMicrophoneStream, AudioRecorderService } from '../services/audioService';

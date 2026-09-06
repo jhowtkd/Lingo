@@ -1,3 +1,5 @@
+import { apiFetch } from '../lib/api';
+
 export type AudioRecordingStatus =
   | 'idle'
   | 'recording'
@@ -83,7 +85,7 @@ export class AudioRecorderService {
             const base64Audio = (reader.result as string) || '';
             try {
               // Envia ao endpoint seguro do servidor
-              const response = await fetch('/api/transcribe', {
+              const response = await apiFetch('/api/transcribe', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({

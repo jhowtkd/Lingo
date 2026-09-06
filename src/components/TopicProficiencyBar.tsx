@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   Trophy,
   ChevronDown,
@@ -24,25 +24,29 @@ export const TopicProficiencyBar: React.FC<TopicProficiencyBarProps> = ({
 }) => {
   const [isExpanded, setIsExpanded] = useState(false);
 
-  // Consulta nós do grafo relacionados ao idioma ou tópico atual
-  const allNodes = StorageService.getNodes();
-  const normTopic = GraphEngine.normalize(currentTopic);
-  const activeLanguage = getLanguageConfig(stats.idioma_ativo || currentTopic);
-  const languageNodes = allNodes.filter(
-    (node) => getLanguageConfig(node.idioma || 'ingles').id === activeLanguage.id
-  );
-
-  const topicNodes = languageNodes.filter((node) => {
-    const normTitle = GraphEngine.normalize(node.titulo);
-    const normDesc = GraphEngine.normalize(node.descricao);
-    return (
-      normTitle.includes(normTopic) ||
-      normTopic.includes(normTitle) ||
-      normDesc.includes(normTopic)
+  // Consulta nós do grafo relacionados ao idioma ou tópico atual.
+  // Memoizado: este componente re-renderiza a cada tecla do chat (pai com
+  // estado de input) e a leitura anterior parseava/filtrava tudo por render.
+  const relevantNodes = useMemo(() => {
+    const allNodes = StorageService.getNodes();
+    const normTopic = GraphEngine.normalize(currentTopic);
+    const activeLanguage = getLanguageConfig(stats.idioma_ativo || currentTopic);
+    const languageNodes = allNodes.filter(
+      (node) => getLanguageConfig(node.idioma || 'ingles').id === activeLanguage.id
     );
-  });
 
-  const relevantNodes = topicNodes.length > 0 ? topicNodes : languageNodes.slice(0, 10);
+    const topicNodes = languageNodes.filter((node) => {
+      const normTitle = GraphEngine.normalize(node.titulo);
+      const normDesc = GraphEngine.normalize(node.descricao);
+      return (
+        normTitle.includes(normTopic) ||
+        normTopic.includes(normTitle) ||
+        normDesc.includes(normTopic)
+      );
+    });
+
+    return topicNodes.length > 0 ? topicNodes : languageNodes.slice(0, 10);
+  }, [currentTopic, stats.idioma_ativo]);
   const hasProficiencyEvidence =
     stats.total_respostas > 0 ||
     relevantNodes.some((node) => node.dominio_estimado > 0 || node.frequencia_erro > 0);

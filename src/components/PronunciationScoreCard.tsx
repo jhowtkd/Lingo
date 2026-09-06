@@ -231,15 +231,16 @@ export const PronunciationScoreCard: React.FC<PronunciationScoreCardProps> = ({
                   </div>
                   <div className="w-full bg-[oklch(0.92_0.02_84)] rounded-full h-2 overflow-hidden border border-[var(--border)]">
                     <motion.div
-                      className={`h-full rounded-full ${
+                      className={`h-full w-full rounded-full ${
                         m.score >= 85
                           ? 'bg-[var(--ok)]'
                           : m.score >= 70
                           ? 'bg-[var(--sunny)]'
                           : 'bg-rose-500'
                       }`}
-                      initial={{ width: 0 }}
-                      animate={{ width: `${m.score}%` }}
+                      style={{ transformOrigin: 'left' }}
+                      initial={{ scaleX: 0 }}
+                      animate={{ scaleX: m.score / 100 }}
                       transition={{ duration: 0.5, delay: idx * 0.05 }}
                     />
                   </div>

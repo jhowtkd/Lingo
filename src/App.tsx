@@ -1,16 +1,29 @@
-import React, { lazy, Suspense, useEffect, useState } from 'react';
+import React, { useCallback, lazy, Suspense, useEffect, useState } from 'react';
 import { Navbar } from './components/Navbar';
 import { HomeOverview } from './components/HomeOverview';
 import { LanguageThemeSelector } from './components/LanguageThemeSelector';
-import { ScreenCaptureModal } from './components/ScreenCaptureModal';
-import { AuthModal } from './components/AuthModal';
-import { SharedPacksModal } from './components/SharedPacksModal';
-import { OnboardingWizardModal } from './components/OnboardingWizardModal';
+
+// Modais carregados sob demanda: cada um puxa dependências pesadas
+// (motion, html-to-image, canvas-confetti) que não devem entrar no chunk
+// principal da primeira pintura.
+const ScreenCaptureModal = lazy(() =>
+  import('./components/ScreenCaptureModal').then((module) => ({ default: module.ScreenCaptureModal }))
+);
+const AuthModal = lazy(() =>
+  import('./components/AuthModal').then((module) => ({ default: module.AuthModal }))
+);
+const SharedPacksModal = lazy(() =>
+  import('./components/SharedPacksModal').then((module) => ({ default: module.SharedPacksModal }))
+);
+const OnboardingWizardModal = lazy(() =>
+  import('./components/OnboardingWizardModal').then((module) => ({ default: module.OnboardingWizardModal }))
+);
 import { UserStats, LanguageThemeId, UserProfile, GeneratedStudyPlan } from './types';
 import { StorageService } from './services/storage';
 import { getLanguageTheme, detectLanguageTheme } from './services/languageThemes';
 import { onAuthChange, syncUserProfile } from './services/firebase';
 import { useModalFocusTrap } from './hooks/useModalFocusTrap';
+import { ErrorBoundary } from './components/ErrorBoundary';
 
 const ChatTutor = lazy(() =>
   import('./components/ChatTutor').then((module) => ({ default: module.ChatTutor }))
@@ -90,25 +103,25 @@ export default function App() {
     return () => unsubscribe();
   }, []);
 
-  const handleUserAuthSuccess = async (profile: UserProfile) => {
+  const handleUserAuthSuccess = useCallback(async (profile: UserProfile) => {
     setCurrentUser(profile);
     StorageService.setCurrentUser(profile);
     await StorageService.hydrateFromCloud(profile.uid);
     setStats(StorageService.getStats());
-  };
+  }, []);
 
-  const handleUserLogout = () => {
+  const handleUserLogout = useCallback(() => {
     setCurrentUser(null);
     StorageService.setCurrentUser(null);
     setStats(StorageService.getStats());
     setActiveTab('home');
-  };
+  }, []);
 
-  const handleUpdateStats = (newStats: UserStats) => {
+  const handleUpdateStats = useCallback((newStats: UserStats) => {
     setStats(newStats);
-  };
+  }, []);
 
-  const handleResetData = () => {
+  const handleResetData = useCallback(() => {
     if (
       window.confirm(
         'Tem certeza de que deseja restaurar todos os dados para o padrão inicial do MVP? Isto resetará o chat, grafo e materiais de teste.'
@@ -118,16 +131,16 @@ export default function App() {
       setStats(StorageService.getStats());
       window.location.reload();
     }
-  };
+  }, []);
 
-  const handleSelectTopic = (topic: string) => {
+  const handleSelectTopic = useCallback((topic: string) => {
     setCurrentTopic(topic);
     const langConfig = getLanguageTheme(topic);
     const updatedStats = { ...stats, idioma_ativo: langConfig.nome };
     StorageService.saveStats(updatedStats);
     setStats(updatedStats);
     setActiveTab('chat');
-  };
+  }, [stats]);
 
   const handleLanguageChange = (langName: string, themeId: LanguageThemeId) => {
     let defaultTopicForLang = `${langName}: Conversação Cotidiana & Vocabulário Essencial`;
@@ -165,7 +178,7 @@ export default function App() {
     'Japonês: Frases Essenciais & Estrutura Contextual',
   ];
 
-  const handlePlanApplied = (plan: GeneratedStudyPlan) => {
+  const handlePlanApplied = useCallback((plan: GeneratedStudyPlan) => {
     const updatedStats = StorageService.getStats();
     setStats(updatedStats);
     
@@ -181,9 +194,10 @@ export default function App() {
     setCurrentTopic(cleanTopic);
     setShowOnboardingModal(false);
     setActiveTab('chat');
-  };
+  }, []);
 
   return (
+    <ErrorBoundary>
     <div
       data-lang-theme={activeLanguageTheme.id}
       className="min-h-screen flex flex-col font-sans transition-colors duration-500 relative"
@@ -463,38 +477,47 @@ export default function App() {
       )}
 
       {/* Modal de Autenticação / Login */}
+      <Suspense fallback={null}>
       <AuthModal
         isOpen={showAuthModal}
         onClose={() => setShowAuthModal(false)}
         onSuccess={handleUserAuthSuccess}
       />
+      </Suspense>
 
       {/* Modal de Bases Compartilhadas */}
-      <SharedPacksModal
-        isOpen={showSharedPacksModal}
-        onClose={() => setShowSharedPacksModal(false)}
-        currentUser={currentUser}
-        onImportSuccess={() => {
-          setStats(StorageService.getStats());
-          setActiveTab('materials');
-        }}
-      />
+      <Suspense fallback={null}>
+        <SharedPacksModal
+          isOpen={showSharedPacksModal}
+          onClose={() => setShowSharedPacksModal(false)}
+          currentUser={currentUser}
+          onImportSuccess={() => {
+            setStats(StorageService.getStats());
+            setActiveTab('materials');
+          }}
+        />
+      </Suspense>
 
       {/* Modal do Assistente de Configuração Inteligente */}
-      <OnboardingWizardModal
-        isOpen={showOnboardingModal}
-        onClose={() => setShowOnboardingModal(false)}
-        onPlanApplied={handlePlanApplied}
-        currentStats={stats}
-      />
+      <Suspense fallback={null}>
+        <OnboardingWizardModal
+          isOpen={showOnboardingModal}
+          onClose={() => setShowOnboardingModal(false)}
+          onPlanApplied={handlePlanApplied}
+          currentStats={stats}
+        />
+      </Suspense>
 
       {/* Modal de Captura de Telas em PNG */}
-      <ScreenCaptureModal
-        isOpen={showScreenshotModal}
-        onClose={() => setShowScreenshotModal(false)}
-        activeTab={activeTab}
-        setActiveTab={setActiveTab}
-      />
+      <Suspense fallback={null}>
+        <ScreenCaptureModal
+          isOpen={showScreenshotModal}
+          onClose={() => setShowScreenshotModal(false)}
+          activeTab={activeTab}
+          setActiveTab={setActiveTab}
+        />
+      </Suspense>
     </div>
+    </ErrorBoundary>
   );
 }

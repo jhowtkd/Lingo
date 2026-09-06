@@ -1,10 +1,16 @@
 import express from 'express';
+import { createHash } from 'crypto';
 import { Type } from '@google/genai';
 import { ModelRouter } from '../ai/modelRouter';
+import { GeminiResponseCache } from '../ai/geminiCache';
 import { getLanguageConfig } from '../../src/config/languages';
 import { AiTelemetry } from '../observability/aiTelemetry';
 
 export const pronunciationRouter = express.Router();
+
+// Avaliar o mesmo áudio duas vezes (usuário re-checa a gravação) não deve
+// gerar outra chamada multimodal paga: cache por hash do áudio + referência.
+const pronunciationCache = new GeminiResponseCache<any>(200, 15 * 60_000);
 
 pronunciationRouter.post('/', async (req, res) => {
   const requestId = `pr-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
@@ -34,6 +40,14 @@ pronunciationRouter.post('/', async (req, res) => {
 
     const cleanBase64 = audio_base64.replace(/^data:[^;]+;base64,/, '');
 
+    const cacheKey = createHash('sha256')
+      .update(cleanBase64)
+      .update('|')
+      .update(texto_esperado || '')
+      .update('|')
+      .update(idioma)
+      .digest('hex');
+
     const promptInstrucao = `Você é um Foneticista e Avaliador de Pronúncia em ${langConfig.displayName} (${langConfig.bcp47}) para falantes de Português Brasileiro.
 Analise a pronúncia acústica do áudio gravado pelo estudante.
 
@@ -58,7 +72,8 @@ DIRETRIZES DE AVALIAÇÃO ACÚSTICA:
    - feedback: dica curta do fonema específico
 4. Destaque ponto_forte, ponto_a_melhorar e dica_articulacao_boca prática.`;
 
-    const result = await ModelRouter.generateContent(
+    const result = await pronunciationCache.run(cacheKey, () =>
+      ModelRouter.generateContent(
       {
         contents: {
           parts: [
@@ -131,6 +146,7 @@ DIRETRIZES DE AVALIAÇÃO ACÚSTICA:
         perAttemptTimeoutMs: 10000,
         deadlineMs: 15000,
       }
+      )
     );
 
     const scoreData = JSON.parse(result.data.text || '{}');

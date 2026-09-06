@@ -31,6 +31,7 @@ import {
 import { WeeklyMetrics, PriorityTopicSuggestion } from '../types';
 import { GraphEngine } from '../services/graphEngine';
 import { StorageService } from '../services/storage';
+import { apiFetch } from '../lib/api';
 import {
   buildDailyGoals,
   buildMilestones,
@@ -77,7 +78,7 @@ export const WeeklyDashboard: React.FC<WeeklyDashboardProps> = ({
       const corrections = StorageService.getCorrections();
       if (nodes && nodes.length > 0) {
         setIsLoadingPriority(true);
-        const res = await fetch('/api/dashboard/priority-topics', {
+        const res = await apiFetch('/api/dashboard/priority-topics', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -130,7 +131,7 @@ export const WeeklyDashboard: React.FC<WeeklyDashboardProps> = ({
     setIsLoadingRec(true);
 
     try {
-      const res = await fetch('/api/recommendation', {
+      const res = await apiFetch('/api/recommendation', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

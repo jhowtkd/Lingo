@@ -1,3 +1,4 @@
+import { apiFetch } from '../lib/api';
 /**
  * Serviço Avançado e Inteligente de Síntese de Voz Neural (Gemini AI TTS & Natural Audio)
  * Utiliza o modelo gemini-3.1-flash-tts-preview para vozes hiper-realistas e naturais,
@@ -68,7 +69,11 @@ class SpeechSynthesisManager {
   private isPlaying = false;
   private currentPlayingId: string | null = null;
   private listeners: Set<(playing: boolean, id: string | null) => void> = new Set();
-  private audioCache = new Map<string, string>(); // Cache de URL base64 por hash de texto + voz
+  // Cache de URL base64 por hash de texto + voz, com limite LRU: cada entrada
+  // é áudio em base64 (dezenas de KB a MBs) e, sem limite, o heap cresce
+  // monotonicamente em sessões longas de estudo.
+  private audioCache = new Map<string, string>();
+  private static readonly AUDIO_CACHE_MAX = 50;
   private preferredVoice = 'Kore';
   private neuralFallbackMode = false;
   private neuralFallbackResetTimer: any = null;
@@ -433,11 +438,15 @@ class SpeechSynthesisManager {
 
     const cacheKey = `${voiceName}:${lang}:${text}`;
     if (this.audioCache.has(cacheKey)) {
-      return this.audioCache.get(cacheKey)!;
+      // Re-insere para manter recência (ordem de inserção do Map = ordem LRU)
+      const cached = this.audioCache.get(cacheKey)!;
+      this.audioCache.delete(cacheKey);
+      this.audioCache.set(cacheKey, cached);
+      return cached;
     }
 
     try {
-      const response = await fetch('/api/tts', {
+      const response = await apiFetch('/api/tts', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -469,6 +478,10 @@ class SpeechSynthesisManager {
 
       if (data.audioUrl) {
         this.audioCache.set(cacheKey, data.audioUrl);
+        if (this.audioCache.size > SpeechSynthesisManager.AUDIO_CACHE_MAX) {
+          const oldest = this.audioCache.keys().next().value;
+          if (oldest !== undefined) this.audioCache.delete(oldest);
+        }
         return data.audioUrl;
       }
       return null;

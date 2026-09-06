@@ -28,9 +28,10 @@ import {
   Rocket,
   Check,
 } from 'lucide-react';
-import confetti from 'canvas-confetti';
+import { fireConfetti as confetti } from '../lib/confetti';
 import { CEFRLevel, GeneratedStudyPlan, OnboardingAnswers, UserStats } from '../types';
 import { StorageService } from '../services/storage';
+import { apiFetch } from '../lib/api';
 import { LANGUAGE_THEMES } from '../services/languageThemes';
 import { createFallbackStudyPlan } from '../services/studyPlanFallback';
 import { useModalFocusTrap } from '../hooks/useModalFocusTrap';
@@ -176,7 +177,7 @@ export const OnboardingWizardModal: React.FC<OnboardingWizardModalProps> = ({
     }, 2700);
 
     try {
-      const response = await fetch('/api/onboarding/generate-plan', {
+      const response = await apiFetch('/api/onboarding/generate-plan', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(answers),

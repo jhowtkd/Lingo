@@ -23,7 +23,7 @@ import {
   Crown,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import confetti from 'canvas-confetti';
+import { fireConfetti as confetti } from '../lib/confetti';
 import { UserStats, Achievement } from '../types';
 import { StorageService } from '../services/storage';
 import { AchievementEngine } from '../services/achievementEngine';
@@ -293,10 +293,11 @@ export const AchievementsView: React.FC<AchievementsViewProps> = ({
             </div>
             <div className="w-full bg-[oklch(0.93_0.02_84)] rounded-full h-3 overflow-hidden p-0.5 border border-[var(--border)]">
               <motion.div
-                initial={{ width: 0 }}
-                animate={{ width: `${progressPercent}%` }}
+                initial={{ scaleX: 0 }}
+                animate={{ scaleX: progressPercent / 100 }}
                 transition={{ duration: 0.8, ease: 'easeOut' }}
-                className="bg-[var(--ok)] h-full rounded-full shadow-xs"
+                style={{ transformOrigin: 'left' }}
+                className="bg-[var(--ok)] h-full w-full rounded-full shadow-xs"
               />
             </div>
             <div className="flex justify-between text-[11px] text-[var(--muted)] font-mono">
@@ -503,10 +504,11 @@ export const AchievementsView: React.FC<AchievementsViewProps> = ({
                         </div>
                         <div className="w-full bg-[oklch(0.93_0.02_84)] rounded-full h-2 overflow-hidden border border-[var(--border)]">
                           <motion.div
-                            initial={{ width: 0 }}
-                            animate={{ width: `${pct}%` }}
+                            initial={{ scaleX: 0 }}
+                            animate={{ scaleX: pct / 100 }}
                             transition={{ duration: 0.6, ease: 'easeOut' }}
-                            className="bg-[var(--accent)] h-full rounded-full"
+                            style={{ transformOrigin: 'left' }}
+                            className="bg-[var(--accent)] h-full w-full rounded-full"
                           />
                         </div>
                       </div>

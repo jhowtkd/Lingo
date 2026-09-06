@@ -84,6 +84,12 @@ export const MisconceptionsDictionary: React.FC<MisconceptionsDictionaryProps> =
 
     const dictionaryList: MisconceptionItem[] = [];
 
+    // Pré-processa correções 1x (antes: toLowerCase por par nó×correção)
+    const normalizedCorrections = corrections.map((c) => ({
+      c,
+      normConceito: c.conceito.toLowerCase(),
+    }));
+
     // 1. Processa nós do Grafo de Memória
     nodes.forEach((node) => {
       // Identifica nós que são equívocos, falsos amigos, dificuldades ou que possuem erros registrados
@@ -114,12 +120,13 @@ export const MisconceptionsDictionary: React.FC<MisconceptionsDictionaryProps> =
         }
 
         // Tenta associar com correções gravadas
-        const matchedCorr = corrections.find(
-          (c) =>
-            c.conceito.toLowerCase().includes(node.titulo.toLowerCase()) ||
-            node.titulo.toLowerCase().includes(c.conceito.toLowerCase()) ||
+        const nodeTitleLower = node.titulo.toLowerCase();
+        const matchedCorr = normalizedCorrections.find(
+          ({ c, normConceito }) =>
+            normConceito.includes(nodeTitleLower) ||
+            nodeTitleLower.includes(normConceito) ||
             node.evidencias?.some((e) => e.includes(c.erro))
-        );
+        )?.c;
 
         // Define exemplos contextuais ricos
         let exemplos = [

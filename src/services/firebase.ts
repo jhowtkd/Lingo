@@ -24,6 +24,8 @@ import {
   orderBy,
   deleteDoc,
   increment,
+  writeBatch,
+  limit,
 } from 'firebase/firestore';
 import {
   UserProfile,
@@ -95,7 +97,11 @@ export async function syncUserProfile(
       isAnonymous: user.isAnonymous,
     };
 
-    await setDoc(userRef, updatedProfile, { merge: true });
+    // Escrita de lastLoginAt em segundo plano: não deve prender o callback de
+    // auth esperando uma rede lenta a cada abertura do app.
+    void setDoc(userRef, updatedProfile, { merge: true }).catch((err) =>
+      console.warn('Erro ao atualizar perfil:', err)
+    );
     return updatedProfile;
   }
 
@@ -208,7 +214,7 @@ export function onAuthChange(callback: (user: UserProfile | null) => void) {
 export async function getAllUsers(): Promise<UserProfile[]> {
   try {
     const usersCol = collection(db, 'users');
-    const snap = await getDocs(usersCol);
+    const snap = await getDocs(query(usersCol, orderBy('createdAt', 'desc'), limit(100)));
     const users: UserProfile[] = [];
     snap.forEach((doc) => {
       users.push(doc.data() as UserProfile);
@@ -266,37 +272,38 @@ export async function syncPersonalKnowledgeToCloud(
   if (!userId) return;
 
   try {
-    const userDocRef = doc(db, 'users', userId);
+    const now = new Date().toISOString();
+    const batch = writeBatch(db);
 
-    // Salva metadados / stats
     if (data.stats) {
-      const statsDocRef = doc(db, 'users', userId, 'knowledge_base', 'stats');
-      await setDoc(statsDocRef, data.stats, { merge: true });
+      batch.set(doc(db, 'users', userId, 'knowledge_base', 'stats'), data.stats, { merge: true });
     }
-
-    // Salva materiais
     if (data.materials) {
-      const materialsDocRef = doc(db, 'users', userId, 'knowledge_base', 'materials');
-      await setDoc(materialsDocRef, { items: data.materials, updatedAt: new Date().toISOString() });
+      batch.set(doc(db, 'users', userId, 'knowledge_base', 'materials'), {
+        items: data.materials,
+        updatedAt: now,
+      });
     }
-
-    // Salva nós do grafo
     if (data.nodes) {
-      const nodesDocRef = doc(db, 'users', userId, 'knowledge_base', 'nodes');
-      await setDoc(nodesDocRef, { items: data.nodes, updatedAt: new Date().toISOString() });
+      batch.set(doc(db, 'users', userId, 'knowledge_base', 'nodes'), {
+        items: data.nodes,
+        updatedAt: now,
+      });
     }
-
-    // Salva relações do grafo
     if (data.relations) {
-      const relDocRef = doc(db, 'users', userId, 'knowledge_base', 'relations');
-      await setDoc(relDocRef, { items: data.relations, updatedAt: new Date().toISOString() });
+      batch.set(doc(db, 'users', userId, 'knowledge_base', 'relations'), {
+        items: data.relations,
+        updatedAt: now,
+      });
+    }
+    if (data.corrections) {
+      batch.set(doc(db, 'users', userId, 'knowledge_base', 'corrections'), {
+        items: data.corrections,
+        updatedAt: now,
+      });
     }
 
-    // Salva correções
-    if (data.corrections) {
-      const corrDocRef = doc(db, 'users', userId, 'knowledge_base', 'corrections');
-      await setDoc(corrDocRef, { items: data.corrections, updatedAt: new Date().toISOString() });
-    }
+    await batch.commit();
   } catch (err) {
     console.warn('Erro ao sincronizar base pessoal com o Firestore:', err);
   }
@@ -313,30 +320,28 @@ export async function fetchPersonalKnowledgeFromCloud(
   try {
     const result: Partial<UserPersonalKnowledgeBase> = {};
 
-    const statsDoc = await getDoc(doc(db, 'users', userId, 'knowledge_base', 'stats'));
-    if (statsDoc.exists()) {
-      result.stats = statsDoc.data() as UserStats;
-    }
-
-    const materialsDoc = await getDoc(doc(db, 'users', userId, 'knowledge_base', 'materials'));
-    if (materialsDoc.exists() && materialsDoc.data().items) {
-      result.materials = materialsDoc.data().items;
-    }
-
-    const nodesDoc = await getDoc(doc(db, 'users', userId, 'knowledge_base', 'nodes'));
-    if (nodesDoc.exists() && nodesDoc.data().items) {
-      result.nodes = nodesDoc.data().items;
-    }
-
-    const relDoc = await getDoc(doc(db, 'users', userId, 'knowledge_base', 'relations'));
-    if (relDoc.exists() && relDoc.data().items) {
-      result.relations = relDoc.data().items;
-    }
-
-    const corrDoc = await getDoc(doc(db, 'users', userId, 'knowledge_base', 'corrections'));
-    if (corrDoc.exists() && corrDoc.data().items) {
-      result.corrections = corrDoc.data().items;
-    }
+    const kbCol = collection(db, 'users', userId, 'knowledge_base');
+    const snap = await getDocs(kbCol);
+    snap.forEach((entry) => {
+      const payload = entry.data() as Record<string, any>;
+      switch (entry.id) {
+        case 'stats':
+          result.stats = payload as UserStats;
+          break;
+        case 'materials':
+          if (payload.items) result.materials = payload.items;
+          break;
+        case 'nodes':
+          if (payload.items) result.nodes = payload.items;
+          break;
+        case 'relations':
+          if (payload.items) result.relations = payload.items;
+          break;
+        case 'corrections':
+          if (payload.items) result.corrections = payload.items;
+          break;
+      }
+    });
 
     return result;
   } catch (err) {
@@ -355,7 +360,7 @@ export async function fetchPersonalKnowledgeFromCloud(
 export async function getSharedKnowledgePacks(): Promise<SharedKnowledgePack[]> {
   try {
     const col = collection(db, 'shared_knowledge_packs');
-    const snap = await getDocs(col);
+    const snap = await getDocs(query(col, orderBy('publicado_em', 'desc'), limit(50)));
     const packs: SharedKnowledgePack[] = [];
     snap.forEach((doc) => {
       packs.push(doc.data() as SharedKnowledgePack);
@@ -463,15 +468,14 @@ export async function saveFrequentErrorToCloud(
       atualizado_em: new Date().toISOString(),
     };
 
-    // 1. Salva na coleção raiz /frequent_errors (para monitoramento de erros frequentes)
-    const errRef = doc(db, 'frequent_errors', errorId);
-    await setDoc(errRef, fullError, { merge: true });
-
-    // 2. Salva também na subcoleção do usuário para redundância e isolamento
+    const batch = writeBatch(db);
+    batch.set(doc(db, 'frequent_errors', errorId), fullError, { merge: true });
     if (errorData.userId) {
-      const userErrRef = doc(db, 'users', errorData.userId, 'frequent_errors', errorId);
-      await setDoc(userErrRef, fullError, { merge: true });
+      batch.set(doc(db, 'users', errorData.userId, 'frequent_errors', errorId), fullError, {
+        merge: true,
+      });
     }
+    await batch.commit();
 
     return errorId;
   } catch (err) {
@@ -486,10 +490,11 @@ export async function saveFrequentErrorToCloud(
 export async function getFrequentErrors(userId?: string): Promise<FrequentErrorItem[]> {
   try {
     const errCol = collection(db, 'frequent_errors');
-    let q = query(errCol);
-    if (userId) {
-      q = query(errCol, where('userId', '==', userId));
-    }
+    // Limita a leitura (where+orderBy juntos exigiriam índice composto;
+    // mantemos o sort no cliente sobre um conjunto limitado).
+    const q = userId
+      ? query(errCol, where('userId', '==', userId), limit(200))
+      : query(errCol, orderBy('data', 'desc'), limit(200));
     const snap = await getDocs(q);
     const errors: FrequentErrorItem[] = [];
     snap.forEach((doc) => {
@@ -507,12 +512,12 @@ export async function getFrequentErrors(userId?: string): Promise<FrequentErrorI
  */
 export async function deleteFrequentError(errorId: string, userId?: string): Promise<void> {
   try {
-    const errRef = doc(db, 'frequent_errors', errorId);
-    await deleteDoc(errRef);
+    const batch = writeBatch(db);
+    batch.delete(doc(db, 'frequent_errors', errorId));
     if (userId) {
-      const userErrRef = doc(db, 'users', userId, 'frequent_errors', errorId);
-      await deleteDoc(userErrRef);
+      batch.delete(doc(db, 'users', userId, 'frequent_errors', errorId));
     }
+    await batch.commit();
   } catch (err) {
     console.warn('Erro ao deletar erro frequente:', err);
   }

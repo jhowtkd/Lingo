@@ -164,7 +164,25 @@ export function AdminView({ currentUser, onImportPackToCurrentBase }: AdminViewP
       setShowCreatePack(false);
       setPackTitle('');
       setPackDesc('');
-      loadAdminData();
+      // Atualização otimista: antes, a publicação re-baixava usuários + todos
+      // os packs (com payload completo) + erros do Firestore.
+      setPacks((prev) => [
+        {
+          id: newPackId,
+          titulo: packTitle,
+          descricao: packDesc || 'Pacote de estudo curado pela equipe pedagógica.',
+          idioma: packLang,
+          nivel_cefr: packCefr,
+          autor_nome: currentUser.displayName || 'Administrador Master',
+          autor_id: currentUser.uid,
+          publicado_em: new Date().toISOString(),
+          total_termos: nodes.length,
+          total_materiais: materials.length,
+          clones_count: 0,
+          dados_pack: { nodes, relations, materials },
+        } as SharedKnowledgePack,
+        ...prev,
+      ]);
       setTimeout(() => setActionFeedback(null), 4000);
     } catch (err) {
       console.error(err);
@@ -680,6 +698,8 @@ export function AdminView({ currentUser, onImportPackToCurrentBase }: AdminViewP
                             <img
                               src={user.photoURL}
                               alt={user.displayName || 'Avatar'}
+                              loading="lazy"
+                              decoding="async"
                               className="w-8 h-8 rounded-full object-cover border border-[var(--border)]"
                             />
                           ) : (

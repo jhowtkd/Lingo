@@ -1,10 +1,13 @@
 import { WordContextInfo } from '../types';
+import { apiFetch } from '../lib/api';
 
 /**
  * Serviço de Busca e Cache de Contexto de Palavras & Dicionário Ativo
  */
 class WordContextService {
   private cache: Map<string, WordContextInfo> = new Map();
+  private static readonly CACHE_MAX = 200;
+  private inflight: Map<string, Promise<WordContextInfo>> = new Map();
 
   private getCacheKey(word: string, lang: string): string {
     return `${lang.toLowerCase()}:${word.toLowerCase().trim()}`;
@@ -26,8 +29,30 @@ class WordContextService {
       return this.cache.get(cacheKey)!;
     }
 
+    // Dedup em voo: cliques duplos na mesma palavra compartilham a mesma Promise
+    const pending = this.inflight.get(cacheKey);
+    if (pending) {
+      return pending;
+    }
+
+    const request = this.fetchWordContext(cleanWord, contextSentence, language, topic, cacheKey);
+    this.inflight.set(cacheKey, request);
     try {
-      const res = await fetch('/api/word-context', {
+      return await request;
+    } finally {
+      this.inflight.delete(cacheKey);
+    }
+  }
+
+  private async fetchWordContext(
+    cleanWord: string,
+    contextSentence: string,
+    language: string,
+    topic: string,
+    cacheKey: string
+  ): Promise<WordContextInfo> {
+    try {
+      const res = await apiFetch('/api/word-context', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -47,6 +72,10 @@ class WordContextService {
 
       if (context && context.palavra) {
         this.cache.set(cacheKey, context);
+        if (this.cache.size > WordContextService.CACHE_MAX) {
+          const oldest = this.cache.keys().next().value;
+          if (oldest !== undefined) this.cache.delete(oldest);
+        }
         return context;
       }
 

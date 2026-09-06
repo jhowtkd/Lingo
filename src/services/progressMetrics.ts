@@ -129,35 +129,51 @@ export function buildWeeklyTrend(input: ProgressMetricsInput): DailyTrendPoint[]
   const targetMinutes = Math.max(1, input.stats.meta_diaria_minutos);
   const dayNames = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
 
-  return Array.from({ length: 7 }, (_, index) => {
-    const daysAgo = 6 - index;
+  // Uma única passada sobre sessões e nós (antes: 7 filtros completos por dia).
+  // Vocabulário é cumulativo (recordedAt <= data), então as datas ordenadas
+  // permitem um ponteiro monotônico em vez de reescanear os nós 7 vezes.
+  const minutesByDate = new Map<string, number>();
+  for (const session of input.sessions) {
+    if (!session.concluida) continue;
+    const date = session.inicio.slice(0, 10);
+    minutesByDate.set(date, (minutesByDate.get(date) ?? 0) + Math.max(0, session.duracao_minutos));
+  }
+
+  const vocabDates = input.nodes
+    .filter(
+      (node) =>
+        hasRecordedNodeEvidence(node) &&
+        ['vocabulario', 'expressao_idiomatica', 'falso_amigo'].includes(node.tipo)
+    )
+    .map((node) =>
+      ((node.evidencias ?? []).includes(PLAN_NODE_EVIDENCE)
+        ? node.atualizado_em
+        : node.criado_em
+      ).slice(0, 10)
+    )
+    .sort();
+
+  const dates = Array.from({ length: 7 }, (_, index) => {
     const targetDate = new Date(now);
-    targetDate.setUTCDate(now.getUTCDate() - daysAgo);
-    const date = targetDate.toISOString().slice(0, 10);
-    const sessionMinutes = input.sessions
-      .filter((session) => session.concluida && session.inicio.startsWith(date))
-      .reduce((sum, session) => sum + Math.max(0, session.duracao_minutos), 0);
+    targetDate.setUTCDate(now.getUTCDate() - (6 - index));
+    return targetDate.toISOString().slice(0, 10);
+  });
+
+  let vocabPointer = 0;
+  return dates.map((date) => {
+    while (vocabPointer < vocabDates.length && vocabDates[vocabPointer] <= date) {
+      vocabPointer += 1;
+    }
+    const sessionMinutes = minutesByDate.get(date) ?? 0;
     const minutes = date === today
       ? Math.max(sessionMinutes, Math.max(0, input.stats.minutos_hoje))
       : sessionMinutes;
-    const vocabulary = input.nodes.filter((node) => {
-      if (!hasRecordedNodeEvidence(node)) return false;
-
-      const recordedAt = (node.evidencias ?? []).includes(PLAN_NODE_EVIDENCE)
-        ? node.atualizado_em
-        : node.criado_em;
-
-      return (
-        ['vocabulario', 'expressao_idiomatica', 'falso_amigo'].includes(node.tipo) &&
-        recordedAt.slice(0, 10) <= date
-      );
-    }).length;
 
     return {
-      dia: dayNames[targetDate.getUTCDay()],
+      dia: dayNames[new Date(`${date}T00:00:00Z`).getUTCDay()],
       data: date,
       minutos: minutes,
-      vocabulario: vocabulary,
+      vocabulario: vocabPointer,
       taxaConsistencia: Math.min(100, Math.round((minutes / targetMinutes) * 100)),
     };
   });

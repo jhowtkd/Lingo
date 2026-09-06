@@ -94,6 +94,7 @@ export const AudioSpectrumVisualizer: React.FC<AudioSpectrumVisualizerProps> = (
     const freqData = new Uint8Array(bufferLength);
     const timeData = new Uint8Array(bufferLength);
 
+    let lastMetricsUpdate = 0;
     const draw = () => {
       animationFrameRef.current = requestAnimationFrame(draw);
 
@@ -114,21 +115,23 @@ export const AudioSpectrumVisualizer: React.FC<AudioSpectrumVisualizerProps> = (
       }
       const avgVolume = sum / bufferLength;
       const volPct = Math.min(100, Math.round((avgVolume / 140) * 100));
-      setCurrentVolume(volPct);
 
       // Frequência de pico estimada (amostragem padrão 44.1kHz ou 48kHz)
       const sampleRate = audioContextRef.current?.sampleRate || 44100;
       const freqHz = Math.round((maxIdx * sampleRate) / (analyser.fftSize * 2));
-      setPeakFreq(freqHz);
 
-      if (volPct < 5) {
-        setVoiceClarity('Silêncio');
-      } else if (volPct < 65) {
-        setVoiceClarity('Voz Clara');
-      } else if (volPct < 90) {
-        setVoiceClarity('Voz Forte');
-      } else {
-        setVoiceClarity('Ruído');
+      // Métricas React limitadas a ~8 atualizações/s (padrão do
+      // TutorAudioWaveVisualizer): setState a cada frame re-renderizava o
+      // componente 60x por segundo; o canvas continua a 60fps.
+      const nowMs = performance.now();
+      if (nowMs - lastMetricsUpdate >= 120) {
+        lastMetricsUpdate = nowMs;
+        setCurrentVolume((prev) => (prev === volPct ? prev : volPct));
+        setPeakFreq((prev) => (prev === freqHz ? prev : freqHz));
+
+        const nextClarity =
+          volPct < 5 ? 'Silêncio' : volPct < 65 ? 'Voz Clara' : volPct < 90 ? 'Voz Forte' : 'Ruído';
+        setVoiceClarity((prev) => (prev === nextClarity ? prev : nextClarity));
       }
 
       // Preparar canvas

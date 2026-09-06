@@ -15,7 +15,7 @@ import {
   BookOpen,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import confetti from 'canvas-confetti';
+import { fireConfetti as confetti } from '../lib/confetti';
 import { CEFRLevel, SpeechRateMetrics } from '../types';
 import {
   SpeechRateService,
@@ -135,7 +135,7 @@ export const SpeechRateCoachModal: React.FC<SpeechRateCoachModalProps> = ({
           const secs = (Date.now() - readingStartTime) / 1000;
           setElapsedReadingSeconds(secs);
         }
-      }, 100);
+      }, 500);
     } else {
       if (timerRef.current) {
         clearInterval(timerRef.current);

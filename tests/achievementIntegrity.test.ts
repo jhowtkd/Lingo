@@ -72,15 +72,16 @@ describe('AchievementEngine integrity', () => {
 
   it('stores new tutor graph nodes as unscored when mastery is omitted', () => {
     vi.spyOn(StorageService, 'getNodes').mockReturnValue([]);
-    const addOrUpdateNode = vi
-      .spyOn(StorageService, 'addOrUpdateNode')
+    vi.spyOn(StorageService, 'getRelations').mockReturnValue([]);
+    const saveNodes = vi
+      .spyOn(StorageService, 'saveNodes')
       .mockImplementation(() => undefined);
 
     GraphEngine.processNewNodesFromTutor([{ titulo: 'Viagens' }], 'Bonjour', 'Francês');
 
-    expect(addOrUpdateNode).toHaveBeenCalledWith(
-      expect.objectContaining({ dominio_estimado: 0 })
-    );
+    expect(saveNodes).toHaveBeenCalledWith([
+      expect.objectContaining({ dominio_estimado: 0 }),
+    ]);
   });
 
   it('keeps topic proficiency unscored before recorded evidence', () => {

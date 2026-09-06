@@ -41,12 +41,19 @@ export const VocabDuelEngine = {
     const questions: DuelQuestion[] = [];
     const usedTitles = new Set<string>();
 
+    // Pool de distratores calculado uma única vez (era re-lido do storage
+    // via getNodes() para cada pergunta do lote).
+    const candidatePool = StorageService.getNodes()
+      .filter((node) => getLanguageConfig(node.idioma || 'ingles').id === targetLang.id)
+      .map((node) => node.traducao || node.descricao || node.titulo)
+      .filter(Boolean) as string[];
+
     for (const node of sortedNodes) {
       if (questions.length >= totalQuestions) break;
       if (usedTitles.has(node.titulo)) continue;
       usedTitles.add(node.titulo);
 
-      const q = this.buildQuestionFromNode(node, targetLang.displayName);
+      const q = this.buildQuestionFromNode(node, targetLang.displayName, candidatePool);
       if (q) {
         questions.push(q);
       }
@@ -57,7 +64,7 @@ export const VocabDuelEngine = {
   },
 
   // Constrói uma pergunta estruturada a partir de um nó do grafo
-  buildQuestionFromNode(node: GraphNode, idiomaAlvo: string): DuelQuestion | null {
+  buildQuestionFromNode(node: GraphNode, idiomaAlvo: string, candidatePool?: string[]): DuelQuestion | null {
     const isFalseFriend = node.tipo === 'falso_amigo' || node.titulo.toLowerCase().includes('vs');
 
     if (isFalseFriend) {
@@ -72,7 +79,7 @@ export const VocabDuelEngine = {
         dica_contextual: 'Atenção ao falso cognato! Não traduza pela semelhança gráfica.',
         resposta_esperada: node.traducao || node.descricao,
         respostas_alternativas: this.extractKeywords(node.traducao || node.descricao),
-        opcoes_multipla_escolha: this.generateDistractors(node),
+        opcoes_multipla_escolha: this.generateDistractors(node, candidatePool),
         tempo_limite_segundos: 14,
         pontos_base: 120,
         nivel_dificuldade: Math.min(5, (node.dificuldade || 3) + 1),
@@ -92,7 +99,7 @@ export const VocabDuelEngine = {
         dica_contextual: node.descricao,
         resposta_esperada: node.traducao || node.titulo,
         respostas_alternativas: this.extractKeywords(node.traducao || node.descricao),
-        opcoes_multipla_escolha: this.generateDistractors(node),
+        opcoes_multipla_escolha: this.generateDistractors(node, candidatePool),
         tempo_limite_segundos: 12,
         pontos_base: 100,
         nivel_dificuldade: node.dificuldade || 2,
@@ -138,13 +145,13 @@ export const VocabDuelEngine = {
   },
 
   // Gera alternativas somente de termos já registrados no mesmo idioma.
-  generateDistractors(targetNode: GraphNode): string[] {
+  generateDistractors(targetNode: GraphNode, candidatePool?: string[]): string[] {
     const correct = targetNode.traducao || targetNode.descricao || targetNode.titulo;
     const targetLanguage = getLanguageConfig(targetNode.idioma || 'ingles');
-    const alternatives = StorageService.getNodes()
-      .filter((node) => node.id !== targetNode.id && getLanguageConfig(node.idioma || 'ingles').id === targetLanguage.id)
-      .map((node) => node.traducao || node.descricao || node.titulo)
-      .filter((value) => value && value !== correct);
+    const alternatives = (candidatePool ?? StorageService.getNodes()
+      .filter((node) => getLanguageConfig(node.idioma || 'ingles').id === targetLanguage.id)
+      .map((node) => node.traducao || node.descricao || node.titulo))
+      .filter((value) => value && value !== correct && value !== (targetNode.traducao || targetNode.descricao || targetNode.titulo));
 
     if (alternatives.length === 0) return [];
     return Array.from(new Set([correct, ...alternatives])).slice(0, 4).sort(() => Math.random() - 0.5);

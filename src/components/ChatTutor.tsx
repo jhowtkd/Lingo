@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { memo, useMemo, useState, useRef, useEffect } from 'react';
 import {
   Send,
   Mic,
@@ -36,7 +36,7 @@ import {
   Minimize2,
   Eye,
 } from 'lucide-react';
-import confetti from 'canvas-confetti';
+import { fireConfetti as confetti } from '../lib/confetti';
 import {
   ChatMessage,
   ChatConversation,
@@ -46,8 +46,11 @@ import {
   PronunciationScoreData,
   CEFRLevel,
   SpeechRateMetrics,
+  NodeType,
+  CorrectionSeverity,
 } from '../types';
 import { StorageService } from '../services/storage';
+import { apiFetch } from '../lib/api';
 import { GraphEngine } from '../services/graphEngine';
 import { AudioRecorderService } from '../services/audioService';
 import { AchievementEngine } from '../services/achievementEngine';
@@ -69,6 +72,7 @@ import { PronunciationWaveformVisualizer } from './PronunciationWaveformVisualiz
 import { TutorVoiceWaveform } from './TutorVoiceWaveform';
 import { WordContextModal } from './WordContextModal';
 import { InteractiveWordText } from './InteractiveWordText';
+import { useStableHandler } from '../hooks/useStableHandler';
 import { playSfx } from '../services/soundEffects';
 import { saveFrequentErrorToCloud, auth } from '../services/firebase';
 import { CornerPlus } from './ui/corner-plus';
@@ -88,6 +92,478 @@ interface ChatTutorProps {
   onSelectTopic: (topic: string) => void;
 }
 
+interface ChatMessageItemProps {
+  msg: ChatMessage;
+  currentTopic: string;
+  selectedVoice: string;
+  speechSpeed: number;
+  targetLocale: string;
+  playingAudioId: string | null;
+  isVoiceLoading: boolean;
+  expandedAdaptationId: string | null;
+  expandedMessageActionsId: string | null;
+  evaluatingPronunciationMsgId: string | null;
+  answeringCorrectionId: string | null;
+  confirmationAnswer: string;
+  setSpeechSpeed: React.Dispatch<React.SetStateAction<number>>;
+  setExpandedAdaptationId: React.Dispatch<React.SetStateAction<string | null>>;
+  setExpandedMessageActionsId: React.Dispatch<React.SetStateAction<string | null>>;
+  setConfirmationAnswer: React.Dispatch<React.SetStateAction<string>>;
+  setAnsweringCorrectionId: React.Dispatch<React.SetStateAction<string | null>>;
+  setSelectedWordForContext: React.Dispatch<React.SetStateAction<string | null>>;
+  setContextSentenceForWord: React.Dispatch<React.SetStateAction<string>>;
+  setIsWordContextOpen: React.Dispatch<React.SetStateAction<boolean>>;
+  handleToggleMessageAudio: (msgId: string, text: string) => void;
+  handleRequestPronunciationScore: (
+    msgId: string,
+    text: string,
+    audioBase64?: string,
+    duration?: number
+  ) => void;
+  handleStopAudio: () => void;
+  handleSendMessage: (textToSend?: string, options?: SendMessageOptions) => void;
+  handlePlayPhraseAudio: (phraseId: string, phrase: string, lang?: string) => void;
+  handleConfirmLearning: (correction: PedagogicalCorrection) => void;
+}
+
+type SendMessageOptions = {
+  isAudio?: boolean;
+  audioBase64?: string;
+  mimeType?: string;
+  durationSeconds?: number;
+  pronunciationScore?: PronunciationScoreData;
+};
+
+/**
+ * Item de mensagem memoizado: em conversas longas, cada tecla do composer
+ * (estado no componente pai) re-renderizava TODOS os balões. Com memo +
+ * handlers de identidade estável (useStableHandler), um item só re-renderiza
+ * quando a própria mensagem ou um estado de interação relevante muda.
+ */
+const ChatMessageItem = memo(function ChatMessageItem({
+  msg,
+  currentTopic,
+  selectedVoice,
+  speechSpeed,
+  targetLocale,
+  playingAudioId,
+  isVoiceLoading,
+  expandedAdaptationId,
+  expandedMessageActionsId,
+  evaluatingPronunciationMsgId,
+  answeringCorrectionId,
+  confirmationAnswer,
+  setSpeechSpeed,
+  setExpandedAdaptationId,
+  setExpandedMessageActionsId,
+  setConfirmationAnswer,
+  setAnsweringCorrectionId,
+  setSelectedWordForContext,
+  setContextSentenceForWord,
+  setIsWordContextOpen,
+  handleToggleMessageAudio,
+  handleRequestPronunciationScore,
+  handleStopAudio,
+  handleSendMessage,
+  handlePlayPhraseAudio,
+  handleConfirmLearning,
+}: ChatMessageItemProps) {
+          const isUser = msg.remetente === 'user';
+          const isSystem = msg.remetente === 'system';
+
+          if (isSystem) {
+            return (
+              <div
+                                className="max-w-md mx-auto my-2 p-3 bg-rose-500/10 border border-rose-500/30 rounded-xl text-rose-600 text-xs text-center flex items-center justify-center space-x-2 font-mono"
+              >
+                <AlertTriangle className="w-4 h-4 text-rose-500 shrink-0" />
+                <span>{msg.conteudo}</span>
+              </div>
+            );
+          }
+
+          const isAdaptationExpanded = expandedAdaptationId === msg.id;
+
+          return (
+            <div
+                            className={`flex gap-3 ${isUser ? 'justify-end' : 'justify-start'}`}
+            >
+              {!isUser && (
+                <div className="w-8 h-8 rounded-full bg-[var(--fg)] text-[var(--accent)] flex items-center justify-center flex-shrink-0 text-xs font-bold mt-0.5 shadow-xs border border-[var(--border)]">
+                  AI
+                </div>
+              )}
+
+              <div
+                className={`max-w-[88%] sm:max-w-[82%] rounded-[var(--r-md)] p-4 sm:p-4.5 shadow-xs transition-all ${
+                  isUser
+                    ? 'bg-[var(--accent)] text-[var(--fg)] font-medium rounded-tr-xs border border-[var(--border)]'
+                    : 'bg-[oklch(0.97_0.01_84)] text-[var(--fg)] rounded-tl-xs border border-[var(--border)]'
+                }`}
+              >
+                {/* Remetente & Badge XP */}
+                <div className="flex items-center justify-between text-[11px] mb-2 space-x-2">
+                  <span className="font-bold tracking-tight text-[var(--fg)]">
+                    {isUser ? 'Você' : 'Tutor de Línguas'}
+                  </span>
+                  <div className="flex items-center space-x-1.5">
+                    {!isUser && (
+                      <div className="flex items-center gap-1">
+                        <button
+                          onClick={() => handleToggleMessageAudio(msg.id, msg.conteudo)}
+                          className={`flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold transition cursor-pointer border ${
+                            playingAudioId === msg.id
+                              ? 'bg-[var(--fg)] text-[var(--accent)] border-[var(--fg)] shadow-xs animate-pulse'
+                              : isVoiceLoading && playingAudioId === msg.id
+                              ? 'bg-[var(--surface)] text-[var(--fg)] border-[var(--border)] animate-pulse'
+                              : 'bg-[var(--surface)] text-[var(--fg)] hover:bg-[oklch(0.95_0.01_84)] border-[var(--border)]'
+                          }`}
+                          title={
+                            playingAudioId === msg.id
+                              ? 'Parar reprodução de voz'
+                              : `Ouvir com voz neural natural (${selectedVoice})`
+                          }
+                        >
+                          {playingAudioId === msg.id ? (
+                            <>
+                              <Square className="w-3 h-3 fill-current" />
+                              <span>PARAR</span>
+                              <span className="flex h-1.5 w-1.5 relative">
+                                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[var(--accent)] opacity-75"></span>
+                                <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-[var(--accent)]"></span>
+                              </span>
+                            </>
+                          ) : (
+                            <>
+                              <Volume2 className="w-3.5 h-3.5 text-[var(--fg)]" />
+                              <span>Ouvir ({selectedVoice})</span>
+                            </>
+                          )}
+                        </button>
+
+                        {/* Seletor de velocidade rápida (0.85x / 1.0x) */}
+                        <button
+                          onClick={() => setSpeechSpeed((prev) => (prev === 0.88 ? 1.0 : 0.88))}
+                          className="px-1 py-0.5 rounded text-[9px] font-mono text-muted-foreground hover:text-foreground hover:bg-muted border border-border/60 transition cursor-pointer"
+                          title="Alternar velocidade de fala (0.85x mais lento para aprendizado / 1.0x normal)"
+                        >
+                          {speechSpeed === 0.88 ? '0.85x' : '1.0x'}
+                        </button>
+                      </div>
+                    )}
+                    {msg.xp_ganho && (
+                      <span className="px-1.5 py-0.5 rounded bg-muted border border-border text-[10px] font-bold text-foreground">
+                        +{msg.xp_ganho} XP
+                      </span>
+                    )}
+                    <span className="text-[10px] text-muted-foreground">
+                      {new Date(msg.timestamp).toLocaleTimeString('pt-BR', {
+                        hour: '2-digit',
+                        minute: '2-digit',
+                      })}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Badge de Adaptação Dinâmica de Explicação (Tutor) */}
+                {!isUser && msg.adaptacao && (
+                  <div className="mb-2.5">
+                    <button
+                      onClick={() =>
+                        setExpandedAdaptationId(isAdaptationExpanded ? null : msg.id)
+                      }
+                      className="inline-flex items-center space-x-1.5 px-2 py-0.5 rounded border border-border bg-background text-[10px] font-mono text-foreground hover:bg-muted transition cursor-pointer"
+                      title="Clique para ver como o Grafo de Memória guiou a adaptação desta explicação"
+                    >
+                      <Brain className="w-3 h-3 text-foreground shrink-0" />
+                      <span>
+                        ADAPTAÇÃO: <strong>{msg.adaptacao.rotulo}</strong>
+                      </span>
+                      <span className="text-muted-foreground">•</span>
+                      <span className="text-foreground font-bold">
+                        {msg.adaptacao.dominio_avaliado}% DOMÍNIO
+                      </span>
+                      {isAdaptationExpanded ? (
+                        <ChevronUp className="w-3 h-3 text-muted-foreground" />
+                      ) : (
+                        <ChevronDown className="w-3 h-3 text-muted-foreground" />
+                      )}
+                    </button>
+
+                    {/* Detalhes expandidos da calibração do grafo */}
+                    {isAdaptationExpanded && (
+                      <div className="mt-1.5 p-3 rounded-lg bg-background border border-border text-xs text-foreground space-y-1.5 shadow-2xs font-mono">
+                        <div className="flex items-start gap-1.5">
+                          <Info className="w-3.5 h-3.5 text-foreground mt-0.5 shrink-0" />
+                          <div>
+                            <p className="font-bold text-foreground">
+                              Justificativa do Grafo de Memória:
+                            </p>
+                            <p className="text-muted-foreground text-[11px] font-sans">{msg.adaptacao.justificativa}</p>
+                          </div>
+                        </div>
+                        <div className="border-t border-border pt-1 text-[11px]">
+                          <span className="font-bold text-foreground">Estratégia aplicada:</span>{' '}
+                          <span className="text-muted-foreground font-sans">{msg.adaptacao.estrategia_pedagogica}</span>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Conteúdo da mensagem */}
+                <div className="text-xs sm:text-sm leading-relaxed">
+                  {isUser ? (
+                    <div className="whitespace-pre-line">{msg.conteudo}</div>
+                  ) : (
+                    <div>
+                      <InteractiveWordText
+                        text={msg.conteudo}
+                        onWordClick={(clickedWord, sentence) => {
+                          setSelectedWordForContext(clickedWord);
+                          setContextSentenceForWord(sentence);
+                          setIsWordContextOpen(true);
+                        }}
+                      />
+                      <div className="mt-2 pt-1.5 border-t border-[var(--border)]/40 flex items-center gap-1.5 text-[10px] text-[var(--muted)] font-mono">
+                        <Sparkles className="w-3 h-3 text-[var(--accent-deep)] shrink-0" />
+                        <span>Dica: clique em qualquer palavra acima para ver sinônimos, IPA e contexto</span>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Ações & Avaliação de Pronúncia para Mensagens do Usuário */}
+                {isUser && (
+                  <div className="mt-2 pt-1.5 border-t border-background/20 flex items-center justify-between gap-2 flex-wrap text-[10px] font-mono">
+                    <div className="flex items-center space-x-1.5 opacity-80">
+                      {msg.is_audio_response && (
+                        <span className="inline-flex items-center gap-1 text-[9px] px-1.5 py-0.5 rounded bg-background/20 font-semibold">
+                          <Mic className="w-2.5 h-2.5" /> Áudio
+                        </span>
+                      )}
+                      {msg.speech_rate && (
+                        <span className="inline-flex items-center gap-1 text-[9px] px-1.5 py-0.5 rounded bg-background/20 font-bold">
+                          <Gauge className="w-2.5 h-2.5" /> {msg.speech_rate.wpm} PPM
+                        </span>
+                      )}
+                    </div>
+
+                    {!msg.pronunciation_score && (
+                      <button
+                        onClick={() =>
+                          handleRequestPronunciationScore(
+                            msg.id,
+                            msg.conteudo,
+                            undefined,
+                            msg.speech_rate?.durationSeconds
+                          )
+                        }
+                        disabled={evaluatingPronunciationMsgId === msg.id}
+                        className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-background/15 hover:bg-background/25 transition cursor-pointer text-[10px] font-bold text-background disabled:opacity-50"
+                        title="Avaliar precisão fonética, ritmo e fonemas IPA"
+                      >
+                        <Activity
+                          className={`w-3 h-3 ${
+                            evaluatingPronunciationMsgId === msg.id ? 'animate-spin' : ''
+                          }`}
+                        />
+                        <span>
+                          {evaluatingPronunciationMsgId === msg.id
+                            ? 'Calculando Score...'
+                            : 'Avaliar Pronúncia Fonética'}
+                        </span>
+                      </button>
+                    )}
+                  </div>
+                )}
+
+                {/* Visualizador de Taxa de Fala Rápido no Balão do Usuário (se não tiver card completo de pronúncia) */}
+                {isUser && msg.speech_rate && !msg.pronunciation_score && (
+                  <div className="mt-2 pt-1 border-t border-background/20">
+                    <SpeechRateVisualizer
+                      metrics={msg.speech_rate}
+                      variant="compact"
+                    />
+                  </div>
+                )}
+
+                {/* Componente de Score de Pronúncia & Gráfico de Precisão */}
+                {isUser && msg.pronunciation_score && (
+                  <div className="mt-3">
+                    <PronunciationScoreCard
+                      scoreData={msg.pronunciation_score}
+                      targetLang={msg.idioma || targetLocale}
+                    />
+                  </div>
+                )}
+
+                {/* Onda Sonora em Tempo Real (Waveform) dentro da Mensagem Ativa */}
+                {!isUser && playingAudioId === msg.id && (
+                  <TutorVoiceWaveform
+                    variant="inline"
+                    isPlaying={true}
+                    activeId={msg.id}
+                    voiceName={selectedVoice}
+                    speed={speechSpeed}
+                    onStop={handleStopAudio}
+                  />
+                )}
+
+                {/* Botões de Ação Rápida de Reformulação Pedagógica (Tutor) */}
+                {!isUser && (
+                  <div className="mt-3 pt-2 border-t border-border/80 space-y-2">
+                    <button
+                      type="button"
+                      onClick={() => setExpandedMessageActionsId((current) =>
+                        current === msg.id ? null : msg.id
+                      )}
+                      aria-expanded={expandedMessageActionsId === msg.id}
+                      aria-controls={`message-actions-${msg.id}`}
+                      className="text-[10px] font-bold text-muted-foreground hover:text-foreground"
+                    >
+                      Mais ações
+                    </button>
+                    {expandedMessageActionsId === msg.id && (
+                      <div id={`message-actions-${msg.id}`} className="flex flex-wrap gap-1.5">
+                        <button type="button" onClick={() => handleSendMessage(`Poderia explicar novamente esse ponto sobre ${currentTopic} usando uma analogia intuitiva do cotidiano?`)} className="px-2 py-0.5 rounded border border-border text-[10px]">
+                          🌱 Simplificar com analogia
+                        </button>
+                        <button type="button" onClick={() => handleSendMessage(`Poderia aprofundar esse conceito com maior rigor técnico e exemplos adequados ao meu nível?`)} className="px-2 py-0.5 rounded border border-border text-[10px]">
+                          🔬 Aprofundar
+                        </button>
+                        <button type="button" onClick={() => handleSendMessage(`Poderia me mostrar um exemplo prático passo a passo sobre ${currentTopic}?`)} className="px-2 py-0.5 rounded border border-border text-[10px]">
+                          💡 Ver exemplo
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Card Especial de Correção Pedagógica */}
+                {msg.correcao && (
+                  <div className="mt-3 p-3.5 rounded-lg bg-background border border-border text-foreground text-xs space-y-2 relative">
+                    <div className="flex items-center justify-between border-b border-border pb-1.5">
+                      <div className="flex items-center space-x-1.5 text-foreground font-bold">
+                        <AlertTriangle className="w-3.5 h-3.5 text-foreground" />
+                        <span>Correção Pedagógica: {msg.correcao.conceito}</span>
+                      </div>
+                      <span
+                        className={`text-[9px] font-mono uppercase font-bold px-1.5 py-0.5 rounded border ${
+                          msg.correcao.gravidade === 'critica'
+                            ? 'border-rose-500/40 bg-rose-500/10 text-rose-600 dark:text-rose-400'
+                            : msg.correcao.gravidade === 'moderada'
+                            ? 'border-amber-500/40 bg-amber-500/10 text-amber-600 dark:text-amber-400'
+                            : 'border-border bg-muted text-muted-foreground'
+                        }`}
+                      >
+                        Gravidade {msg.correcao.gravidade}
+                      </span>
+                    </div>
+
+                    <div className="space-y-1">
+                      <div>
+                        <span className="font-mono text-[11px] font-semibold text-muted-foreground">OBSERVADO:</span>{' '}
+                        <span className="text-foreground">{msg.correcao.erro}</span>
+                      </div>
+                      <div>
+                        <span className="font-mono text-[11px] font-semibold text-muted-foreground">MOTIVO:</span>{' '}
+                        <span className="text-muted-foreground">{msg.correcao.explicacao}</span>
+                      </div>
+                      <div className="p-2 rounded bg-muted/50 border border-border font-medium text-foreground flex items-center justify-between gap-2 flex-wrap">
+                        <div>
+                          ✨ <strong>Formulação Correta:</strong> {msg.correcao.resposta_corrigida}
+                        </div>
+                        <button
+                          onClick={() =>
+                            handlePlayPhraseAudio(
+                              `corr-${msg.correcao!.id || msg.id}`,
+                              msg.correcao!.resposta_corrigida,
+                              targetLocale
+                            )
+                          }
+                          className={`flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-mono transition cursor-pointer border ${
+                            playingAudioId === `corr-${msg.correcao!.id || msg.id}`
+                              ? 'bg-foreground text-background border-foreground shadow-xs animate-pulse'
+                              : 'bg-background hover:bg-muted text-foreground border-border'
+                          }`}
+                          title="Ouvir pronúncia nativa da frase corrigida"
+                        >
+                          <Volume2 className="w-3 h-3" />
+                          <span>
+                            {playingAudioId === `corr-${msg.correcao!.id || msg.id}`
+                              ? 'Tocando...'
+                              : 'Ouvir Frase'}
+                          </span>
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Waveform dentro do card de correção */}
+                    {playingAudioId === `corr-${msg.correcao!.id || msg.id}` && (
+                      <TutorVoiceWaveform
+                        variant="inline"
+                        isPlaying={true}
+                        activeId={`corr-${msg.correcao!.id || msg.id}`}
+                        voiceName={selectedVoice}
+                        speed={speechSpeed}
+                        onStop={handleStopAudio}
+                      />
+                    )}
+
+                    {/* Pergunta de Checagem Imediata */}
+                    {msg.correcao.pergunta_confirmacao && (
+                      <div className="pt-2 border-t border-border">
+                        <div className="flex items-center space-x-1.5 font-mono font-bold text-foreground mb-1 text-[11px]">
+                          <HelpCircle className="w-3.5 h-3.5 text-foreground" />
+                          <span>CHECAGEM IMEDIATA (+40 XP):</span>
+                        </div>
+                        <p className="italic text-muted-foreground mb-2">
+                          "{msg.correcao.pergunta_confirmacao}"
+                        </p>
+
+                        {answeringCorrectionId === msg.correcao.id ? (
+                          <div className="flex gap-2 mt-1">
+                            <input
+                              type="text"
+                              value={confirmationAnswer}
+                              onChange={(e) => setConfirmationAnswer(e.target.value)}
+                              placeholder="Digite sua resposta para validar a compreensão..."
+                              className="flex-1 px-3 py-1.5 text-xs bg-background border border-border rounded-lg focus:outline-none focus:ring-1 focus:ring-ring text-foreground"
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') {
+                                  handleConfirmLearning(msg.correcao!);
+                                }
+                              }}
+                            />
+                            <Button
+                              size="sm"
+                              onClick={() => handleConfirmLearning(msg.correcao!)}
+                              className="font-mono text-xs cursor-pointer"
+                            >
+                              Validar
+                            </Button>
+                          </div>
+                        ) : (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => setAnsweringCorrectionId(msg.correcao!.id)}
+                            className="gap-1.5 font-mono text-xs cursor-pointer"
+                          >
+                            <CheckCircle2 className="w-3.5 h-3.5" />
+                            <span>Responder Checagem Agora</span>
+                          </Button>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+          );
+        });
+
 export const ChatTutor: React.FC<ChatTutorProps> = ({
   currentTopic,
   stats,
@@ -97,6 +573,8 @@ export const ChatTutor: React.FC<ChatTutorProps> = ({
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [inputText, setInputText] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  // Texto do tutor chegando via SSE (/api/chat/stream), renderizado em tempo real
+  const [streamingText, setStreamingText] = useState('');
   const [studentLevel, setStudentLevel] = useState<'Iniciante' | 'Intermediário' | 'Avançado'>(
     'Intermediário'
   );
@@ -353,34 +831,133 @@ export const ChatTutor: React.FC<ChatTutorProps> = ({
       );
       const recentCorrections = StorageService.getCorrections().slice(0, 3);
 
-      // 2. Chama a API do Tutor Pedagógico
-      const res = await fetch('/api/chat', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          mensagem: content,
-          historico: updatedMessages.map((m) => ({
-            role: m.remetente === 'user' ? 'user' : 'model',
-            content: m.conteudo,
-          })),
-          topico_atual: currentTopic,
-          idioma_alvo: currentLanguage,
-          nivel_estudante: stats.nivel_cefr || studentLevel,
-          plano_estudo: activePlan,
-          motivo_estudo: activePlan?.motivo_principal,
-          interesses: activePlan?.interesses_principais,
-          contexto_grafo: graphContext,
-          correcoes_recentes: recentCorrections,
-          preferencia_adaptacao:
-            adaptationPreference !== 'auto' ? adaptationPreference : undefined,
-        }),
-      });
+      // 2. Chama a API do Tutor Pedagógico via SSE: o primeiro token aparece
+      // em ~1s em vez de esperar geração + análise pedagógica serializadas.
+      const res = await apiFetch(
+        '/api/chat/stream',
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            mensagem: content,
+            historico: updatedMessages.map((m) => ({
+              role: m.remetente === 'user' ? 'user' : 'model',
+              content: m.conteudo,
+            })),
+            topico_atual: currentTopic,
+            idioma_alvo: currentLanguage,
+            nivel_estudante: stats.nivel_cefr || studentLevel,
+            plano_estudo: activePlan,
+            motivo_estudo: activePlan?.motivo_principal,
+            interesses: activePlan?.interesses_principais,
+            contexto_grafo: graphContext,
+            correcoes_recentes: recentCorrections,
+            preferencia_adaptacao:
+              adaptationPreference !== 'auto' ? adaptationPreference : undefined,
+          }),
+        },
+        60000
+      );
 
-      if (!res.ok) {
+      if (!res.ok || !res.body) {
         throw new Error(`Erro na resposta do servidor: ${res.status}`);
       }
 
-      const data = await res.json();
+      // Consome o stream NDJSON: delta* -> response_complete -> pedagogical_analysis
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+      let fullText = '';
+      let analysis: any = null;
+      let streamError: string | null = null;
+
+      for (;;) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        buffer = lines.pop() ?? '';
+        for (const line of lines) {
+          if (!line.trim()) continue;
+          let evt: any;
+          try {
+            evt = JSON.parse(line);
+          } catch {
+            continue;
+          }
+          if (evt.type === 'delta') {
+            fullText += evt.text || '';
+            setStreamingText(fullText);
+          } else if (evt.type === 'response_complete') {
+            fullText = evt.fullText || fullText;
+          } else if (evt.type === 'pedagogical_analysis') {
+            analysis = evt.analysis;
+          } else if (evt.type === 'error') {
+            streamError = evt.message || 'Falha ao processar resposta do tutor.';
+          }
+        }
+      }
+
+      if (streamError) {
+        throw new Error(streamError);
+      }
+
+      // Deriva o mesmo contrato da resposta síncrona a partir do analysis,
+      // mantendo o pós-processamento (grafo, XP, correção) intacto.
+      const safeAnalysis = analysis || {
+        hasError: false,
+        events: [],
+        adaptationNotice: '',
+        xpEarned: 0,
+      };
+      const streamEvents: any[] = safeAnalysis.events || [];
+      const errorEvent = streamEvents.find(
+        (e) => e.type !== 'correct_use' && e.type !== 'fluency_signal'
+      );
+      const data = {
+        resposta_tutor: fullText,
+        possui_erro: Boolean(safeAnalysis.hasError),
+        events: streamEvents,
+        correcao:
+          (safeAnalysis.hasError || errorEvent) && errorEvent
+            ? {
+                conceito: errorEvent.skillId,
+                erro: errorEvent.evidence,
+                explicacao:
+                  errorEvent.explanation ||
+                  'Identificado desvio no padrão do idioma alvo.',
+                resposta_corrigida: errorEvent.correctedForm || fullText,
+                gravidade: (
+                  errorEvent.severity === 'high'
+                    ? 'critica'
+                    : errorEvent.severity === 'low'
+                    ? 'leve'
+                    : 'moderada'
+                ) as CorrectionSeverity,
+                evidencia: errorEvent.evidence,
+                pergunta_confirmacao: `Como você diria "${
+                  errorEvent.correctedForm || errorEvent.skillId
+                }" em uma frase curta?`,
+              }
+            : undefined,
+        conceitos_chave: Array.from(new Set(streamEvents.map((e: any) => e.skillId))),
+        novos_nos_grafo: streamEvents.map((e: any) => ({
+          titulo: e.skillId,
+          tipo: (
+            e.type === 'false_friend'
+              ? 'falso_amigo'
+              : e.type === 'correct_use'
+              ? 'vocabulario'
+              : 'gramatica'
+          ) as NodeType,
+          descricao: e.explanation || e.evidence,
+          exemplo_uso: e.correctedForm || e.evidence,
+          dominio_estimado: e.type === 'correct_use' ? 65 : 35,
+          frequencia_erro: e.type === 'correct_use' ? 0 : 1,
+        })),
+        adaptacao: safeAnalysis.adaptationNotice,
+        xp_ganho: safeAnalysis.xpEarned,
+      };
 
       // 3. Processa nós novos ou atualizados no Grafo
       if (data.novos_nos_grafo && data.novos_nos_grafo.length > 0) {
@@ -419,7 +996,7 @@ export const ChatTutor: React.FC<ChatTutorProps> = ({
         try {
           const currentAuthUser = auth.currentUser;
           if (currentAuthUser) {
-            await saveFrequentErrorToCloud({
+            void saveFrequentErrorToCloud({
               id: pedagogicalCorrection.id,
               userId: currentAuthUser.uid,
               userEmail: currentAuthUser.email || undefined,
@@ -495,6 +1072,7 @@ export const ChatTutor: React.FC<ChatTutorProps> = ({
       setMessages([...updatedMessages, errorMsg]);
     } finally {
       setIsLoading(false);
+      setStreamingText('');
     }
   };
 
@@ -507,7 +1085,7 @@ export const ChatTutor: React.FC<ChatTutorProps> = ({
   ) => {
     setEvaluatingPronunciationMsgId(msgId);
     try {
-      const res = await fetch('/api/pronunciation-assessment', {
+      const res = await apiFetch('/api/pronunciation-assessment', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -661,7 +1239,7 @@ export const ChatTutor: React.FC<ChatTutorProps> = ({
     // Valida com o tutor
     setIsLoading(true);
     try {
-      const res = await fetch('/api/chat', {
+      const res = await apiFetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -798,12 +1376,31 @@ export const ChatTutor: React.FC<ChatTutorProps> = ({
     setIsVoiceLoading(false);
   };
 
-  const activePlan = StorageService.getStudyPlan();
+  // Memoizado: este corpo roda a cada tecla do composer; sem memo, cada
+  // render re-leria e re-parsearia o plano de estudo do localStorage.
+  const activePlan = useMemo(() => StorageService.getStudyPlan(), [messages.length]);
   const currentLang = stats.idioma_ativo || activePlan?.idioma || 'Inglês';
   const languageConfig = getLanguageConfig(currentLang);
   const targetLocale = languageConfig.ttsLocale;
-  const quickPrompts = buildQuickPrompts(currentLang, currentTopic, activePlan);
-  const listenOnlyPrompts = buildListenOnlyPrompts(currentLang, currentTopic);
+  const quickPrompts = useMemo(
+    () => buildQuickPrompts(currentLang, currentTopic, activePlan),
+    [currentLang, currentTopic, activePlan]
+  );
+  const listenOnlyPrompts = useMemo(
+    () => buildListenOnlyPrompts(currentLang, currentTopic),
+    [currentLang, currentTopic]
+  );
+  // Materiais para o modal de nova conversa (antes: 3 leituras por render)
+  const modalMaterials = useMemo(() => StorageService.getMaterials(), [messages.length]);
+
+  // Handlers com identidade estável para o ChatMessageItem memoizado: sempre
+  // executam a closure mais recente, sem invalidar o memo a cada render.
+  const stableToggleMessageAudio = useStableHandler(handleToggleMessageAudio);
+  const stableRequestPronunciationScore = useStableHandler(handleRequestPronunciationScore);
+  const stableStopAudio = useStableHandler(handleStopAudio);
+  const stableSendMessage = useStableHandler(handleSendMessage);
+  const stablePlayPhraseAudio = useStableHandler(handlePlayPhraseAudio);
+  const stableConfirmLearning = useStableHandler(handleConfirmLearning);
 
   const handleResetToPlan = () => {
     const updated = StorageService.resetChatToStudyPlan(activePlan || undefined);
@@ -812,13 +1409,17 @@ export const ChatTutor: React.FC<ChatTutorProps> = ({
   };
 
   // Coleta todas as métricas de taxa de fala das mensagens faladas do usuário na sessão
-  const allSpokenMetrics: SpeechRateMetrics[] = messages
-    .filter(
-      (m) =>
-        m.remetente === 'user' && (m.speech_rate || m.pronunciation_score?.speech_rate)
-    )
-    .map((m) => (m.speech_rate || m.pronunciation_score?.speech_rate)!)
-    .filter(Boolean);
+  const allSpokenMetrics: SpeechRateMetrics[] = useMemo(
+    () =>
+      messages
+        .filter(
+          (m) =>
+            m.remetente === 'user' && (m.speech_rate || m.pronunciation_score?.speech_rate)
+        )
+        .map((m) => (m.speech_rate || m.pronunciation_score?.speech_rate)!)
+        .filter(Boolean),
+    [messages]
+  );
 
   return (
     <div
@@ -1195,7 +1796,7 @@ export const ChatTutor: React.FC<ChatTutorProps> = ({
                 }`}
               >
                 <BookOpen className="w-3.5 h-3.5" />
-                <span>Por Lição ({StorageService.getMaterials().length})</span>
+                <span>Por Lição ({modalMaterials.length})</span>
               </button>
               <button
                 onClick={() => setNewConvTab('prompts')}
@@ -1229,7 +1830,7 @@ export const ChatTutor: React.FC<ChatTutorProps> = ({
                     Selecione uma lição para praticar com o tutor pedagógico. A conversa será
                     contextualizada com os vocabulários e estruturas da lição:
                   </p>
-                  {StorageService.getMaterials().length === 0 ? (
+                  {modalMaterials.length === 0 ? (
                     <div className="p-5 bg-stone-50 dark:bg-zinc-800/80 rounded-xl border border-stone-200 dark:border-zinc-700 text-center space-y-2 text-xs text-stone-500 dark:text-stone-400">
                       <BookOpen className="w-7 h-7 mx-auto text-stone-400" />
                       <p className="font-semibold text-stone-700 dark:text-stone-300">Nenhuma lição cadastrada ainda no Estúdio de Materiais.</p>
@@ -1239,7 +1840,7 @@ export const ChatTutor: React.FC<ChatTutorProps> = ({
                     </div>
                   ) : (
                     <div className="space-y-2 max-h-72 overflow-y-auto">
-                      {StorageService.getMaterials().map((mat) => (
+                      {modalMaterials.map((mat) => (
                         <div
                           key={mat.id}
                           onClick={() => handleCreateNewConversationForLesson(mat)}
@@ -1420,406 +2021,55 @@ export const ChatTutor: React.FC<ChatTutorProps> = ({
           </div>
         )}
 
-        {messages.map((msg) => {
-          const isUser = msg.remetente === 'user';
-          const isSystem = msg.remetente === 'system';
+                {messages.map((msg) => (
+          <ChatMessageItem
+            key={msg.id}
+            msg={msg}
+            currentTopic={currentTopic}
+            selectedVoice={selectedVoice}
+            speechSpeed={speechSpeed}
+            targetLocale={targetLocale}
+            playingAudioId={playingAudioId}
+            isVoiceLoading={isVoiceLoading}
+            expandedAdaptationId={expandedAdaptationId}
+            expandedMessageActionsId={expandedMessageActionsId}
+            evaluatingPronunciationMsgId={evaluatingPronunciationMsgId}
+            answeringCorrectionId={answeringCorrectionId}
+            confirmationAnswer={confirmationAnswer}
+            setSpeechSpeed={setSpeechSpeed}
+            setExpandedAdaptationId={setExpandedAdaptationId}
+            setExpandedMessageActionsId={setExpandedMessageActionsId}
+            setConfirmationAnswer={setConfirmationAnswer}
+            setAnsweringCorrectionId={setAnsweringCorrectionId}
+            setSelectedWordForContext={setSelectedWordForContext}
+            setContextSentenceForWord={setContextSentenceForWord}
+            setIsWordContextOpen={setIsWordContextOpen}
+            handleToggleMessageAudio={stableToggleMessageAudio}
+            handleRequestPronunciationScore={stableRequestPronunciationScore}
+            handleStopAudio={stableStopAudio}
+            handleSendMessage={stableSendMessage}
+            handlePlayPhraseAudio={stablePlayPhraseAudio}
+            handleConfirmLearning={stableConfirmLearning}
+          />
+        ))}
 
-          if (isSystem) {
-            return (
-              <div
-                key={msg.id}
-                className="max-w-md mx-auto my-2 p-3 bg-rose-500/10 border border-rose-500/30 rounded-xl text-rose-600 text-xs text-center flex items-center justify-center space-x-2 font-mono"
-              >
-                <AlertTriangle className="w-4 h-4 text-rose-500 shrink-0" />
-                <span>{msg.conteudo}</span>
-              </div>
-            );
-          }
 
-          const isAdaptationExpanded = expandedAdaptationId === msg.id;
-
-          return (
-            <div
-              key={msg.id}
-              className={`flex gap-3 ${isUser ? 'justify-end' : 'justify-start'}`}
-            >
-              {!isUser && (
-                <div className="w-8 h-8 rounded-full bg-[var(--fg)] text-[var(--accent)] flex items-center justify-center flex-shrink-0 text-xs font-bold mt-0.5 shadow-xs border border-[var(--border)]">
-                  AI
-                </div>
-              )}
-
-              <div
-                className={`max-w-[88%] sm:max-w-[82%] rounded-[var(--r-md)] p-4 sm:p-4.5 shadow-xs transition-all ${
-                  isUser
-                    ? 'bg-[var(--accent)] text-[var(--fg)] font-medium rounded-tr-xs border border-[var(--border)]'
-                    : 'bg-[oklch(0.97_0.01_84)] text-[var(--fg)] rounded-tl-xs border border-[var(--border)]'
-                }`}
-              >
-                {/* Remetente & Badge XP */}
-                <div className="flex items-center justify-between text-[11px] mb-2 space-x-2">
-                  <span className="font-bold tracking-tight text-[var(--fg)]">
-                    {isUser ? 'Você' : 'Tutor de Línguas'}
-                  </span>
-                  <div className="flex items-center space-x-1.5">
-                    {!isUser && (
-                      <div className="flex items-center gap-1">
-                        <button
-                          onClick={() => handleToggleMessageAudio(msg.id, msg.conteudo)}
-                          className={`flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold transition cursor-pointer border ${
-                            playingAudioId === msg.id
-                              ? 'bg-[var(--fg)] text-[var(--accent)] border-[var(--fg)] shadow-xs animate-pulse'
-                              : isVoiceLoading && playingAudioId === msg.id
-                              ? 'bg-[var(--surface)] text-[var(--fg)] border-[var(--border)] animate-pulse'
-                              : 'bg-[var(--surface)] text-[var(--fg)] hover:bg-[oklch(0.95_0.01_84)] border-[var(--border)]'
-                          }`}
-                          title={
-                            playingAudioId === msg.id
-                              ? 'Parar reprodução de voz'
-                              : `Ouvir com voz neural natural (${selectedVoice})`
-                          }
-                        >
-                          {playingAudioId === msg.id ? (
-                            <>
-                              <Square className="w-3 h-3 fill-current" />
-                              <span>PARAR</span>
-                              <span className="flex h-1.5 w-1.5 relative">
-                                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[var(--accent)] opacity-75"></span>
-                                <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-[var(--accent)]"></span>
-                              </span>
-                            </>
-                          ) : (
-                            <>
-                              <Volume2 className="w-3.5 h-3.5 text-[var(--fg)]" />
-                              <span>Ouvir ({selectedVoice})</span>
-                            </>
-                          )}
-                        </button>
-
-                        {/* Seletor de velocidade rápida (0.85x / 1.0x) */}
-                        <button
-                          onClick={() => setSpeechSpeed((prev) => (prev === 0.88 ? 1.0 : 0.88))}
-                          className="px-1 py-0.5 rounded text-[9px] font-mono text-muted-foreground hover:text-foreground hover:bg-muted border border-border/60 transition cursor-pointer"
-                          title="Alternar velocidade de fala (0.85x mais lento para aprendizado / 1.0x normal)"
-                        >
-                          {speechSpeed === 0.88 ? '0.85x' : '1.0x'}
-                        </button>
-                      </div>
-                    )}
-                    {msg.xp_ganho && (
-                      <span className="px-1.5 py-0.5 rounded bg-muted border border-border text-[10px] font-bold text-foreground">
-                        +{msg.xp_ganho} XP
-                      </span>
-                    )}
-                    <span className="text-[10px] text-muted-foreground">
-                      {new Date(msg.timestamp).toLocaleTimeString('pt-BR', {
-                        hour: '2-digit',
-                        minute: '2-digit',
-                      })}
-                    </span>
-                  </div>
-                </div>
-
-                {/* Badge de Adaptação Dinâmica de Explicação (Tutor) */}
-                {!isUser && msg.adaptacao && (
-                  <div className="mb-2.5">
-                    <button
-                      onClick={() =>
-                        setExpandedAdaptationId(isAdaptationExpanded ? null : msg.id)
-                      }
-                      className="inline-flex items-center space-x-1.5 px-2 py-0.5 rounded border border-border bg-background text-[10px] font-mono text-foreground hover:bg-muted transition cursor-pointer"
-                      title="Clique para ver como o Grafo de Memória guiou a adaptação desta explicação"
-                    >
-                      <Brain className="w-3 h-3 text-foreground shrink-0" />
-                      <span>
-                        ADAPTAÇÃO: <strong>{msg.adaptacao.rotulo}</strong>
-                      </span>
-                      <span className="text-muted-foreground">•</span>
-                      <span className="text-foreground font-bold">
-                        {msg.adaptacao.dominio_avaliado}% DOMÍNIO
-                      </span>
-                      {isAdaptationExpanded ? (
-                        <ChevronUp className="w-3 h-3 text-muted-foreground" />
-                      ) : (
-                        <ChevronDown className="w-3 h-3 text-muted-foreground" />
-                      )}
-                    </button>
-
-                    {/* Detalhes expandidos da calibração do grafo */}
-                    {isAdaptationExpanded && (
-                      <div className="mt-1.5 p-3 rounded-lg bg-background border border-border text-xs text-foreground space-y-1.5 shadow-2xs font-mono">
-                        <div className="flex items-start gap-1.5">
-                          <Info className="w-3.5 h-3.5 text-foreground mt-0.5 shrink-0" />
-                          <div>
-                            <p className="font-bold text-foreground">
-                              Justificativa do Grafo de Memória:
-                            </p>
-                            <p className="text-muted-foreground text-[11px] font-sans">{msg.adaptacao.justificativa}</p>
-                          </div>
-                        </div>
-                        <div className="border-t border-border pt-1 text-[11px]">
-                          <span className="font-bold text-foreground">Estratégia aplicada:</span>{' '}
-                          <span className="text-muted-foreground font-sans">{msg.adaptacao.estrategia_pedagogica}</span>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {/* Conteúdo da mensagem */}
-                <div className="text-xs sm:text-sm leading-relaxed">
-                  {isUser ? (
-                    <div className="whitespace-pre-line">{msg.conteudo}</div>
-                  ) : (
-                    <div>
-                      <InteractiveWordText
-                        text={msg.conteudo}
-                        onWordClick={(clickedWord, sentence) => {
-                          setSelectedWordForContext(clickedWord);
-                          setContextSentenceForWord(sentence);
-                          setIsWordContextOpen(true);
-                        }}
-                      />
-                      <div className="mt-2 pt-1.5 border-t border-[var(--border)]/40 flex items-center gap-1.5 text-[10px] text-[var(--muted)] font-mono">
-                        <Sparkles className="w-3 h-3 text-[var(--accent-deep)] shrink-0" />
-                        <span>Dica: clique em qualquer palavra acima para ver sinônimos, IPA e contexto</span>
-                      </div>
-                    </div>
-                  )}
-                </div>
-
-                {/* Ações & Avaliação de Pronúncia para Mensagens do Usuário */}
-                {isUser && (
-                  <div className="mt-2 pt-1.5 border-t border-background/20 flex items-center justify-between gap-2 flex-wrap text-[10px] font-mono">
-                    <div className="flex items-center space-x-1.5 opacity-80">
-                      {msg.is_audio_response && (
-                        <span className="inline-flex items-center gap-1 text-[9px] px-1.5 py-0.5 rounded bg-background/20 font-semibold">
-                          <Mic className="w-2.5 h-2.5" /> Áudio
-                        </span>
-                      )}
-                      {msg.speech_rate && (
-                        <span className="inline-flex items-center gap-1 text-[9px] px-1.5 py-0.5 rounded bg-background/20 font-bold">
-                          <Gauge className="w-2.5 h-2.5" /> {msg.speech_rate.wpm} PPM
-                        </span>
-                      )}
-                    </div>
-
-                    {!msg.pronunciation_score && (
-                      <button
-                        onClick={() =>
-                          handleRequestPronunciationScore(
-                            msg.id,
-                            msg.conteudo,
-                            undefined,
-                            msg.speech_rate?.durationSeconds
-                          )
-                        }
-                        disabled={evaluatingPronunciationMsgId === msg.id}
-                        className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-background/15 hover:bg-background/25 transition cursor-pointer text-[10px] font-bold text-background disabled:opacity-50"
-                        title="Avaliar precisão fonética, ritmo e fonemas IPA"
-                      >
-                        <Activity
-                          className={`w-3 h-3 ${
-                            evaluatingPronunciationMsgId === msg.id ? 'animate-spin' : ''
-                          }`}
-                        />
-                        <span>
-                          {evaluatingPronunciationMsgId === msg.id
-                            ? 'Calculando Score...'
-                            : 'Avaliar Pronúncia Fonética'}
-                        </span>
-                      </button>
-                    )}
-                  </div>
-                )}
-
-                {/* Visualizador de Taxa de Fala Rápido no Balão do Usuário (se não tiver card completo de pronúncia) */}
-                {isUser && msg.speech_rate && !msg.pronunciation_score && (
-                  <div className="mt-2 pt-1 border-t border-background/20">
-                    <SpeechRateVisualizer
-                      metrics={msg.speech_rate}
-                      variant="compact"
-                    />
-                  </div>
-                )}
-
-                {/* Componente de Score de Pronúncia & Gráfico de Precisão */}
-                {isUser && msg.pronunciation_score && (
-                  <div className="mt-3">
-                    <PronunciationScoreCard
-                      scoreData={msg.pronunciation_score}
-                      targetLang={msg.idioma || targetLocale}
-                    />
-                  </div>
-                )}
-
-                {/* Onda Sonora em Tempo Real (Waveform) dentro da Mensagem Ativa */}
-                {!isUser && playingAudioId === msg.id && (
-                  <TutorVoiceWaveform
-                    variant="inline"
-                    isPlaying={true}
-                    activeId={msg.id}
-                    voiceName={selectedVoice}
-                    speed={speechSpeed}
-                    onStop={handleStopAudio}
-                  />
-                )}
-
-                {/* Botões de Ação Rápida de Reformulação Pedagógica (Tutor) */}
-                {!isUser && (
-                  <div className="mt-3 pt-2 border-t border-border/80 space-y-2">
-                    <button
-                      type="button"
-                      onClick={() => setExpandedMessageActionsId((current) =>
-                        current === msg.id ? null : msg.id
-                      )}
-                      aria-expanded={expandedMessageActionsId === msg.id}
-                      aria-controls={`message-actions-${msg.id}`}
-                      className="text-[10px] font-bold text-muted-foreground hover:text-foreground"
-                    >
-                      Mais ações
-                    </button>
-                    {expandedMessageActionsId === msg.id && (
-                      <div id={`message-actions-${msg.id}`} className="flex flex-wrap gap-1.5">
-                        <button type="button" onClick={() => handleSendMessage(`Poderia explicar novamente esse ponto sobre ${currentTopic} usando uma analogia intuitiva do cotidiano?`)} className="px-2 py-0.5 rounded border border-border text-[10px]">
-                          🌱 Simplificar com analogia
-                        </button>
-                        <button type="button" onClick={() => handleSendMessage(`Poderia aprofundar esse conceito com maior rigor técnico e exemplos adequados ao meu nível?`)} className="px-2 py-0.5 rounded border border-border text-[10px]">
-                          🔬 Aprofundar
-                        </button>
-                        <button type="button" onClick={() => handleSendMessage(`Poderia me mostrar um exemplo prático passo a passo sobre ${currentTopic}?`)} className="px-2 py-0.5 rounded border border-border text-[10px]">
-                          💡 Ver exemplo
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {/* Card Especial de Correção Pedagógica */}
-                {msg.correcao && (
-                  <div className="mt-3 p-3.5 rounded-lg bg-background border border-border text-foreground text-xs space-y-2 relative">
-                    <div className="flex items-center justify-between border-b border-border pb-1.5">
-                      <div className="flex items-center space-x-1.5 text-foreground font-bold">
-                        <AlertTriangle className="w-3.5 h-3.5 text-foreground" />
-                        <span>Correção Pedagógica: {msg.correcao.conceito}</span>
-                      </div>
-                      <span
-                        className={`text-[9px] font-mono uppercase font-bold px-1.5 py-0.5 rounded border ${
-                          msg.correcao.gravidade === 'critica'
-                            ? 'border-rose-500/40 bg-rose-500/10 text-rose-600 dark:text-rose-400'
-                            : msg.correcao.gravidade === 'moderada'
-                            ? 'border-amber-500/40 bg-amber-500/10 text-amber-600 dark:text-amber-400'
-                            : 'border-border bg-muted text-muted-foreground'
-                        }`}
-                      >
-                        Gravidade {msg.correcao.gravidade}
-                      </span>
-                    </div>
-
-                    <div className="space-y-1">
-                      <div>
-                        <span className="font-mono text-[11px] font-semibold text-muted-foreground">OBSERVADO:</span>{' '}
-                        <span className="text-foreground">{msg.correcao.erro}</span>
-                      </div>
-                      <div>
-                        <span className="font-mono text-[11px] font-semibold text-muted-foreground">MOTIVO:</span>{' '}
-                        <span className="text-muted-foreground">{msg.correcao.explicacao}</span>
-                      </div>
-                      <div className="p-2 rounded bg-muted/50 border border-border font-medium text-foreground flex items-center justify-between gap-2 flex-wrap">
-                        <div>
-                          ✨ <strong>Formulação Correta:</strong> {msg.correcao.resposta_corrigida}
-                        </div>
-                        <button
-                          onClick={() =>
-                            handlePlayPhraseAudio(
-                              `corr-${msg.correcao!.id || msg.id}`,
-                              msg.correcao!.resposta_corrigida,
-                              targetLocale
-                            )
-                          }
-                          className={`flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-mono transition cursor-pointer border ${
-                            playingAudioId === `corr-${msg.correcao!.id || msg.id}`
-                              ? 'bg-foreground text-background border-foreground shadow-xs animate-pulse'
-                              : 'bg-background hover:bg-muted text-foreground border-border'
-                          }`}
-                          title="Ouvir pronúncia nativa da frase corrigida"
-                        >
-                          <Volume2 className="w-3 h-3" />
-                          <span>
-                            {playingAudioId === `corr-${msg.correcao!.id || msg.id}`
-                              ? 'Tocando...'
-                              : 'Ouvir Frase'}
-                          </span>
-                        </button>
-                      </div>
-                    </div>
-
-                    {/* Waveform dentro do card de correção */}
-                    {playingAudioId === `corr-${msg.correcao!.id || msg.id}` && (
-                      <TutorVoiceWaveform
-                        variant="inline"
-                        isPlaying={true}
-                        activeId={`corr-${msg.correcao!.id || msg.id}`}
-                        voiceName={selectedVoice}
-                        speed={speechSpeed}
-                        onStop={handleStopAudio}
-                      />
-                    )}
-
-                    {/* Pergunta de Checagem Imediata */}
-                    {msg.correcao.pergunta_confirmacao && (
-                      <div className="pt-2 border-t border-border">
-                        <div className="flex items-center space-x-1.5 font-mono font-bold text-foreground mb-1 text-[11px]">
-                          <HelpCircle className="w-3.5 h-3.5 text-foreground" />
-                          <span>CHECAGEM IMEDIATA (+40 XP):</span>
-                        </div>
-                        <p className="italic text-muted-foreground mb-2">
-                          "{msg.correcao.pergunta_confirmacao}"
-                        </p>
-
-                        {answeringCorrectionId === msg.correcao.id ? (
-                          <div className="flex gap-2 mt-1">
-                            <input
-                              type="text"
-                              value={confirmationAnswer}
-                              onChange={(e) => setConfirmationAnswer(e.target.value)}
-                              placeholder="Digite sua resposta para validar a compreensão..."
-                              className="flex-1 px-3 py-1.5 text-xs bg-background border border-border rounded-lg focus:outline-none focus:ring-1 focus:ring-ring text-foreground"
-                              onKeyDown={(e) => {
-                                if (e.key === 'Enter') {
-                                  handleConfirmLearning(msg.correcao!);
-                                }
-                              }}
-                            />
-                            <Button
-                              size="sm"
-                              onClick={() => handleConfirmLearning(msg.correcao!)}
-                              className="font-mono text-xs cursor-pointer"
-                            >
-                              Validar
-                            </Button>
-                          </div>
-                        ) : (
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => setAnsweringCorrectionId(msg.correcao!.id)}
-                            className="gap-1.5 font-mono text-xs cursor-pointer"
-                          >
-                            <CheckCircle2 className="w-3.5 h-3.5" />
-                            <span>Responder Checagem Agora</span>
-                          </Button>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
+        {streamingText && (
+          <div className="flex gap-2.5 justify-start items-start">
+            <div className="w-7 h-7 rounded-md bg-foreground text-background flex items-center justify-center flex-shrink-0 text-[10px] font-mono font-bold">
+              AI
             </div>
-          );
-        })}
+            <div
+              className="bg-muted/50 text-foreground border border-border rounded-lg p-3 shadow-2xs max-w-[85%] sm:max-w-[75%] whitespace-pre-wrap text-sm leading-relaxed"
+              data-testid="chat-streaming-response"
+            >
+              {streamingText}
+              <span className="inline-block w-1.5 h-4 ml-0.5 align-text-bottom bg-foreground animate-pulse" />
+            </div>
+          </div>
+        )}
 
-        {isLoading && (
+        {isLoading && !streamingText && (
           <div className="flex gap-2.5 justify-start items-center">
             <div className="w-7 h-7 rounded-md bg-foreground text-background flex items-center justify-center flex-shrink-0 text-[10px] font-mono font-bold">
               AI

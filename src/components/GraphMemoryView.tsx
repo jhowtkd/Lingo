@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   Network,
   Plus,
@@ -151,13 +151,24 @@ export const GraphMemoryView: React.FC = () => {
   };
 
   // Filtragem
-  const filteredNodes = nodes.filter((n) => {
-    const matchesSearch =
-      n.titulo.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      n.descricao.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesType = filterType === 'todos' || n.tipo === filterType;
-    return matchesSearch && matchesType;
-  });
+  const filteredNodes = useMemo(() => {
+    return nodes.filter((n) => {
+      const matchesSearch =
+        n.titulo.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        n.descricao.toLowerCase().includes(searchQuery.toLowerCase());
+      const matchesType = filterType === 'todos' || n.tipo === filterType;
+      return matchesSearch && matchesType;
+    });
+  }, [nodes, searchQuery, filterType]);
+
+  const nodeById = useMemo(() => new Map(nodes.map((n) => [n.id, n])), [nodes]);
+
+  const selectedRelations = useMemo(() => {
+    if (!selectedNode) return [];
+    return relations.filter(
+      (r) => r.origem_id === selectedNode.id || r.destino_id === selectedNode.id
+    );
+  }, [relations, selectedNode]);
 
   const getTypeBadge = (type: NodeType) => {
     switch (type) {
@@ -525,11 +536,10 @@ export const GraphMemoryView: React.FC = () => {
                   Relações Conectadas no Grafo:
                 </span>
                 <div className="mt-1 space-y-2">
-                  {relations
-                    .filter((r) => r.origem_id === selectedNode.id || r.destino_id === selectedNode.id)
+                  {selectedRelations
                     .map((r) => {
                       const otherId = r.origem_id === selectedNode.id ? r.destino_id : r.origem_id;
-                      const otherNode = nodes.find((n) => n.id === otherId);
+                      const otherNode = nodeById.get(otherId);
                       const isOrigin = r.origem_id === selectedNode.id;
 
                       return (

@@ -70,6 +70,8 @@ class ReminderNotificationService {
       const gain2 = audioCtx.createGain();
       osc2.type = 'triangle';
       osc2.frequency.setValueAtTime(783.99, now + 0.15); // G5
+      // Libera o contexto ao terminar: sem isso, um AudioContext novo vaza
+      // (thread de áudio + handles do dispositivo) a cada lembrete.
       gain2.gain.setValueAtTime(0, now + 0.15);
       gain2.gain.linearRampToValueAtTime(0.25, now + 0.2);
       gain2.gain.exponentialRampToValueAtTime(0.001, now + 0.8);
@@ -77,6 +79,10 @@ class ReminderNotificationService {
       gain2.connect(audioCtx.destination);
       osc2.start(now + 0.15);
       osc2.stop(now + 0.8);
+
+      osc2.onended = () => {
+        audioCtx.close().catch(() => {});
+      };
     } catch (e) {
       console.warn('Não foi possível tocar som de notificação:', e);
     }
