@@ -11,4 +11,3 @@ coverage/
 # tsc incremental
 tsconfig.tsbuildinfo
 .video_agent/
-package-lock.json

@@ -25,6 +25,6 @@
     "incremental": true,
     "noEmit": true
   },
-  "include": ["src", "server", "tests", "evals", "*.ts"],
+  "include": ["src", "server", "tests", "*.ts"],
   "exclude": ["dist", "out", "node_modules", ".worktrees"]
 }
