@@ -23,6 +23,7 @@ import {
   updateUserStatsSummary,
 } from './firebase';
 import { PLAN_NODE_EVIDENCE } from './progressMetrics';
+import { clearStorageCache, readJsonCached, writeJsonCached } from './storageCore';
 
 const STORAGE_KEYS = {
   NODES: 'tutor_graph_nodes_v1',
@@ -828,44 +829,12 @@ let _currentUserId = 'default_user';
 let _currentUserProfile: UserProfile | null = null;
 let _syncTimeout: any = null;
 
-// Cache em memória por chave (namespaced por usuário): evita re-parsear JSON
-// profundo do localStorage a cada leitura — getNodes/getStats e afins são
-// chamados dezenas de vezes por render. A validade é verificada comparando a
-// string crua; escritas atualizam o cache na mesma passada. Getters devolvem
-// cópia rasa para proteger o cache de mutações in-place dos chamadores.
-const _storeCache = new Map<string, { raw: string; value: unknown }>();
-
-function readJsonCached<T>(storageKey: string): T | null {
-  const raw = localStorage.getItem(storageKey);
-  if (raw === null) return null;
-  const hit = _storeCache.get(storageKey);
-  let parsed: unknown;
-  if (hit && hit.raw === raw) {
-    parsed = hit.value;
-  } else {
-    try {
-      parsed = JSON.parse(raw);
-    } catch {
-      return null;
-    }
-    _storeCache.set(storageKey, { raw, value: parsed });
-  }
-  return (Array.isArray(parsed) ? [...parsed] : { ...(parsed as object) }) as T;
-}
-
-function writeJsonCached(storageKey: string, value: unknown) {
-  const raw = JSON.stringify(value);
-  localStorage.setItem(storageKey, raw);
-  _storeCache.set(storageKey, { raw, value });
-}
-
-
 export const StorageService = {
   // Configuração do Usuário Atual para isolamento de dados
   setCurrentUser(user: UserProfile | null) {
     _currentUserProfile = user;
     _currentUserId = user ? user.uid : 'default_user';
-    _storeCache.clear();
+    clearStorageCache();
   },
 
   getCurrentUser(): UserProfile | null {
