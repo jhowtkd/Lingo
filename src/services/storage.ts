@@ -902,13 +902,39 @@ export const StorageService = {
         const relations = this.getRelations();
         const corrections = this.getCorrections();
 
-        await syncPersonalKnowledgeToCloud(_currentUserId, {
+        // Conversas entram no sync com o mesmo trim aplicado localmente.
+        // (Anotação explícita: sem noImplicitThis, `this` degrada a any aqui
+        // e trimConversations perderia o tipo ChatConversation.)
+        const conversations: ChatConversation[] = this.getConversations();
+        const payload = {
           stats,
           nodes,
           materials,
           relations,
           corrections,
-        });
+          conversations: trimConversations(conversations),
+        };
+
+        // Contagem de chunks da escrita anterior: permite apagar docs
+        // excedentes quando uma coleção encolhe.
+        const previousChunkCounts = {
+          nodes: this.getCloudChunkCount('nodes'),
+          relations: this.getCloudChunkCount('relations'),
+          materials: this.getCloudChunkCount('materials'),
+          corrections: this.getCloudChunkCount('corrections'),
+          conversations: this.getCloudChunkCount('conversations'),
+        };
+
+        const chunkCounts = await syncPersonalKnowledgeToCloud(
+          _currentUserId,
+          payload,
+          previousChunkCounts
+        );
+        // Persiste as novas contagens de chunks por coleção para a próxima
+        // escrita saber quais docs excedentes apagar.
+        for (const [col, count] of Object.entries(chunkCounts)) {
+          if (typeof count === 'number') this.setCloudChunkCount(col as SyncCollection, count);
+        }
 
         // Atualiza resumo de progresso no perfil do usuário
         await updateUserStatsSummary(_currentUserId, {
@@ -957,6 +983,9 @@ export const StorageService = {
       if (data.nodes && data.nodes.length > 0 && applyIfNewer('nodes', () => this.saveNodes(data.nodes!, false))) hasData = true;
       if (data.relations && data.relations.length > 0 && applyIfNewer('relations', () => this.saveRelations(data.relations!, false))) hasData = true;
       if (data.corrections && data.corrections.length > 0 && applyIfNewer('corrections', () => this.saveCorrections(data.corrections!, false))) hasData = true;
+      // Conversas remontadas dos chunks (sync=false: não reescreve o espelho
+      // legado de CHATS nem reage a hidratação com novo sync).
+      if (data.conversations && data.conversations.length > 0 && applyIfNewer('conversations', () => this.saveConversations(data.conversations!, false))) hasData = true;
       return hasData;
     } catch (err) {
       console.warn('Erro ao hidratar dados da nuvem:', err);

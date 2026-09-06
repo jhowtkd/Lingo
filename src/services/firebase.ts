@@ -36,6 +36,7 @@ import {
   StudyMaterialItem,
   UserStats,
   ChatMessage,
+  ChatConversation,
   PedagogicalCorrection,
   FrequentErrorItem,
 } from '../types';
@@ -260,6 +261,7 @@ export interface UserPersonalKnowledgeBase {
   stats: UserStats;
   corrections: PedagogicalCorrection[];
   chatHistory: ChatMessage[];
+  conversations?: ChatConversation[];
 }
 
 /**
@@ -270,59 +272,137 @@ export interface UserPersonalKnowledgeBase {
 export interface FetchedKnowledgeBase {
   data: Partial<UserPersonalKnowledgeBase>;
   updatedAt: Partial<
-    Record<'stats' | 'nodes' | 'relations' | 'materials' | 'corrections', string>
+    Record<
+      'stats' | 'nodes' | 'relations' | 'materials' | 'corrections' | 'conversations',
+      string
+    >
   >;
 }
 
+// Tamanho máximo de itens por doc de chunk: mantém cada documento bem abaixo
+// do teto de 1 MB por documento imposto pelo Firestore.
+const KB_CHUNK_SIZE = 250;
+
+type ChunkableCollection =
+  | 'nodes'
+  | 'relations'
+  | 'materials'
+  | 'corrections'
+  | 'conversations';
+
 /**
- * Salva a base pessoal do usuário no Firestore
+ * Escreve uma coleção grande em múltiplos docs (chunks) para respeitar o teto
+ * de 1 MB por documento do Firestore, apagando chunks excedentes da escrita
+ * anterior. Coleções pequenas continuam em 1 doc compatível com o formato
+ * legado ({ items, updatedAt }).
+ */
+function writeChunkedCollection(
+  batch: ReturnType<typeof writeBatch>,
+  userId: string,
+  name: ChunkableCollection,
+  items: unknown[],
+  updatedAt: string,
+  previousChunkCount: number
+): number {
+  const totalChunks = Math.max(1, Math.ceil(items.length / KB_CHUNK_SIZE));
+  for (let i = 0; i < totalChunks; i++) {
+    batch.set(doc(db, 'users', userId, 'knowledge_base', `${name}_${i}`), {
+      items: items.slice(i * KB_CHUNK_SIZE, (i + 1) * KB_CHUNK_SIZE),
+      chunkIndex: i,
+      totalChunks,
+      updatedAt,
+    });
+  }
+  for (let i = totalChunks; i < previousChunkCount; i++) {
+    batch.delete(doc(db, 'users', userId, 'knowledge_base', `${name}_${i}`));
+  }
+  return totalChunks;
+}
+
+/**
+ * Salva a base pessoal do usuário no Firestore. Coleções de arrays são gravadas
+ * em chunks (`{colecao}_{i}`) e a contagem de chunks por coleção é devolvida
+ * para o chamador persistir (setCloudChunkCount) e reutilizar na próxima
+ * escrita, permitindo apagar chunks que sobraram quando a coleção encolhe.
  */
 export async function syncPersonalKnowledgeToCloud(
   userId: string,
-  data: Partial<UserPersonalKnowledgeBase>
-): Promise<void> {
-  if (!userId) return;
+  data: Partial<UserPersonalKnowledgeBase>,
+  previousChunkCounts: Partial<Record<ChunkableCollection, number>> = {}
+): Promise<Partial<Record<ChunkableCollection, number>>> {
+  if (!userId) return {};
+
+  const now = new Date().toISOString();
+  const batch = writeBatch(db);
+  const chunkCounts: Partial<Record<ChunkableCollection, number>> = {};
+
+  if (data.stats) {
+    batch.set(
+      doc(db, 'users', userId, 'knowledge_base', 'stats'),
+      { ...data.stats, updatedAt: now },
+      { merge: true }
+    );
+  }
+  if (data.materials) {
+    chunkCounts.materials = writeChunkedCollection(
+      batch,
+      userId,
+      'materials',
+      data.materials,
+      now,
+      previousChunkCounts.materials ?? 0
+    );
+  }
+  if (data.nodes) {
+    chunkCounts.nodes = writeChunkedCollection(
+      batch,
+      userId,
+      'nodes',
+      data.nodes,
+      now,
+      previousChunkCounts.nodes ?? 0
+    );
+  }
+  if (data.relations) {
+    chunkCounts.relations = writeChunkedCollection(
+      batch,
+      userId,
+      'relations',
+      data.relations,
+      now,
+      previousChunkCounts.relations ?? 0
+    );
+  }
+  if (data.corrections) {
+    chunkCounts.corrections = writeChunkedCollection(
+      batch,
+      userId,
+      'corrections',
+      data.corrections,
+      now,
+      previousChunkCounts.corrections ?? 0
+    );
+  }
+  if (data.conversations) {
+    chunkCounts.conversations = writeChunkedCollection(
+      batch,
+      userId,
+      'conversations',
+      data.conversations,
+      now,
+      previousChunkCounts.conversations ?? 0
+    );
+  }
 
   try {
-    const now = new Date().toISOString();
-    const batch = writeBatch(db);
-
-    if (data.stats) {
-      batch.set(
-        doc(db, 'users', userId, 'knowledge_base', 'stats'),
-        { ...data.stats, updatedAt: now },
-        { merge: true }
-      );
-    }
-    if (data.materials) {
-      batch.set(doc(db, 'users', userId, 'knowledge_base', 'materials'), {
-        items: data.materials,
-        updatedAt: now,
-      });
-    }
-    if (data.nodes) {
-      batch.set(doc(db, 'users', userId, 'knowledge_base', 'nodes'), {
-        items: data.nodes,
-        updatedAt: now,
-      });
-    }
-    if (data.relations) {
-      batch.set(doc(db, 'users', userId, 'knowledge_base', 'relations'), {
-        items: data.relations,
-        updatedAt: now,
-      });
-    }
-    if (data.corrections) {
-      batch.set(doc(db, 'users', userId, 'knowledge_base', 'corrections'), {
-        items: data.corrections,
-        updatedAt: now,
-      });
-    }
-
     await batch.commit();
   } catch (err) {
+    // Registra e repropaga: o chamador (scheduleCloudSync) já tem try/catch e
+    // a Task 8 emitirá o evento de saúde a partir daqui.
     console.warn('Erro ao sincronizar base pessoal com o Firestore:', err);
+    throw err;
   }
+  return chunkCounts;
 }
 
 /**
@@ -337,10 +417,30 @@ export async function fetchPersonalKnowledgeFromCloud(
     const data: Partial<UserPersonalKnowledgeBase> = {};
     const updatedAt: FetchedKnowledgeBase['updatedAt'] = {};
 
+    // Docs de chunk (`{colecao}_{i}`) são acumulados por coleção/índice e
+    // remontados após o loop. Um chunk só existe se foi gravado, então a
+    // presença de chunks sobrepõe o doc legado da mesma coleção — mesmo que a
+    // remontagem resulte em zero itens.
+    const chunks = new Map<ChunkableCollection, Map<number, unknown[]>>();
+    const chunkStamps = new Map<ChunkableCollection, string>();
+
     const kbCol = collection(db, 'users', userId, 'knowledge_base');
     const snap = await getDocs(kbCol);
     snap.forEach((entry) => {
       const payload = entry.data() as Record<string, any>;
+      const match = entry.id.match(
+        /^(nodes|relations|materials|corrections|conversations)_(\d+)$/
+      );
+      if (match) {
+        const col = match[1] as ChunkableCollection;
+        if (!chunks.has(col)) chunks.set(col, new Map());
+        chunks.get(col)!.set(Number(match[2]), payload.items || []);
+        if (typeof payload.updatedAt === 'string') {
+          const prev = chunkStamps.get(col);
+          if (!prev || payload.updatedAt > prev) chunkStamps.set(col, payload.updatedAt);
+        }
+        return;
+      }
       const cloudStamp =
         typeof payload.updatedAt === 'string' ? payload.updatedAt : undefined;
       switch (entry.id) {
@@ -377,6 +477,14 @@ export async function fetchPersonalKnowledgeFromCloud(
           break;
       }
     });
+
+    // Remonta cada coleção chunkada em ordem de índice; o carimbo da nuvem é
+    // o mais recente entre os chunks da coleção.
+    for (const [col, byIndex] of chunks) {
+      const ordered = [...byIndex.keys()].sort((a, b) => a - b).flatMap((i) => byIndex.get(i)!);
+      (data as Record<string, unknown>)[col] = ordered;
+      if (chunkStamps.has(col)) updatedAt[col] = chunkStamps.get(col)!;
+    }
 
     return { data, updatedAt };
   } catch (err) {
