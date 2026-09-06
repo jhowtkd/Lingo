@@ -124,6 +124,7 @@ chatRouter.post('/stream', async (req, res) => {
       durationMs,
       timeToFirstChunkMs,
       inputCharacters: sanitized.message.length,
+      outputCharacters: fullText.length,
       historyItems: sanitized.recentHistory.length,
       memoryItems: sanitized.relevantMemories.length,
       language: langConfig.id,

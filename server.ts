@@ -91,6 +91,7 @@ async function startServer() {
   app.get('/api/telemetry', requireAdmin, (_req, res) => {
     res.json({
       summary: AiTelemetry.getMetricsSummary(),
+      usageByRoute: AiTelemetry.getUsageByRoute(),
       recentLogs: AiTelemetry.getRecentLogs(50),
     });
   });

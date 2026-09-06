@@ -102,6 +102,9 @@ export async function generateWithFallback(options: GenerateWithFallbackOptions)
         degraded: modelName !== preferredModel,
         durationMs: Date.now() - attemptStartedAt,
         inputCharacters,
+        // Tamanho da resposta em caracteres; o SDK expõe `.text` como propriedade
+        // (string vazia quando a resposta não traz texto, ex: TTS).
+        outputCharacters: String(response?.text ?? '').length,
         status: 'success',
       });
       return response;

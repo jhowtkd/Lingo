@@ -30,6 +30,15 @@ describe('AiTelemetry', () => {
     expect(summary.errorRate).toBe(0.5);
   });
 
+  it('agrega uso por rota', () => {
+    AiTelemetry.record({ ...baseLog, route: 'chat', inputCharacters: 100, outputCharacters: 300 });
+    AiTelemetry.record({ ...baseLog, route: 'tts', inputCharacters: 50, outputCharacters: 0 });
+    AiTelemetry.record({ ...baseLog, route: 'chat', inputCharacters: 10, outputCharacters: 40, status: 'error' });
+    const usage = AiTelemetry.getUsageByRoute();
+    expect(usage['chat']).toEqual({ requests: 2, inputCharacters: 110, outputCharacters: 340, degraded: 0, errors: 1 });
+    expect(usage['tts']).toEqual({ requests: 1, inputCharacters: 50, outputCharacters: 0, degraded: 0, errors: 0 });
+  });
+
   it('flusha e recarrega snapshot do disco', async () => {
     AiTelemetry.record({ ...baseLog });
     const dir = await mkdtemp(join(tmpdir(), 'lingo-telemetry-'));

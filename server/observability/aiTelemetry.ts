@@ -66,6 +66,26 @@ export class AiTelemetry {
     };
   }
 
+  /** Contabilidade de uso por rota: requisições, caracteres de entrada/saída, degradações e erros. */
+  static getUsageByRoute(): Record<
+    string,
+    { requests: number; inputCharacters: number; outputCharacters: number; degraded: number; errors: number }
+  > {
+    const byRoute: Record<
+      string,
+      { requests: number; inputCharacters: number; outputCharacters: number; degraded: number; errors: number }
+    > = {};
+    for (const log of this.logs) {
+      const entry = (byRoute[log.route] ||= { requests: 0, inputCharacters: 0, outputCharacters: 0, degraded: 0, errors: 0 });
+      entry.requests += 1;
+      entry.inputCharacters += log.inputCharacters || 0;
+      entry.outputCharacters += log.outputCharacters || 0;
+      if (log.degraded) entry.degraded += 1;
+      if (log.status === 'error') entry.errors += 1;
+    }
+    return byRoute;
+  }
+
   /** Persiste snapshots periódicos em disco — a telemetria em memória morre no restart. */
   static enablePersistence(filePath: string, intervalMs = 60_000): void {
     if (this.persistenceTimer) return;
