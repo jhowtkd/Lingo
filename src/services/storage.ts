@@ -23,7 +23,13 @@ import {
   updateUserStatsSummary,
 } from './firebase';
 import { PLAN_NODE_EVIDENCE } from './progressMetrics';
-import { clearStorageCache, readJsonCached, writeJsonCached } from './storageCore';
+import {
+  STORAGE_LIMITS,
+  clearStorageCache,
+  readJsonCached,
+  trimConversations,
+  writeJsonCached,
+} from './storageCore';
 
 const STORAGE_KEYS = {
   NODES: 'tutor_graph_nodes_v1',
@@ -930,7 +936,9 @@ export const StorageService = {
   },
 
   saveMaterials(materials: StudyMaterialItem[], sync = true) {
-    writeJsonCached(this.getKey(STORAGE_KEYS.MATERIALS), materials);
+    // Limita a lista de materiais antes de persistir (corta os mais antigos,
+    // que ficam no fim após o unshift de addMaterial).
+    writeJsonCached(this.getKey(STORAGE_KEYS.MATERIALS), materials.slice(0, STORAGE_LIMITS.maxMaterials));
     if (sync) this.scheduleCloudSync();
   },
 
@@ -1268,7 +1276,9 @@ export const StorageService = {
   },
 
   saveConversations(conversations: ChatConversation[], sync = true) {
-    writeJsonCached(this.getKey(STORAGE_KEYS.CONVERSATIONS), conversations);
+    // Aplica limite de tamanho antes de persistir: mantém só as N conversas
+    // mais recentes com as últimas M mensagens de cada (evita estourar a cota).
+    writeJsonCached(this.getKey(STORAGE_KEYS.CONVERSATIONS), trimConversations(conversations));
     if (sync) {
       const active = this.getActiveConversation();
       if (active) {

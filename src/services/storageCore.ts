@@ -1,8 +1,8 @@
 /**
  * Núcleo puro de persistência local: leitura/escrita em localStorage com cache
- * em memória, barramento de saúde e (na Task 2) limites de tamanho. Não importa
- * Firebase nem depende de window — o backend de storage é injetável para
- * testar em Node. `src/services/storage.ts` delega aqui.
+ * em memória, barramento de saúde e limites de tamanho (trim) para conversas e
+ * materiais. Não importa Firebase nem depende de window — o backend de storage
+ * é injetável para testar em Node. `src/services/storage.ts` delega aqui.
  */
 
 export type StorageHealthEvent =
@@ -122,4 +122,30 @@ export function writeJsonCached(storageKey: string, value: unknown): boolean {
   }
   _storeCache.set(storageKey, { raw, value });
   return true;
+}
+
+// Limites de tamanho do localStorage: impedem que um usuário pesado estoure a
+// cota (QuotaExceededError) ao acumular conversas, mensagens e materiais.
+export const STORAGE_LIMITS = {
+  maxConversations: 30,
+  maxMessagesPerConversation: 120,
+  maxMaterials: 60,
+} as const;
+
+export interface TrimLikeConversation {
+  mensagens: unknown[];
+  atualizado_em?: string;
+}
+
+/** Mantém as N conversas mais recentes (por atualizado_em) e as últimas M mensagens de cada uma. */
+export function trimConversations<T extends TrimLikeConversation>(
+  list: T[],
+  limits: Partial<{ maxConversations: number; maxMessagesPerConversation: number }> = {}
+): T[] {
+  const maxConversations = limits.maxConversations ?? STORAGE_LIMITS.maxConversations;
+  const maxMessages = limits.maxMessagesPerConversation ?? STORAGE_LIMITS.maxMessagesPerConversation;
+  return [...list]
+    .sort((a, b) => (b.atualizado_em || '').localeCompare(a.atualizado_em || ''))
+    .slice(0, maxConversations)
+    .map((conv) => ({ ...conv, mensagens: conv.mensagens.slice(-maxMessages) }));
 }
