@@ -30,6 +30,7 @@ import {
   clearStorageCache,
   readJsonCached,
   readSyncMeta,
+  shouldApplyCloudCollection,
   trimConversations,
   writeJsonCached,
   writeSyncMeta,
@@ -923,35 +924,39 @@ export const StorageService = {
     }, 1500);
   },
 
-  // Carrega e hidrata dados da nuvem para o usuário atual
+  // Carrega e hidrata dados da nuvem para o usuário atual. Aplica cada coleção
+  // só quando o carimbo da nuvem é mais novo que o local (ou o local está
+  // vazio), evitando que um login num dispositivo defasado sobrescreva dados
+  // mais recentes.
   async hydrateFromCloud(userId: string): Promise<boolean> {
     if (!userId || userId === 'default_user') return false;
 
     try {
-      const cloudData = await fetchPersonalKnowledgeFromCloud(userId);
-      if (!cloudData) return false;
+      const fetched = await fetchPersonalKnowledgeFromCloud(userId);
+      if (!fetched) return false;
+      const { data, updatedAt } = fetched;
 
       let hasData = false;
-      if (cloudData.stats) {
-        this.saveStats(cloudData.stats, false);
-        hasData = true;
-      }
-      if (cloudData.materials && cloudData.materials.length > 0) {
-        this.saveMaterials(cloudData.materials, false);
-        hasData = true;
-      }
-      if (cloudData.nodes && cloudData.nodes.length > 0) {
-        this.saveNodes(cloudData.nodes, false);
-        hasData = true;
-      }
-      if (cloudData.relations && cloudData.relations.length > 0) {
-        this.saveRelations(cloudData.relations, false);
-        hasData = true;
-      }
-      if (cloudData.corrections && cloudData.corrections.length > 0) {
-        this.saveCorrections(cloudData.corrections, false);
-        hasData = true;
-      }
+      const applyIfNewer = (col: SyncCollection, apply: () => void): boolean => {
+        const localStamp = this.getLocalSyncStamp(col);
+        const shouldApply = shouldApplyCloudCollection({
+          localIsEmpty: localStamp === null,
+          localStamp,
+          cloudUpdatedAt: updatedAt[col],
+        });
+        if (!shouldApply) return false;
+        apply();
+        // apply() tocou o carimbo com "agora"; restaura o carimbo da nuvem para
+        // que a próxima comparação use o instante real do dado aplicado.
+        if (updatedAt[col]) this.touchLocalSyncStamp(col, updatedAt[col]);
+        return true;
+      };
+
+      if (data.stats && applyIfNewer('stats', () => this.saveStats(data.stats!, false))) hasData = true;
+      if (data.materials && data.materials.length > 0 && applyIfNewer('materials', () => this.saveMaterials(data.materials!, false))) hasData = true;
+      if (data.nodes && data.nodes.length > 0 && applyIfNewer('nodes', () => this.saveNodes(data.nodes!, false))) hasData = true;
+      if (data.relations && data.relations.length > 0 && applyIfNewer('relations', () => this.saveRelations(data.relations!, false))) hasData = true;
+      if (data.corrections && data.corrections.length > 0 && applyIfNewer('corrections', () => this.saveCorrections(data.corrections!, false))) hasData = true;
       return hasData;
     } catch (err) {
       console.warn('Erro ao hidratar dados da nuvem:', err);

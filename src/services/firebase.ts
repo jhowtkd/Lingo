@@ -263,6 +263,18 @@ export interface UserPersonalKnowledgeBase {
 }
 
 /**
+ * Resultado do download da base pessoal: os dados por coleção junto dos
+ * carimbos `updatedAt` gravados na nuvem, usados para decidir se o dado
+ * remoto é mais novo que o local antes de hidratar.
+ */
+export interface FetchedKnowledgeBase {
+  data: Partial<UserPersonalKnowledgeBase>;
+  updatedAt: Partial<
+    Record<'stats' | 'nodes' | 'relations' | 'materials' | 'corrections', string>
+  >;
+}
+
+/**
  * Salva a base pessoal do usuário no Firestore
  */
 export async function syncPersonalKnowledgeToCloud(
@@ -276,7 +288,11 @@ export async function syncPersonalKnowledgeToCloud(
     const batch = writeBatch(db);
 
     if (data.stats) {
-      batch.set(doc(db, 'users', userId, 'knowledge_base', 'stats'), data.stats, { merge: true });
+      batch.set(
+        doc(db, 'users', userId, 'knowledge_base', 'stats'),
+        { ...data.stats, updatedAt: now },
+        { merge: true }
+      );
     }
     if (data.materials) {
       batch.set(doc(db, 'users', userId, 'knowledge_base', 'materials'), {
@@ -314,36 +330,55 @@ export async function syncPersonalKnowledgeToCloud(
  */
 export async function fetchPersonalKnowledgeFromCloud(
   userId: string
-): Promise<Partial<UserPersonalKnowledgeBase> | null> {
+): Promise<FetchedKnowledgeBase | null> {
   if (!userId) return null;
 
   try {
-    const result: Partial<UserPersonalKnowledgeBase> = {};
+    const data: Partial<UserPersonalKnowledgeBase> = {};
+    const updatedAt: FetchedKnowledgeBase['updatedAt'] = {};
 
     const kbCol = collection(db, 'users', userId, 'knowledge_base');
     const snap = await getDocs(kbCol);
     snap.forEach((entry) => {
       const payload = entry.data() as Record<string, any>;
+      const cloudStamp =
+        typeof payload.updatedAt === 'string' ? payload.updatedAt : undefined;
       switch (entry.id) {
-        case 'stats':
-          result.stats = payload as UserStats;
+        case 'stats': {
+          // Remove o carimbo antes de devolver: stats não tem esse campo no tipo.
+          const { updatedAt: _drop, ...stats } = payload;
+          data.stats = stats as UserStats;
+          updatedAt.stats = cloudStamp;
           break;
+        }
         case 'materials':
-          if (payload.items) result.materials = payload.items;
+          if (payload.items) {
+            data.materials = payload.items;
+            updatedAt.materials = cloudStamp;
+          }
           break;
         case 'nodes':
-          if (payload.items) result.nodes = payload.items;
+          if (payload.items) {
+            data.nodes = payload.items;
+            updatedAt.nodes = cloudStamp;
+          }
           break;
         case 'relations':
-          if (payload.items) result.relations = payload.items;
+          if (payload.items) {
+            data.relations = payload.items;
+            updatedAt.relations = cloudStamp;
+          }
           break;
         case 'corrections':
-          if (payload.items) result.corrections = payload.items;
+          if (payload.items) {
+            data.corrections = payload.items;
+            updatedAt.corrections = cloudStamp;
+          }
           break;
       }
     });
 
-    return result;
+    return { data, updatedAt };
   } catch (err) {
     console.warn('Erro ao baixar base pessoal da nuvem:', err);
     return null;
