@@ -124,6 +124,46 @@ export function writeJsonCached(storageKey: string, value: unknown): boolean {
   return true;
 }
 
+export type SyncCollection =
+  | 'stats'
+  | 'nodes'
+  | 'relations'
+  | 'materials'
+  | 'corrections'
+  | 'conversations';
+
+/**
+ * Decide se o dado da nuvem pode ser aplicado por cima do local. Regras:
+ * nuvem vence quando não há dado local, quando não há carimbo local (primeiro
+ * login neste dispositivo) ou quando o carimbo da nuvem é mais novo. Nuvem SEM
+ * carimbo nunca sobrescreve dado local existente.
+ */
+export function shouldApplyCloudCollection(opts: {
+  localIsEmpty: boolean;
+  localStamp: string | null;
+  cloudUpdatedAt?: string;
+}): boolean {
+  if (opts.localIsEmpty) return true;
+  if (!opts.cloudUpdatedAt) return false;
+  if (!opts.localStamp) return true;
+  return opts.cloudUpdatedAt > opts.localStamp;
+}
+
+export const SYNC_META_KEY = 'tutor_sync_meta_v1';
+
+export interface SyncMeta {
+  stamps: Partial<Record<SyncCollection, string>>;
+  cloudChunks: Partial<Record<SyncCollection, number>>;
+}
+
+export function readSyncMeta(storageKey: string): SyncMeta {
+  return readJsonCached<SyncMeta>(storageKey) ?? { stamps: {}, cloudChunks: {} };
+}
+
+export function writeSyncMeta(storageKey: string, meta: SyncMeta): void {
+  writeJsonCached(storageKey, meta);
+}
+
 // Limites de tamanho do localStorage: impedem que um usuário pesado estoure a
 // cota (QuotaExceededError) ao acumular conversas, mensagens e materiais.
 export const STORAGE_LIMITS = {

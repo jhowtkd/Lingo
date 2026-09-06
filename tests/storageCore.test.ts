@@ -3,6 +3,7 @@ import {
   clearStorageCache,
   readJsonCached,
   setStorageBackend,
+  shouldApplyCloudCollection,
   STORAGE_LIMITS,
   subscribeStorageHealth,
   trimConversations,
@@ -95,5 +96,39 @@ describe('trimConversations', () => {
   it('usa os limites padrão quando nada é passado', () => {
     expect(STORAGE_LIMITS.maxConversations).toBe(30);
     expect(STORAGE_LIMITS.maxMessagesPerConversation).toBe(120);
+  });
+});
+
+describe('shouldApplyCloudCollection', () => {
+  const base = { localStamp: null as string | null, cloudUpdatedAt: undefined as string | undefined };
+
+  it('aplica nuvem quando não há dado local', () => {
+    expect(shouldApplyCloudCollection({ ...base, localIsEmpty: true, cloudUpdatedAt: '2026-01-01' })).toBe(true);
+  });
+
+  it('NUNCA sobrescreve dado local com nuvem sem carimbo', () => {
+    expect(
+      shouldApplyCloudCollection({ ...base, localIsEmpty: false, localStamp: '2026-01-01' })
+    ).toBe(false);
+  });
+
+  it('aplica nuvem mais nova que o carimbo local', () => {
+    expect(
+      shouldApplyCloudCollection({
+        localIsEmpty: false,
+        localStamp: '2026-01-01T00:00:00Z',
+        cloudUpdatedAt: '2026-02-01T00:00:00Z',
+      })
+    ).toBe(true);
+  });
+
+  it('mantém local mais novo que a nuvem', () => {
+    expect(
+      shouldApplyCloudCollection({
+        localIsEmpty: false,
+        localStamp: '2026-03-01T00:00:00Z',
+        cloudUpdatedAt: '2026-02-01T00:00:00Z',
+      })
+    ).toBe(false);
   });
 });

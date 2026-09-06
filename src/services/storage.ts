@@ -24,11 +24,15 @@ import {
 } from './firebase';
 import { PLAN_NODE_EVIDENCE } from './progressMetrics';
 import {
+  SYNC_META_KEY,
   STORAGE_LIMITS,
+  SyncCollection,
   clearStorageCache,
   readJsonCached,
+  readSyncMeta,
   trimConversations,
   writeJsonCached,
+  writeSyncMeta,
 } from './storageCore';
 
 const STORAGE_KEYS = {
@@ -859,6 +863,31 @@ export const StorageService = {
     return `${baseKey}_${_currentUserId}`;
   },
 
+  // Meta de sincronização por usuário: carimbos das mutações locais e contagem
+  // de chunks já recebidos da nuvem, por coleção. Vive numa chave própria
+  // (tutor_sync_meta_v1) e não interfere nas chaves existentes.
+  getLocalSyncStamp(col: SyncCollection): string | null {
+    return readSyncMeta(this.getKey(SYNC_META_KEY)).stamps[col] || null;
+  },
+
+  touchLocalSyncStamp(col: SyncCollection, at: string = new Date().toISOString()) {
+    const key = this.getKey(SYNC_META_KEY);
+    const meta = readSyncMeta(key);
+    meta.stamps[col] = at;
+    writeSyncMeta(key, meta);
+  },
+
+  getCloudChunkCount(col: SyncCollection): number {
+    return readSyncMeta(this.getKey(SYNC_META_KEY)).cloudChunks[col] || 0;
+  },
+
+  setCloudChunkCount(col: SyncCollection, count: number) {
+    const key = this.getKey(SYNC_META_KEY);
+    const meta = readSyncMeta(key);
+    meta.cloudChunks[col] = count;
+    writeSyncMeta(key, meta);
+  },
+
   // Dispara sincronização em segundo plano com a nuvem (Firestore)
   scheduleCloudSync() {
     if (!_currentUserId || _currentUserId === 'default_user') return;
@@ -939,6 +968,8 @@ export const StorageService = {
     // Limita a lista de materiais antes de persistir (corta os mais antigos,
     // que ficam no fim após o unshift de addMaterial).
     writeJsonCached(this.getKey(STORAGE_KEYS.MATERIALS), materials.slice(0, STORAGE_LIMITS.maxMaterials));
+    // Registra a mutação local (carimbo) para a decisão de sync por carimbo.
+    this.touchLocalSyncStamp('materials');
     if (sync) this.scheduleCloudSync();
   },
 
@@ -974,6 +1005,8 @@ export const StorageService = {
 
   saveNodes(nodes: GraphNode[], sync = true) {
     writeJsonCached(this.getKey(STORAGE_KEYS.NODES), nodes);
+    // Registra a mutação local (carimbo) para a decisão de sync por carimbo.
+    this.touchLocalSyncStamp('nodes');
     if (sync) this.scheduleCloudSync();
   },
 
@@ -1006,6 +1039,8 @@ export const StorageService = {
 
   saveRelations(relations: GraphRelation[], sync = true) {
     writeJsonCached(this.getKey(STORAGE_KEYS.RELATIONS), relations);
+    // Registra a mutação local (carimbo) para a decisão de sync por carimbo.
+    this.touchLocalSyncStamp('relations');
     if (sync) this.scheduleCloudSync();
   },
 
@@ -1030,6 +1065,8 @@ export const StorageService = {
 
   saveCorrections(corrections: PedagogicalCorrection[], sync = true) {
     writeJsonCached(this.getKey(STORAGE_KEYS.CORRECTIONS), corrections);
+    // Registra a mutação local (carimbo) para a decisão de sync por carimbo.
+    this.touchLocalSyncStamp('corrections');
     if (sync) this.scheduleCloudSync();
   },
 
@@ -1279,6 +1316,8 @@ export const StorageService = {
     // Aplica limite de tamanho antes de persistir: mantém só as N conversas
     // mais recentes com as últimas M mensagens de cada (evita estourar a cota).
     writeJsonCached(this.getKey(STORAGE_KEYS.CONVERSATIONS), trimConversations(conversations));
+    // Registra a mutação local (carimbo) para a decisão de sync por carimbo.
+    this.touchLocalSyncStamp('conversations');
     if (sync) {
       const active = this.getActiveConversation();
       if (active) {
@@ -1613,6 +1652,8 @@ export const StorageService = {
 
   saveStats(stats: UserStats, sync = true) {
     localStorage.setItem(this.getKey(STORAGE_KEYS.STATS), JSON.stringify(stats));
+    // Registra a mutação local (carimbo) para a decisão de sync por carimbo.
+    this.touchLocalSyncStamp('stats');
     if (sync) this.scheduleCloudSync();
   },
 
