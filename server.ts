@@ -13,6 +13,7 @@ import { transcriptionRouter } from './server/routes/transcription';
 import { pronunciationRouter } from './server/routes/pronunciation';
 import { AiTelemetry } from './server/observability/aiTelemetry';
 import { GeminiResponseCache } from './server/ai/geminiCache';
+import { generateWithFallback } from './server/ai/generateWithFallback';
 import { loadEnvConfig } from './server/config/env';
 
 dotenv.config();
@@ -47,11 +48,6 @@ function getGeminiClient(): GoogleGenAI | null {
   return ai;
 }
 
-/**
- * Gerenciador de cooldown de modelos para evitar chamadas repetidas a endpoints em 503
- */
-const modelCooldownMap = new Map<string, number>();
-
 // LRU de contextos de palavra: consultas repetidas (muito comuns em app de
 // idioma) deixam de virar chamada Gemini nova a cada clique.
 const wordContextCache = new GeminiResponseCache<any>(500, 10 * 60_000);
@@ -62,93 +58,6 @@ function isTtsAuthFailed(): boolean {
 }
 function markTtsAuthFailed(durationMs = 60000) {
   ttsAuthFailedUntil = Date.now() + durationMs;
-}
-
-/**
- * Executa chamadas ao Gemini com retry inteligente, cooldown ativo e fallback automático de modelos
- * para 503 (High Demand/UNAVAILABLE), 429 e erros transitórios.
- */
-async function generateContentWithRetryAndFallback(
-  client: GoogleGenAI,
-  params: {
-    model?: string;
-    contents: any;
-    config?: any;
-  },
-  fallbackModels: string[] = ['gemini-3.1-flash-lite', 'gemini-flash-latest', 'gemini-3.7-flash']
-) {
-  const preferredModel = params.model || 'gemini-3.7-flash';
-  const now = Date.now();
-
-  // Lista base de modelos a tentar
-  const allCandidates = Array.from(new Set([preferredModel, ...fallbackModels]));
-
-  // Ordena modelos colocando na frente aqueles que NÃO estão em cooldown de 503
-  const modelsToTry = allCandidates.sort((a, b) => {
-    const aCool = (modelCooldownMap.get(a) || 0) > now ? 1 : 0;
-    const bCool = (modelCooldownMap.get(b) || 0) > now ? 1 : 0;
-    return aCool - bCool;
-  });
-
-  let lastError: any = null;
-
-  for (const modelName of modelsToTry) {
-    const isCoolingDown = (modelCooldownMap.get(modelName) || 0) > now;
-    if (isCoolingDown && modelsToTry.length > 1) {
-      // Se há alternativas disponíveis, pula modelos em cooldown recente de 503
-      continue;
-    }
-
-    try {
-      // Deadline por tentativa: sem isso um Gemini travado pendura a conexão
-      // por minutos e o fallback nunca é acionado. Aborta a request real.
-      const perAttemptTimeoutMs = Number(process.env.GEMINI_TIMEOUT_MS) || 60000;
-      const attemptCtrl = new AbortController();
-      const timeoutTimer = setTimeout(
-        () => attemptCtrl.abort(new Error(`Timeout de ${perAttemptTimeoutMs}ms excedido no modelo ${modelName}`)),
-        perAttemptTimeoutMs
-      );
-      let response: any;
-      try {
-        response = await client.models.generateContent({
-          ...params,
-          model: modelName,
-          config: { ...(params.config || {}), abortSignal: attemptCtrl.signal },
-        });
-      } finally {
-        clearTimeout(timeoutTimer);
-      }
-      // Sucesso: remove do cooldown se estiver lá
-      modelCooldownMap.delete(modelName);
-      return response;
-    } catch (err: any) {
-      lastError = err;
-      const errMsg = (err?.message || String(err)).toLowerCase();
-      const is503HighDemand =
-        errMsg.includes('503') ||
-        errMsg.includes('unavailable') ||
-        errMsg.includes('high demand') ||
-        errMsg.includes('spikes in demand');
-      const isRateLimit =
-        errMsg.includes('429') ||
-        errMsg.includes('resource has been exhausted') ||
-        errMsg.includes('rate limit');
-
-      if (is503HighDemand || isRateLimit) {
-        // Registra cooldown de 30 segundos para não insistir no modelo com sobrecarga
-        modelCooldownMap.set(modelName, Date.now() + 30000);
-        console.info(
-          `[Gemini Auto-Fallback] Modelo ${modelName} em alta demanda (503/429). Chaveando para próximo modelo saudável da lista.`
-        );
-        // Não tenta de novo o mesmo modelo saturado; passa direto para o fallback (ex: gemini-3.1-flash-lite)
-        continue;
-      }
-
-      console.warn(`[Gemini Resiliente] Modelo ${modelName} retornou erro:`, errMsg.slice(0, 120));
-    }
-  }
-
-  throw lastError || new Error('Todos os modelos de IA falharam temporariamente');
 }
 
 async function startServer() {
@@ -275,99 +184,104 @@ GERE UM MATERIAL COMPLETO COM:
 10. "conteudo_markdown": Um guia de estudos completo e formatado em Markdown impecável para o estudante ler, copiar ou imprimir.
 `;
 
-      const response = await generateContentWithRetryAndFallback(client, {
-        model: 'gemini-3.7-flash',
-        contents: prompt,
-        config: {
-          responseMimeType: 'application/json',
-          responseSchema: {
-            type: Type.OBJECT,
-            properties: {
-              titulo: { type: Type.STRING },
-              resumo: { type: Type.STRING },
-              nivel_cefr: { type: Type.STRING },
-              vocabulario: {
-                type: Type.ARRAY,
-                items: {
-                  type: Type.OBJECT,
-                  properties: {
-                    termo: { type: Type.STRING },
-                    pronuncia_ipa: { type: Type.STRING },
-                    traducao: { type: Type.STRING },
-                    classe_gramatical: { type: Type.STRING },
-                    exemplo: { type: Type.STRING },
-                    traducao_exemplo: { type: Type.STRING },
-                    nivel: { type: Type.STRING },
-                  },
-                  required: ['termo', 'traducao', 'exemplo'],
-                },
-              },
-              gramatica: {
-                type: Type.ARRAY,
-                items: {
-                  type: Type.OBJECT,
-                  properties: {
-                    topico: { type: Type.STRING },
-                    explicacao: { type: Type.STRING },
-                    exemplos: {
-                      type: Type.ARRAY,
-                      items: { type: Type.STRING },
+      const response = await generateWithFallback({
+        client,
+        params: {
+          model: 'gemini-3.7-flash',
+          contents: prompt,
+          config: {
+            responseMimeType: 'application/json',
+            responseSchema: {
+              type: Type.OBJECT,
+              properties: {
+                titulo: { type: Type.STRING },
+                resumo: { type: Type.STRING },
+                nivel_cefr: { type: Type.STRING },
+                vocabulario: {
+                  type: Type.ARRAY,
+                  items: {
+                    type: Type.OBJECT,
+                    properties: {
+                      termo: { type: Type.STRING },
+                      pronuncia_ipa: { type: Type.STRING },
+                      traducao: { type: Type.STRING },
+                      classe_gramatical: { type: Type.STRING },
+                      exemplo: { type: Type.STRING },
+                      traducao_exemplo: { type: Type.STRING },
+                      nivel: { type: Type.STRING },
                     },
-                    dica_para_brasileiros: { type: Type.STRING },
+                    required: ['termo', 'traducao', 'exemplo'],
                   },
-                  required: ['topico', 'explicacao', 'exemplos'],
                 },
-              },
-              dialogo_pratica: {
-                type: Type.ARRAY,
-                items: {
-                  type: Type.OBJECT,
-                  properties: {
-                    personagem: { type: Type.STRING },
-                    fala: { type: Type.STRING },
-                    traducao: { type: Type.STRING },
-                    audio_tip: { type: Type.STRING },
-                  },
-                  required: ['personagem', 'fala'],
-                },
-              },
-              questoes_compreensao: {
-                type: Type.ARRAY,
-                items: {
-                  type: Type.OBJECT,
-                  properties: {
-                    pergunta: { type: Type.STRING },
-                    opcoes: {
-                      type: Type.ARRAY,
-                      items: { type: Type.STRING },
+                gramatica: {
+                  type: Type.ARRAY,
+                  items: {
+                    type: Type.OBJECT,
+                    properties: {
+                      topico: { type: Type.STRING },
+                      explicacao: { type: Type.STRING },
+                      exemplos: {
+                        type: Type.ARRAY,
+                        items: { type: Type.STRING },
+                      },
+                      dica_para_brasileiros: { type: Type.STRING },
                     },
-                    resposta_correta: { type: Type.STRING },
-                    explicacao: { type: Type.STRING },
+                    required: ['topico', 'explicacao', 'exemplos'],
                   },
-                  required: ['pergunta', 'resposta_correta', 'explicacao'],
                 },
-              },
-              flashcards: {
-                type: Type.ARRAY,
-                items: {
-                  type: Type.OBJECT,
-                  properties: {
-                    frente: { type: Type.STRING },
-                    verso: { type: Type.STRING },
-                    dica: { type: Type.STRING },
+                dialogo_pratica: {
+                  type: Type.ARRAY,
+                  items: {
+                    type: Type.OBJECT,
+                    properties: {
+                      personagem: { type: Type.STRING },
+                      fala: { type: Type.STRING },
+                      traducao: { type: Type.STRING },
+                      audio_tip: { type: Type.STRING },
+                    },
+                    required: ['personagem', 'fala'],
                   },
-                  required: ['frente', 'verso'],
                 },
+                questoes_compreensao: {
+                  type: Type.ARRAY,
+                  items: {
+                    type: Type.OBJECT,
+                    properties: {
+                      pergunta: { type: Type.STRING },
+                      opcoes: {
+                        type: Type.ARRAY,
+                        items: { type: Type.STRING },
+                      },
+                      resposta_correta: { type: Type.STRING },
+                      explicacao: { type: Type.STRING },
+                    },
+                    required: ['pergunta', 'resposta_correta', 'explicacao'],
+                  },
+                },
+                flashcards: {
+                  type: Type.ARRAY,
+                  items: {
+                    type: Type.OBJECT,
+                    properties: {
+                      frente: { type: Type.STRING },
+                      verso: { type: Type.STRING },
+                      dica: { type: Type.STRING },
+                    },
+                    required: ['frente', 'verso'],
+                  },
+                },
+                dicas_culturais_e_pronuncia: {
+                  type: Type.ARRAY,
+                  items: { type: Type.STRING },
+                },
+                conteudo_markdown: { type: Type.STRING },
               },
-              dicas_culturais_e_pronuncia: {
-                type: Type.ARRAY,
-                items: { type: Type.STRING },
-              },
-              conteudo_markdown: { type: Type.STRING },
+              required: ['titulo', 'resumo', 'vocabulario', 'gramatica', 'dialogo_pratica', 'conteudo_markdown'],
             },
-            required: ['titulo', 'resumo', 'vocabulario', 'gramatica', 'dialogo_pratica', 'conteudo_markdown'],
           },
         },
+        route: 'materials',
+        timeoutMs: appEnv.geminiTimeoutMs,
       });
 
       const parsed = JSON.parse(response.text || '{}');
@@ -458,62 +372,67 @@ Forneça um objeto JSON estruturado com:
 
       const cacheKey = `${idioma}|${topico}|${cleanWord.toLowerCase()}|${(frase_contexto || '').slice(0, 200)}`;
       const parsed = await wordContextCache.run(cacheKey, async () => {
-      const response = await generateContentWithRetryAndFallback(client, {
-        model: 'gemini-3.7-flash',
-        contents: prompt,
-        config: {
-          responseMimeType: 'application/json',
-          responseSchema: {
-            type: Type.OBJECT,
-            properties: {
-              palavra: { type: Type.STRING },
-              lemma_raiz: { type: Type.STRING },
-              classe_gramatical: { type: Type.STRING },
-              idioma: { type: Type.STRING },
-              nivel_cefr: {
-                type: Type.STRING,
-                enum: ['A1', 'A2', 'B1', 'B2', 'C1', 'C2'],
-              },
-              pronuncia_ipa: { type: Type.STRING },
-              traducao_principal: { type: Type.STRING },
-              definicao_contextual: { type: Type.STRING },
-              sinonimos: {
-                type: Type.ARRAY,
-                items: { type: Type.STRING },
-              },
-              antonimos: {
-                type: Type.ARRAY,
-                items: { type: Type.STRING },
-              },
-              exemplos_uso: {
-                type: Type.ARRAY,
-                items: {
-                  type: Type.OBJECT,
-                  properties: {
-                    frase_original: { type: Type.STRING },
-                    traducao_portugues: { type: Type.STRING },
-                  },
-                  required: ['frase_original', 'traducao_portugues'],
+      const response = await generateWithFallback({
+        client,
+        params: {
+          model: 'gemini-3.7-flash',
+          contents: prompt,
+          config: {
+            responseMimeType: 'application/json',
+            responseSchema: {
+              type: Type.OBJECT,
+              properties: {
+                palavra: { type: Type.STRING },
+                lemma_raiz: { type: Type.STRING },
+                classe_gramatical: { type: Type.STRING },
+                idioma: { type: Type.STRING },
+                nivel_cefr: {
+                  type: Type.STRING,
+                  enum: ['A1', 'A2', 'B1', 'B2', 'C1', 'C2'],
                 },
+                pronuncia_ipa: { type: Type.STRING },
+                traducao_principal: { type: Type.STRING },
+                definicao_contextual: { type: Type.STRING },
+                sinonimos: {
+                  type: Type.ARRAY,
+                  items: { type: Type.STRING },
+                },
+                antonimos: {
+                  type: Type.ARRAY,
+                  items: { type: Type.STRING },
+                },
+                exemplos_uso: {
+                  type: Type.ARRAY,
+                  items: {
+                    type: Type.OBJECT,
+                    properties: {
+                      frase_original: { type: Type.STRING },
+                      traducao_portugues: { type: Type.STRING },
+                    },
+                    required: ['frase_original', 'traducao_portugues'],
+                  },
+                },
+                falso_amigo_alerta: { type: Type.STRING },
+                dica_uso_ou_collocation: { type: Type.STRING },
+                origem_etimologia: { type: Type.STRING },
               },
-              falso_amigo_alerta: { type: Type.STRING },
-              dica_uso_ou_collocation: { type: Type.STRING },
-              origem_etimologia: { type: Type.STRING },
+              required: [
+                'palavra',
+                'lemma_raiz',
+                'classe_gramatical',
+                'idioma',
+                'nivel_cefr',
+                'pronuncia_ipa',
+                'traducao_principal',
+                'definicao_contextual',
+                'sinonimos',
+                'exemplos_uso',
+              ],
             },
-            required: [
-              'palavra',
-              'lemma_raiz',
-              'classe_gramatical',
-              'idioma',
-              'nivel_cefr',
-              'pronuncia_ipa',
-              'traducao_principal',
-              'definicao_contextual',
-              'sinonimos',
-              'exemplos_uso',
-            ],
           },
         },
+        route: 'word-context',
+        timeoutMs: appEnv.geminiTimeoutMs,
       });
         return JSON.parse(response.text || '{}');
       });
@@ -773,40 +692,45 @@ Crie propostas realistas de sessões diárias intercalando:
 3. 'novo_conceito' para avançar no cronograma
 `;
 
-      const response = await generateContentWithRetryAndFallback(client, {
-        model: 'gemini-3.7-flash',
-        contents: prompt,
-        config: {
-          responseMimeType: 'application/json',
-          responseSchema: {
-            type: Type.ARRAY,
-            items: {
-              type: Type.OBJECT,
-              properties: {
-                titulo: { type: Type.STRING },
-                descricao: { type: Type.STRING },
-                duracao_minutos: { type: Type.NUMBER },
-                topicos: {
-                  type: Type.ARRAY,
-                  items: { type: Type.STRING },
+      const response = await generateWithFallback({
+        client,
+        params: {
+          model: 'gemini-3.7-flash',
+          contents: prompt,
+          config: {
+            responseMimeType: 'application/json',
+            responseSchema: {
+              type: Type.ARRAY,
+              items: {
+                type: Type.OBJECT,
+                properties: {
+                  titulo: { type: Type.STRING },
+                  descricao: { type: Type.STRING },
+                  duracao_minutos: { type: Type.NUMBER },
+                  topicos: {
+                    type: Type.ARRAY,
+                    items: { type: Type.STRING },
+                  },
+                  prioridade: {
+                    type: Type.STRING,
+                    enum: ['alta', 'media', 'baixa'],
+                  },
+                  tipo: {
+                    type: Type.STRING,
+                    enum: ['revisao_espacada', 'novo_conceito', 'correcao_erros'],
+                  },
+                  offset_dias: {
+                    type: Type.NUMBER,
+                    description: 'Dia a partir de hoje (0 = hoje, 1 = amanhã, etc)',
+                  },
                 },
-                prioridade: {
-                  type: Type.STRING,
-                  enum: ['alta', 'media', 'baixa'],
-                },
-                tipo: {
-                  type: Type.STRING,
-                  enum: ['revisao_espacada', 'novo_conceito', 'correcao_erros'],
-                },
-                offset_dias: {
-                  type: Type.NUMBER,
-                  description: 'Dia a partir de hoje (0 = hoje, 1 = amanhã, etc)',
-                },
+                required: ['titulo', 'descricao', 'duracao_minutos', 'topicos', 'prioridade', 'tipo', 'offset_dias'],
               },
-              required: ['titulo', 'descricao', 'duracao_minutos', 'topicos', 'prioridade', 'tipo', 'offset_dias'],
             },
           },
         },
+        route: 'calendar',
+        timeoutMs: appEnv.geminiTimeoutMs,
       });
 
       const items = JSON.parse(response.text || '[]');
@@ -872,15 +796,20 @@ Crie propostas realistas de sessões diárias intercalando:
         });
       }
 
-      const response = await generateContentWithRetryAndFallback(client, {
-        model: 'gemini-3.7-flash',
-        contents: `
+      const response = await generateWithFallback({
+        client,
+        params: {
+          model: 'gemini-3.7-flash',
+          contents: `
 Analise estas métricas de estudo dos últimos 7 dias:
 ${JSON.stringify(metricas)}
 Resumo do grafo de conhecimento:
 ${JSON.stringify(grafo_resumo)}
 
 Gere uma recomendação pedagógica objetiva, motivadora e acionável em 2 a 3 frases em Português para a próxima semana.`,
+        },
+        route: 'recommendation',
+        timeoutMs: appEnv.geminiTimeoutMs,
       });
 
       res.json({ recomendacao: response.text?.trim() });
@@ -925,53 +854,58 @@ Cada tópico deve atacar os pontos mais urgentes:
 
 Retorne as sugestões estruturadas e altamente motivadoras com estratégias pedagógicas práticas.`;
 
-      const response = await generateContentWithRetryAndFallback(client, {
-        model: 'gemini-3.7-flash',
-        contents: prompt,
-        config: {
-          responseMimeType: 'application/json',
-          responseSchema: {
-            type: Type.ARRAY,
-            items: {
-              type: Type.OBJECT,
-              properties: {
-                id: { type: Type.STRING },
-                titulo: { type: Type.STRING },
-                motivo_prioridade: { type: Type.STRING },
-                descricao_pedagogica: { type: Type.STRING },
-                dominio_atual: { type: Type.NUMBER },
-                frequencia_erro: { type: Type.NUMBER },
-                dificuldade: { type: Type.NUMBER },
-                tipo_no: { type: Type.STRING },
-                estrategia_sugerida: { type: Type.STRING },
-                nivel_urgencia: {
-                  type: Type.STRING,
-                  enum: ['critica', 'alta', 'moderada'],
+      const response = await generateWithFallback({
+        client,
+        params: {
+          model: 'gemini-3.7-flash',
+          contents: prompt,
+          config: {
+            responseMimeType: 'application/json',
+            responseSchema: {
+              type: Type.ARRAY,
+              items: {
+                type: Type.OBJECT,
+                properties: {
+                  id: { type: Type.STRING },
+                  titulo: { type: Type.STRING },
+                  motivo_prioridade: { type: Type.STRING },
+                  descricao_pedagogica: { type: Type.STRING },
+                  dominio_atual: { type: Type.NUMBER },
+                  frequencia_erro: { type: Type.NUMBER },
+                  dificuldade: { type: Type.NUMBER },
+                  tipo_no: { type: Type.STRING },
+                  estrategia_sugerida: { type: Type.STRING },
+                  nivel_urgencia: {
+                    type: Type.STRING,
+                    enum: ['critica', 'alta', 'moderada'],
+                  },
+                  nos_relacionados: {
+                    type: Type.ARRAY,
+                    items: { type: Type.STRING },
+                  },
+                  exemplos_praticos: {
+                    type: Type.ARRAY,
+                    items: { type: Type.STRING },
+                  },
                 },
-                nos_relacionados: {
-                  type: Type.ARRAY,
-                  items: { type: Type.STRING },
-                },
-                exemplos_praticos: {
-                  type: Type.ARRAY,
-                  items: { type: Type.STRING },
-                },
+                required: [
+                  'id',
+                  'titulo',
+                  'motivo_prioridade',
+                  'descricao_pedagogica',
+                  'dominio_atual',
+                  'frequencia_erro',
+                  'dificuldade',
+                  'tipo_no',
+                  'estrategia_sugerida',
+                  'nivel_urgencia',
+                ],
               },
-              required: [
-                'id',
-                'titulo',
-                'motivo_prioridade',
-                'descricao_pedagogica',
-                'dominio_atual',
-                'frequencia_erro',
-                'dificuldade',
-                'tipo_no',
-                'estrategia_sugerida',
-                'nivel_urgencia',
-              ],
             },
           },
         },
+        route: 'priority-topics',
+        timeoutMs: appEnv.geminiTimeoutMs,
       });
 
       const prioridades = JSON.parse(response.text || '[]');
@@ -1059,158 +993,163 @@ Gere uma resposta JSON estruturada estritamente de acordo com o schema com:
 9. "dicas_personalizadas": 2 a 3 dicas pontuais de produtividade linguística ajustadas ao perfil.
 `;
 
-      const response = await generateContentWithRetryAndFallback(client, {
-        model: 'gemini-3.7-flash',
-        contents: prompt,
-        config: {
-          responseMimeType: 'application/json',
-          responseSchema: {
-            type: Type.OBJECT,
-            properties: {
-              titulo_plano: { type: Type.STRING },
-              descricao_plano: { type: Type.STRING },
-              topico_inicial_recomendado: { type: Type.STRING },
-              mensagem_boas_vindas_tutor: { type: Type.STRING },
-              estrategia_pedagogica: { type: Type.STRING },
-              cronograma_semanal: {
-                type: Type.ARRAY,
-                items: {
-                  type: Type.OBJECT,
-                  properties: {
-                    dia_semana: { type: Type.STRING },
-                    foco: { type: Type.STRING },
-                    duracao_minutos: { type: Type.NUMBER },
-                    tipo_atividade: {
-                      type: Type.STRING,
-                      enum: ['chat', 'flashcards', 'duel', 'materials'],
+      const response = await generateWithFallback({
+        client,
+        params: {
+          model: 'gemini-3.7-flash',
+          contents: prompt,
+          config: {
+            responseMimeType: 'application/json',
+            responseSchema: {
+              type: Type.OBJECT,
+              properties: {
+                titulo_plano: { type: Type.STRING },
+                descricao_plano: { type: Type.STRING },
+                topico_inicial_recomendado: { type: Type.STRING },
+                mensagem_boas_vindas_tutor: { type: Type.STRING },
+                estrategia_pedagogica: { type: Type.STRING },
+                cronograma_semanal: {
+                  type: Type.ARRAY,
+                  items: {
+                    type: Type.OBJECT,
+                    properties: {
+                      dia_semana: { type: Type.STRING },
+                      foco: { type: Type.STRING },
+                      duracao_minutos: { type: Type.NUMBER },
+                      tipo_atividade: {
+                        type: Type.STRING,
+                        enum: ['chat', 'flashcards', 'duel', 'materials'],
+                      },
+                      descricao_pratica: { type: Type.STRING },
                     },
-                    descricao_pratica: { type: Type.STRING },
+                    required: ['dia_semana', 'foco', 'duracao_minutos', 'tipo_atividade', 'descricao_pratica'],
                   },
-                  required: ['dia_semana', 'foco', 'duracao_minutos', 'tipo_atividade', 'descricao_pratica'],
                 },
-              },
-              nos_iniciais_grafo: {
-                type: Type.ARRAY,
-                items: {
+                nos_iniciais_grafo: {
+                  type: Type.ARRAY,
+                  items: {
+                    type: Type.OBJECT,
+                    properties: {
+                      tipo: {
+                        type: Type.STRING,
+                        enum: ['vocabulario', 'expressao_idiomatica', 'falso_amigo', 'gramatica'],
+                      },
+                      titulo: { type: Type.STRING },
+                      descricao: { type: Type.STRING },
+                      dominio_estimado: { type: Type.NUMBER },
+                      dificuldade: { type: Type.NUMBER },
+                      pronuncia_ipa: { type: Type.STRING },
+                      traducao: { type: Type.STRING },
+                      exemplo_uso: { type: Type.STRING },
+                    },
+                    required: ['tipo', 'titulo', 'descricao', 'traducao', 'exemplo_uso'],
+                  },
+                },
+                primeiro_material_estudo: {
                   type: Type.OBJECT,
                   properties: {
-                    tipo: {
-                      type: Type.STRING,
-                      enum: ['vocabulario', 'expressao_idiomatica', 'falso_amigo', 'gramatica'],
-                    },
                     titulo: { type: Type.STRING },
-                    descricao: { type: Type.STRING },
-                    dominio_estimado: { type: Type.NUMBER },
-                    dificuldade: { type: Type.NUMBER },
-                    pronuncia_ipa: { type: Type.STRING },
-                    traducao: { type: Type.STRING },
-                    exemplo_uso: { type: Type.STRING },
+                    resumo: { type: Type.STRING },
+                    vocabulario: {
+                      type: Type.ARRAY,
+                      items: {
+                        type: Type.OBJECT,
+                        properties: {
+                          termo: { type: Type.STRING },
+                          pronuncia_ipa: { type: Type.STRING },
+                          traducao: { type: Type.STRING },
+                          classe_gramatical: { type: Type.STRING },
+                          exemplo: { type: Type.STRING },
+                          traducao_exemplo: { type: Type.STRING },
+                        },
+                        required: ['termo', 'traducao', 'exemplo'],
+                      },
+                    },
+                    gramatica: {
+                      type: Type.ARRAY,
+                      items: {
+                        type: Type.OBJECT,
+                        properties: {
+                          topico: { type: Type.STRING },
+                          explicacao: { type: Type.STRING },
+                          exemplos: {
+                            type: Type.ARRAY,
+                            items: { type: Type.STRING },
+                          },
+                          dica_para_brasileiros: { type: Type.STRING },
+                        },
+                        required: ['topico', 'explicacao', 'exemplos'],
+                      },
+                    },
+                    dialogo_pratica: {
+                      type: Type.ARRAY,
+                      items: {
+                        type: Type.OBJECT,
+                        properties: {
+                          personagem: { type: Type.STRING },
+                          fala: { type: Type.STRING },
+                          traducao: { type: Type.STRING },
+                        },
+                        required: ['personagem', 'fala'],
+                      },
+                    },
+                    questoes_compreensao: {
+                      type: Type.ARRAY,
+                      items: {
+                        type: Type.OBJECT,
+                        properties: {
+                          pergunta: { type: Type.STRING },
+                          opcoes: {
+                            type: Type.ARRAY,
+                            items: { type: Type.STRING },
+                          },
+                          resposta_correta: { type: Type.STRING },
+                          explicacao: { type: Type.STRING },
+                        },
+                        required: ['pergunta', 'resposta_correta', 'explicacao'],
+                      },
+                    },
+                    flashcards: {
+                      type: Type.ARRAY,
+                      items: {
+                        type: Type.OBJECT,
+                        properties: {
+                          frente: { type: Type.STRING },
+                          verso: { type: Type.STRING },
+                          dica: { type: Type.STRING },
+                        },
+                        required: ['frente', 'verso'],
+                      },
+                    },
+                    dicas_culturais_e_pronuncia: {
+                      type: Type.ARRAY,
+                      items: { type: Type.STRING },
+                    },
+                    conteudo_markdown: { type: Type.STRING },
                   },
-                  required: ['tipo', 'titulo', 'descricao', 'traducao', 'exemplo_uso'],
+                  required: ['titulo', 'resumo', 'vocabulario', 'gramatica', 'dialogo_pratica', 'conteudo_markdown'],
+                },
+                dicas_personalizadas: {
+                  type: Type.ARRAY,
+                  items: { type: Type.STRING },
                 },
               },
-              primeiro_material_estudo: {
-                type: Type.OBJECT,
-                properties: {
-                  titulo: { type: Type.STRING },
-                  resumo: { type: Type.STRING },
-                  vocabulario: {
-                    type: Type.ARRAY,
-                    items: {
-                      type: Type.OBJECT,
-                      properties: {
-                        termo: { type: Type.STRING },
-                        pronuncia_ipa: { type: Type.STRING },
-                        traducao: { type: Type.STRING },
-                        classe_gramatical: { type: Type.STRING },
-                        exemplo: { type: Type.STRING },
-                        traducao_exemplo: { type: Type.STRING },
-                      },
-                      required: ['termo', 'traducao', 'exemplo'],
-                    },
-                  },
-                  gramatica: {
-                    type: Type.ARRAY,
-                    items: {
-                      type: Type.OBJECT,
-                      properties: {
-                        topico: { type: Type.STRING },
-                        explicacao: { type: Type.STRING },
-                        exemplos: {
-                          type: Type.ARRAY,
-                          items: { type: Type.STRING },
-                        },
-                        dica_para_brasileiros: { type: Type.STRING },
-                      },
-                      required: ['topico', 'explicacao', 'exemplos'],
-                    },
-                  },
-                  dialogo_pratica: {
-                    type: Type.ARRAY,
-                    items: {
-                      type: Type.OBJECT,
-                      properties: {
-                        personagem: { type: Type.STRING },
-                        fala: { type: Type.STRING },
-                        traducao: { type: Type.STRING },
-                      },
-                      required: ['personagem', 'fala'],
-                    },
-                  },
-                  questoes_compreensao: {
-                    type: Type.ARRAY,
-                    items: {
-                      type: Type.OBJECT,
-                      properties: {
-                        pergunta: { type: Type.STRING },
-                        opcoes: {
-                          type: Type.ARRAY,
-                          items: { type: Type.STRING },
-                        },
-                        resposta_correta: { type: Type.STRING },
-                        explicacao: { type: Type.STRING },
-                      },
-                      required: ['pergunta', 'resposta_correta', 'explicacao'],
-                    },
-                  },
-                  flashcards: {
-                    type: Type.ARRAY,
-                    items: {
-                      type: Type.OBJECT,
-                      properties: {
-                        frente: { type: Type.STRING },
-                        verso: { type: Type.STRING },
-                        dica: { type: Type.STRING },
-                      },
-                      required: ['frente', 'verso'],
-                    },
-                  },
-                  dicas_culturais_e_pronuncia: {
-                    type: Type.ARRAY,
-                    items: { type: Type.STRING },
-                  },
-                  conteudo_markdown: { type: Type.STRING },
-                },
-                required: ['titulo', 'resumo', 'vocabulario', 'gramatica', 'dialogo_pratica', 'conteudo_markdown'],
-              },
-              dicas_personalizadas: {
-                type: Type.ARRAY,
-                items: { type: Type.STRING },
-              },
+              required: [
+                'titulo_plano',
+                'descricao_plano',
+                'topico_inicial_recomendado',
+                'mensagem_boas_vindas_tutor',
+                'estrategia_pedagogica',
+                'cronograma_semanal',
+                'nos_iniciais_grafo',
+                'primeiro_material_estudo',
+                'dicas_personalizadas',
+              ],
             },
-            required: [
-              'titulo_plano',
-              'descricao_plano',
-              'topico_inicial_recomendado',
-              'mensagem_boas_vindas_tutor',
-              'estrategia_pedagogica',
-              'cronograma_semanal',
-              'nos_iniciais_grafo',
-              'primeiro_material_estudo',
-              'dicas_personalizadas',
-            ],
           },
         },
+        route: 'onboarding',
+        timeoutMs: appEnv.geminiTimeoutMs,
       });
 
       const parsed = JSON.parse(response.text || '{}');

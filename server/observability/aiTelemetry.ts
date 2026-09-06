@@ -8,10 +8,14 @@ export interface TutorTelemetryLog {
   durationMs: number;
   timeToFirstChunkMs?: number;
   inputCharacters: number;
-  historyItems: number;
-  memoryItems: number;
-  language: string;
-  cefrLevel: string;
+  // Campos de contexto do chat tutor — opcionais porque endpoints que não
+  // têm sessão de chat (ex: word-context, tts, calendar) não os preenchem.
+  historyItems?: number;
+  memoryItems?: number;
+  language?: string;
+  cefrLevel?: string;
+  // Tamanho da resposta do modelo em caracteres (preenchido quando disponível).
+  outputCharacters?: number;
   status: 'success' | 'degraded' | 'error';
   errorCode?: string;
 }
@@ -31,7 +35,7 @@ export class AiTelemetry {
 
     const level = log.status === 'error' ? 'warn' : 'info';
     console[level](
-      `[AI Telemetry] [${log.route}] req=${log.requestId} lang=${log.language} cefr=${log.cefrLevel} model=${log.modelUsed || log.modelRequested} degraded=${log.degraded} dur=${log.durationMs}ms ttft=${log.timeToFirstChunkMs || '-'}ms status=${log.status}`
+      `[AI Telemetry] [${log.route}] req=${log.requestId} lang=${log.language ?? '-'} cefr=${log.cefrLevel ?? '-'} model=${log.modelUsed || log.modelRequested} degraded=${log.degraded} dur=${log.durationMs}ms ttft=${log.timeToFirstChunkMs || '-'}ms status=${log.status}`
     );
   }
 
