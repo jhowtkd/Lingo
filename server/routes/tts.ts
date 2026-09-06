@@ -2,7 +2,12 @@ import express from 'express';
 import { Modality } from '@google/genai';
 import type { GoogleGenAI } from '@google/genai';
 
-export function createTtsRouter(getClient: () => GoogleGenAI | null): express.Router {
+export function createTtsRouter(
+  getClient: () => GoogleGenAI | null,
+  timeoutMs?: number
+): express.Router {
+  // timeoutMs aceito por uniformidade com as demais fábricas de rota; o TTS
+  // usa generateContent direto (sem generateWithFallback) e não o consome.
   const router = express.Router();
 
   let ttsAuthFailedUntil = 0;

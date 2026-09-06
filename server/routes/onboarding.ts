@@ -3,7 +3,10 @@ import { Type } from '@google/genai';
 import type { GoogleGenAI } from '@google/genai';
 import { generateWithFallback } from '../ai/generateWithFallback';
 
-export function createOnboardingRouter(getClient: () => GoogleGenAI | null): express.Router {
+export function createOnboardingRouter(
+  getClient: () => GoogleGenAI | null,
+  timeoutMs?: number
+): express.Router {
   const router = express.Router();
 
   // NOVO: Assistente de Configuração Inicial (Onboarding) - Gera Plano Personalizado e Primeiros Conteúdos
@@ -239,6 +242,8 @@ Gere uma resposta JSON estruturada estritamente de acordo com o schema com:
           },
         },
         route: 'onboarding',
+        // Timeout por tentativa configurável (GEMINI_TIMEOUT_MS via appEnv).
+        timeoutMs: timeoutMs ?? 60_000,
       });
 
       const parsed = JSON.parse(response.text || '{}');

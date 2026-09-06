@@ -3,7 +3,10 @@ import { Type } from '@google/genai';
 import type { GoogleGenAI } from '@google/genai';
 import { generateWithFallback } from '../ai/generateWithFallback';
 
-export function createMaterialsRouter(getClient: () => GoogleGenAI | null): express.Router {
+export function createMaterialsRouter(
+  getClient: () => GoogleGenAI | null,
+  timeoutMs?: number
+): express.Router {
   const router = express.Router();
 
   // NOVO: GERADOR DE MATERIAIS DE ESTUDO (A partir de Vídeos do YouTube ou Arquivos de Texto)
@@ -166,6 +169,8 @@ GERE UM MATERIAL COMPLETO COM:
           },
         },
         route: 'materials',
+        // Timeout por tentativa configurável (GEMINI_TIMEOUT_MS via appEnv).
+        timeoutMs: timeoutMs ?? 60_000,
       });
 
       const parsed = JSON.parse(response.text || '{}');

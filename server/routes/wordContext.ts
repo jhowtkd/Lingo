@@ -4,7 +4,10 @@ import type { GoogleGenAI } from '@google/genai';
 import { generateWithFallback } from '../ai/generateWithFallback';
 import { GeminiResponseCache } from '../ai/geminiCache';
 
-export function createWordContextRouter(getClient: () => GoogleGenAI | null): express.Router {
+export function createWordContextRouter(
+  getClient: () => GoogleGenAI | null,
+  timeoutMs?: number
+): express.Router {
   const router = express.Router();
 
   // LRU de contextos de palavra: consultas repetidas (muito comuns em app de
@@ -122,6 +125,8 @@ Forneça um objeto JSON estruturado com:
           },
         },
         route: 'word-context',
+        // Timeout por tentativa configurável (GEMINI_TIMEOUT_MS via appEnv).
+        timeoutMs: timeoutMs ?? 60_000,
       });
         return JSON.parse(response.text || '{}');
       });

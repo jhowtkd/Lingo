@@ -8,7 +8,10 @@ import { generateWithFallback } from '../ai/generateWithFallback';
  * dashboard/priority-topics). Montada em `/api` — os subpaths completos de
  * cada endpoint vivem aqui dentro da fábrica (um único router com três POSTs).
  */
-export function createInsightsRouter(getClient: () => GoogleGenAI | null): express.Router {
+export function createInsightsRouter(
+  getClient: () => GoogleGenAI | null,
+  timeoutMs?: number
+): express.Router {
   const router = express.Router();
 
   // Sugestões de Planejamento no Calendário
@@ -87,6 +90,8 @@ Crie propostas realistas de sessões diárias intercalando:
           },
         },
         route: 'calendar',
+        // Timeout por tentativa configurável (GEMINI_TIMEOUT_MS via appEnv).
+        timeoutMs: timeoutMs ?? 60_000,
       });
 
       const items = JSON.parse(response.text || '[]');
@@ -165,6 +170,8 @@ ${JSON.stringify(grafo_resumo)}
 Gere uma recomendação pedagógica objetiva, motivadora e acionável em 2 a 3 frases em Português para a próxima semana.`,
         },
         route: 'recommendation',
+        // Timeout por tentativa configurável (GEMINI_TIMEOUT_MS via appEnv).
+        timeoutMs: timeoutMs ?? 60_000,
       });
 
       res.json({ recomendacao: response.text?.trim() });
@@ -260,6 +267,8 @@ Retorne as sugestões estruturadas e altamente motivadoras com estratégias peda
           },
         },
         route: 'priority-topics',
+        // Timeout por tentativa configurável (GEMINI_TIMEOUT_MS via appEnv).
+        timeoutMs: timeoutMs ?? 60_000,
       });
 
       const prioridades = JSON.parse(response.text || '[]');

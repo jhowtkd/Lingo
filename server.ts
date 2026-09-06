@@ -35,10 +35,12 @@ for (const warning of appEnv.warnings) {
 let ai: GoogleGenAI | null = null;
 
 function getGeminiClient(): GoogleGenAI | null {
-  if (!ai && process.env.GEMINI_API_KEY) {
+  // Usa a chave validada/trimada por loadEnvConfig: chave com espaços em branco
+  // produz um client quebrado; aqui vira null -> modo degradado com fallback.
+  if (!ai && appEnv.geminiApiKey) {
     try {
       ai = new GoogleGenAI({
-        apiKey: process.env.GEMINI_API_KEY,
+        apiKey: appEnv.geminiApiKey,
         httpOptions: {
           headers: {
             'User-Agent': 'aistudio-build',
@@ -120,20 +122,25 @@ async function startServer() {
   app.use('/api/pronunciation', pronunciationRouter);
 
   // Cota diária por usuário + burst/min restrito (6/min) na geração de materiais.
-  app.use('/api/materials/generate', materialsQuota, jsonLimiter(6), createMaterialsRouter(getGeminiClient));
+  app.use(
+    '/api/materials/generate',
+    materialsQuota,
+    jsonLimiter(6),
+    createMaterialsRouter(getGeminiClient, appEnv.geminiTimeoutMs)
+  );
 
-  app.use('/api/word-context', createWordContextRouter(getGeminiClient));
+  app.use('/api/word-context', createWordContextRouter(getGeminiClient, appEnv.geminiTimeoutMs));
 
-  app.use('/api/tts', createTtsRouter(getGeminiClient));
+  app.use('/api/tts', createTtsRouter(getGeminiClient, appEnv.geminiTimeoutMs));
 
-  app.use('/api', createInsightsRouter(getGeminiClient));
+  app.use('/api', createInsightsRouter(getGeminiClient, appEnv.geminiTimeoutMs));
 
   // Cota diária por usuário + burst/min restrito (6/min) na geração de planos.
   app.use(
     '/api/onboarding/generate-plan',
     onboardingQuota,
     jsonLimiter(6),
-    createOnboardingRouter(getGeminiClient)
+    createOnboardingRouter(getGeminiClient, appEnv.geminiTimeoutMs)
   );
 
 
