@@ -139,6 +139,7 @@ export const ScreenCaptureModal: React.FC<ScreenCaptureModalProps> = ({
           </div>
           <button
             onClick={onClose}
+            aria-label="Fechar gerador de prints"
             className="p-2 rounded-full text-muted-foreground hover:text-foreground hover:bg-muted transition cursor-pointer font-bold"
           >
             ✕

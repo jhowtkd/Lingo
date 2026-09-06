@@ -625,6 +625,7 @@ export const VocabularyDuelView: React.FC<VocabularyDuelViewProps> = ({
                     rate: 0.9,
                   })
                 }
+                aria-label="Ouvir pronúncia do termo"
                 className="p-1 text-[var(--muted)] hover:text-[var(--fg)] cursor-pointer"
               >
                 <Volume2 className="w-4 h-4 text-[var(--fg)]" />

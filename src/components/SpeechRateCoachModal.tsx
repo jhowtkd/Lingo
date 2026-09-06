@@ -222,6 +222,7 @@ export const SpeechRateCoachModal: React.FC<SpeechRateCoachModalProps> = ({
             </div>
             <button
               onClick={onClose}
+              aria-label="Fechar treinador de velocidade de fala"
               className="p-1.5 text-muted-foreground hover:text-foreground hover:bg-muted rounded-lg transition cursor-pointer"
             >
               <X className="w-5 h-5" />

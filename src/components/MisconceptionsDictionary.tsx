@@ -566,6 +566,7 @@ export const MisconceptionsDictionary: React.FC<MisconceptionsDictionaryProps> =
               {searchQuery && (
                 <button
                   onClick={() => setSearchQuery('')}
+                  aria-label="Limpar busca"
                   className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground text-xs cursor-pointer"
                 >
                   <X className="w-3.5 h-3.5" />
@@ -778,6 +779,7 @@ export const MisconceptionsDictionary: React.FC<MisconceptionsDictionaryProps> =
 
               <button
                 onClick={() => setSelectedItem(null)}
+                aria-label="Fechar detalhes do equívoco"
                 className="p-1.5 text-[var(--muted)] hover:text-[var(--fg)] hover:bg-[oklch(0.96_0.01_84)] rounded-full transition cursor-pointer"
               >
                 <X className="w-5 h-5" />

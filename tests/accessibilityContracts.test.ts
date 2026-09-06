@@ -91,3 +91,26 @@ describe('keyboard navigation controls', () => {
     expect(read('src/components/Navbar.tsx')).toContain('aria-expanded=');
   });
 });
+
+describe('residual accessibility: skip-link and reduced motion', () => {
+  it('App oferece skip-link e alvo de conteúdo principal', () => {
+    const appSource = read('src/App.tsx');
+    expect(appSource).toContain('SkipLink');
+    expect(appSource).toContain('id="conteudo-principal"');
+  });
+
+  it('SkipLink é o primeiro elemento focável e aponta para o conteúdo principal', () => {
+    const skipLinkSource = read('src/components/SkipLink.tsx');
+    expect(skipLinkSource).toContain('href="#conteudo-principal"');
+    expect(skipLinkSource).toContain('Pular para o conteúdo principal');
+    expect(skipLinkSource).toContain('sr-only');
+    expect(skipLinkSource).toContain('focus:not-sr-only');
+  });
+
+  it('CSS respeita prefers-reduced-motion', () => {
+    const cssSource = read('src/index.css');
+    expect(cssSource).toContain('prefers-reduced-motion');
+    expect(cssSource).toContain('animation-iteration-count: 1 !important');
+    expect(cssSource).toContain('scroll-behavior: auto !important');
+  });
+});

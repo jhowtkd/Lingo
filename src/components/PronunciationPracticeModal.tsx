@@ -316,6 +316,7 @@ export const PronunciationPracticeModal: React.FC<PronunciationPracticeModalProp
               stopMicrophoneStream();
               onClose();
             }}
+            aria-label="Fechar prática de pronúncia"
             className="p-1.5 text-muted-foreground hover:text-foreground hover:bg-muted rounded-md transition cursor-pointer"
           >
             <X className="w-5 h-5" />

@@ -968,6 +968,7 @@ export function AdminView({ currentUser, onImportPackToCurrentBase }: AdminViewP
               </div>
               <button
                 onClick={() => setShowCreatePack(false)}
+                aria-label="Fechar formulário de publicação"
                 className="text-[var(--muted)] hover:text-[var(--fg)] p-1 cursor-pointer"
               >
                 ✕

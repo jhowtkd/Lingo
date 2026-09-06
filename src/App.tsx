@@ -24,6 +24,7 @@ import { getLanguageTheme, detectLanguageTheme } from './services/languageThemes
 import { onAuthChange, syncUserProfile } from './services/firebase';
 import { useModalFocusTrap } from './hooks/useModalFocusTrap';
 import { ErrorBoundary } from './components/ErrorBoundary';
+import { SkipLink } from './components/SkipLink';
 
 const ChatTutor = lazy(() =>
   import('./components/ChatTutor').then((module) => ({ default: module.ChatTutor }))
@@ -198,6 +199,7 @@ export default function App() {
 
   return (
     <ErrorBoundary>
+    <SkipLink />
     <div
       data-lang-theme={activeLanguageTheme.id}
       className="min-h-screen flex flex-col font-sans transition-colors duration-500 relative"
@@ -226,7 +228,7 @@ export default function App() {
 
       {/* Main View Container */}
       <div className="flex-1 flex flex-col max-w-6xl w-full mx-auto px-4 sm:px-6 py-6 pb-24 lg:pb-0">
-        <main className="flex-1 flex flex-col">
+        <main id="conteudo-principal" className="flex-1 flex flex-col">
           <div id="main-app-content" className="w-full flex-1 flex flex-col">
             <Suspense fallback={<ViewLoadingFallback />}>
             {activeTab === 'home' && (

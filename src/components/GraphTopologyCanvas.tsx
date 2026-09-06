@@ -570,6 +570,7 @@ export const GraphTopologyCanvas: React.FC<GraphTopologyCanvasProps> = ({
                 </div>
                 <button
                   onClick={() => onSelectNode(null)}
+                  aria-label="Fechar detalhes do nó"
                   className="text-[var(--muted)] hover:text-[var(--fg)] text-sm font-bold p-1 rounded-full hover:bg-[oklch(0.95_0.01_84)] transition cursor-pointer"
                 >
                   ✕
@@ -598,6 +599,7 @@ export const GraphTopologyCanvas: React.FC<GraphTopologyCanvasProps> = ({
                   <div className="flex items-center gap-2">
                     <button
                       onClick={() => onUpdateMastery(selectedNode, -10)}
+                      aria-label="Diminuir domínio estimado em 10%"
                       className="px-2.5 py-1 rounded-full border border-[var(--border)] bg-[var(--surface)] text-xs font-bold text-[var(--fg)] hover:border-[var(--fg)] transition cursor-pointer"
                     >
                       -10%
@@ -614,6 +616,7 @@ export const GraphTopologyCanvas: React.FC<GraphTopologyCanvasProps> = ({
                     />
                     <button
                       onClick={() => onUpdateMastery(selectedNode, 10)}
+                      aria-label="Aumentar domínio estimado em 10%"
                       className="px-2.5 py-1 rounded-full border border-[var(--border)] bg-[var(--surface)] text-xs font-bold text-[var(--fg)] hover:border-[var(--fg)] transition cursor-pointer"
                     >
                       +10%

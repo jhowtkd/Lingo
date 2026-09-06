@@ -81,6 +81,7 @@ export function SharedPacksModal({ isOpen, onClose, onImportSuccess }: SharedPac
           </div>
           <button
             onClick={onClose}
+            aria-label="Fechar bases compartilhadas"
             className="text-[var(--muted)] hover:text-[var(--fg)] p-1.5 rounded-full hover:bg-[oklch(0.955_0.012_84)] transition cursor-pointer"
           >
             ✕

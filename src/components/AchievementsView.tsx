@@ -218,6 +218,7 @@ export const AchievementsView: React.FC<AchievementsViewProps> = ({
                   </button>
                   <button
                     onClick={() => setCelebrationAchievement(null)}
+                    aria-label="Fechar celebração de conquista"
                     className="p-1.5 text-slate-400 hover:text-white rounded-lg transition cursor-pointer"
                   >
                     <X className="w-4 h-4" />
@@ -581,6 +582,7 @@ export const AchievementsView: React.FC<AchievementsViewProps> = ({
 
                 <button
                   onClick={() => setInspectAchievement(null)}
+                  aria-label="Fechar detalhes da conquista"
                   className="p-1.5 text-[var(--muted)] hover:text-[var(--fg)] rounded-full hover:bg-[oklch(0.96_0.01_84)] transition cursor-pointer"
                 >
                   <X className="w-5 h-5" />

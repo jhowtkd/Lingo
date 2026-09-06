@@ -1779,6 +1779,7 @@ export const ChatTutor: React.FC<ChatTutorProps> = ({
               </div>
               <button
                 onClick={() => setIsNewConvModalOpen(false)}
+                aria-label="Fechar modal de nova conversa"
                 className="text-stone-400 hover:text-stone-700 dark:hover:text-stone-200 text-base font-bold p-1 rounded-md hover:bg-stone-100 dark:hover:bg-zinc-800 transition cursor-pointer"
               >
                 ✕

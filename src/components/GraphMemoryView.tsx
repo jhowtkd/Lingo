@@ -457,6 +457,7 @@ export const GraphMemoryView: React.FC = () => {
               </div>
               <button
                 onClick={() => setSelectedNode(null)}
+                aria-label="Fechar detalhes do registro"
                 className="text-muted-foreground hover:text-foreground text-base font-bold p-1 cursor-pointer"
               >
                 ✕
@@ -600,6 +601,7 @@ export const GraphMemoryView: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setIsCreatingNode(false)}
+                aria-label="Fechar formulário de registro"
                 className="text-muted-foreground hover:text-foreground cursor-pointer"
               >
                 ✕
