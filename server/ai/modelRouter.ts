@@ -150,10 +150,16 @@ export class ModelRouter {
 
         const is503 = msg.includes('503') || msg.includes('unavailable') || msg.includes('high demand');
         const is429 = msg.includes('429') || msg.includes('quota') || msg.includes('rate limit');
-        const isAuth = msg.includes('api_key_invalid') || msg.includes('unauthenticated') || msg.includes('permission_denied');
+        const isAuth =
+          msg.includes('api_key_invalid') ||
+          msg.includes('api key not valid') ||
+          msg.includes('invalid_argument') ||
+          msg.includes('unauthenticated') ||
+          msg.includes('permission_denied') ||
+          msg.includes('api key');
 
         if (isAuth) {
-          throw new ModelRouterError('AUTH_ERROR', 'Chave de API inválida ou sem permissão.', false, err);
+          throw new ModelRouterError('AUTH_ERROR', 'Chave de API Gemini inválida ou sem permissão.', false, err);
         }
 
         if (is503 || is429) {
@@ -242,6 +248,18 @@ export class ModelRouter {
         }
 
         const msg = (err?.message || String(err)).toLowerCase();
+        const isAuth =
+          msg.includes('api_key_invalid') ||
+          msg.includes('api key not valid') ||
+          msg.includes('invalid_argument') ||
+          msg.includes('unauthenticated') ||
+          msg.includes('permission_denied') ||
+          msg.includes('api key');
+
+        if (isAuth) {
+          throw new ModelRouterError('AUTH_ERROR', 'Chave de API Gemini inválida ou sem permissão.', false, err);
+        }
+
         if (msg.includes('503') || msg.includes('429') || msg.includes('unavailable')) {
           this.setModelCooldown(modelName, 30000);
         }

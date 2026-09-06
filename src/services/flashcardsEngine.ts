@@ -31,6 +31,9 @@ export class FlashcardsEngine {
 
     // Aplica o filtro selecionado
     let filteredNodes = langNodes.filter((node) => {
+      if (filterMode === 'menor_acerto') {
+        return node.dominio_estimado < 70 || node.frequencia_erro >= 1 || node.dificuldade >= 3;
+      }
       if (filterMode === 'criticos') {
         return node.dominio_estimado < 60 || node.frequencia_erro >= 2 || node.dificuldade >= 4;
       }
@@ -47,11 +50,17 @@ export class FlashcardsEngine {
       return true;
     });
 
-    // Ordena priorizando termos com menor domínio e maior dificuldade/erro
+    // Se o filtro for 'menor_acerto' ou 'criticos' e a lista estiver vazia mas houver nós no idioma,
+    // seleciona os nós com menor domínio existente no grafo para garantir uma sessão focada
+    if ((filterMode === 'menor_acerto' || filterMode === 'criticos') && filteredNodes.length === 0 && langNodes.length > 0) {
+      filteredNodes = [...langNodes].sort((a, b) => a.dominio_estimado - b.dominio_estimado).slice(0, 6);
+    }
+
+    // Ordena priorizando termos com menor taxa de acerto/domínio e maior erro/dificuldade
     filteredNodes.sort((a, b) => {
-      // 1. Menor domínio primeiro
+      // 1. Menor domínio (taxa de acerto) primeiro
       const diffDom = a.dominio_estimado - b.dominio_estimado;
-      if (Math.abs(diffDom) > 10) return diffDom;
+      if (diffDom !== 0) return diffDom;
 
       // 2. Maior frequência de erro
       const diffErr = b.frequencia_erro - a.frequencia_erro;
@@ -61,8 +70,61 @@ export class FlashcardsEngine {
       return b.dificuldade - a.dificuldade;
     });
 
+    // Se for 'menor_acerto', limita o deck a uma sessão rápida focada (máximo 8 cards)
+    if (filterMode === 'menor_acerto' && filteredNodes.length > 8) {
+      filteredNodes = filteredNodes.slice(0, 8);
+    }
+
     // Mapeia para SRSFlashcard
     return filteredNodes.map((node) => this.convertNodeToFlashcard(node));
+  }
+
+  /**
+   * Recupera os termos com menor taxa de acerto / retenção do Grafo de Memória para o idioma ativo.
+   */
+  static getLowestAccuracyTerms(idiomaFiltro: string, limit = 5): GraphNode[] {
+    const allNodes = StorageService.getNodes();
+    const targetLang = getLanguageConfig(idiomaFiltro);
+
+    const langNodes = allNodes.filter((node) => {
+      const nodeLang = getLanguageConfig(node.idioma || 'ingles');
+      return nodeLang.id === targetLang.id;
+    });
+
+    return [...langNodes]
+      .sort((a, b) => {
+        // Menor domínio primeiro
+        const diffDom = a.dominio_estimado - b.dominio_estimado;
+        if (diffDom !== 0) return diffDom;
+        // Maior frequência de erro
+        const diffErr = b.frequencia_erro - a.frequencia_erro;
+        if (diffErr !== 0) return diffErr;
+        return b.dificuldade - a.dificuldade;
+      })
+      .slice(0, limit);
+  }
+
+  /**
+   * Estatísticas dos termos de menor retenção do grafo para exibição no HomeOverview.
+   */
+  static getLowestAccuracyStats(idiomaFiltro: string): {
+    totalCriticalCount: number;
+    avgDominio: number;
+    lowestTerms: GraphNode[];
+  } {
+    const lowestTerms = this.getLowestAccuracyTerms(idiomaFiltro, 5);
+    const criticalNodes = lowestTerms.filter((n) => n.dominio_estimado < 70 || n.frequencia_erro >= 1);
+
+    const avgDominio =
+      lowestTerms.length > 0
+        ? Math.round(lowestTerms.reduce((sum, n) => sum + (n.dominio_estimado || 0), 0) / lowestTerms.length)
+        : 50;
+
+    return {
+      totalCriticalCount: criticalNodes.length > 0 ? criticalNodes.length : lowestTerms.length,
+      avgDominio,
+      lowestTerms,
+    };
   }
 
   /**

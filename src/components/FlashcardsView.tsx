@@ -46,6 +46,7 @@ import { Badge } from './ui/badge';
 interface FlashcardsViewProps {
   currentTopic: string;
   stats: UserStats;
+  initialFilterMode?: FlashcardFilterMode;
   onUpdateStats: (newStats: UserStats) => void;
   onNavigateToGraph?: () => void;
   onPracticeInChat?: (topic: string) => void;
@@ -54,6 +55,7 @@ interface FlashcardsViewProps {
 export const FlashcardsView: React.FC<FlashcardsViewProps> = ({
   currentTopic,
   stats,
+  initialFilterMode = 'todos',
   onUpdateStats,
   onNavigateToGraph,
   onPracticeInChat,
@@ -64,11 +66,18 @@ export const FlashcardsView: React.FC<FlashcardsViewProps> = ({
   const [cards, setCards] = useState<SRSFlashcard[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isFlipped, setIsFlipped] = useState(false);
-  const [filterMode, setFilterMode] = useState<FlashcardFilterMode>('todos');
+  const [filterMode, setFilterMode] = useState<FlashcardFilterMode>(initialFilterMode);
   const [invertMode, setInvertMode] = useState(false); // Inverter: Significado ➔ Termo
   const [direction, setDirection] = useState<'next' | 'prev' | 'flip'>('next');
   const [autoPronounce, setAutoPronounce] = useState(true); // Pronúncia automática ao exibir o cartão
   const [isPlayingAudio, setIsPlayingAudio] = useState(false);
+
+  // Sincroniza initialFilterMode se mudar externamente
+  useEffect(() => {
+    if (initialFilterMode) {
+      setFilterMode(initialFilterMode);
+    }
+  }, [initialFilterMode]);
 
   // Histórico da Sessão
   const [sessionResults, setSessionResults] = useState<SRSReviewResult[]>([]);
@@ -372,6 +381,19 @@ export const FlashcardsView: React.FC<FlashcardsViewProps> = ({
         </span>
 
         <button
+          onClick={() => setFilterMode('menor_acerto')}
+          className={`px-3.5 py-1 rounded-full border transition cursor-pointer whitespace-nowrap text-xs font-bold flex items-center gap-1.5 ${
+            filterMode === 'menor_acerto'
+              ? 'bg-[var(--accent)] text-[var(--fg)] border-[var(--border)] shadow-xs font-extrabold'
+              : 'bg-[var(--surface)] border-[var(--border)] text-[var(--fg)] hover:bg-[oklch(0.96_0.01_84)]'
+          }`}
+          title="Sessão Rápida focada exclusivamente nos termos com menor taxa de acerto do seu Grafo de Memória"
+        >
+          <Sparkles className="w-3 h-3 text-[var(--accent-deep)]" />
+          <span>⚡ Flashcards Rápidos (Menor Acerto)</span>
+        </button>
+
+        <button
           onClick={() => setFilterMode('todos')}
           className={`px-3.5 py-1 rounded-full border transition cursor-pointer whitespace-nowrap text-xs font-bold ${
             filterMode === 'todos'
@@ -426,6 +448,28 @@ export const FlashcardsView: React.FC<FlashcardsViewProps> = ({
           📅 Vencidos para Hoje (SRS)
         </button>
       </div>
+
+      {filterMode === 'menor_acerto' && !isSessionCompleted && (
+        <div className="bg-[var(--accent-soft)] border border-[var(--accent-deep)]/30 rounded-xl p-3 text-xs flex items-center justify-between gap-3 text-left">
+          <div className="flex items-center gap-2.5">
+            <span className="w-6 h-6 rounded-full bg-[var(--accent)] text-[var(--fg)] flex items-center justify-center font-bold text-xs shrink-0">
+              ⚡
+            </span>
+            <div>
+              <strong className="text-[var(--fg)] block">Sessão de Flashcards Rápidos Ativa</strong>
+              <span className="text-[var(--muted)] text-[11px]">
+                Focando apenas nos {cards.length} termos com menor retenção e taxa de acerto do seu Grafo de Memória.
+              </span>
+            </div>
+          </div>
+          <button
+            onClick={() => setFilterMode('todos')}
+            className="text-[11px] font-bold text-[var(--accent-deep)] hover:underline shrink-0 cursor-pointer"
+          >
+            Ver todos os cartões →
+          </button>
+        </div>
+      )}
 
       {/* TELA DE CONCLUSÃO / RESUMO DA SESSÃO */}
       {isSessionCompleted && sessionSummary ? (

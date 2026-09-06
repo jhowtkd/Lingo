@@ -39,9 +39,14 @@ import {
   hasRecordedNodeEvidence,
 } from '../services/progressMetrics';
 import { MisconceptionsDictionary } from './MisconceptionsDictionary';
+import { ConversationHistorySection } from './ConversationHistorySection';
+import { WeeklyLanguageDistributionChart } from './WeeklyLanguageDistributionChart';
+import { LanguageThemeId } from '../services/languageThemes';
 
 interface WeeklyDashboardProps {
   onStartReview: (topic: string) => void;
+  onNavigateToChatWithConversation?: (conversationId: string, topic?: string) => void;
+  onSelectLanguage?: (languageName: string, themeId: LanguageThemeId) => void;
 }
 
 const getDeltaVisual = (delta?: number) => {
@@ -50,7 +55,11 @@ const getDeltaVisual = (delta?: number) => {
   return { Icon: Minus, className: 'text-[var(--muted)]' };
 };
 
-export const WeeklyDashboard: React.FC<WeeklyDashboardProps> = ({ onStartReview }) => {
+export const WeeklyDashboard: React.FC<WeeklyDashboardProps> = ({
+  onStartReview,
+  onNavigateToChatWithConversation,
+  onSelectLanguage,
+}) => {
   const [metrics, setMetrics] = useState<WeeklyMetrics | null>(null);
   const [priorityTopics, setPriorityTopics] = useState<PriorityTopicSuggestion[]>([]);
   const [isLoadingRec, setIsLoadingRec] = useState(false);
@@ -440,6 +449,12 @@ export const WeeklyDashboard: React.FC<WeeklyDashboardProps> = ({ onStartReview 
         </div>
       </section>
 
+      {/* Gráfico de Barras Recharts: Frequência de Conversação & Tempo por Idioma */}
+      <WeeklyLanguageDistributionChart
+        onSelectLanguage={onSelectLanguage}
+        onNavigateToChat={(topic) => onStartReview(topic || 'Conversação Geral')}
+      />
+
       {/* Metas Diárias & Marcos Semanais */}
       <section className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         {/* Metas Diárias */}
@@ -718,6 +733,20 @@ export const WeeklyDashboard: React.FC<WeeklyDashboardProps> = ({ onStartReview 
           ))}
         </div>
       </section>
+
+      {/* Histórico das Últimas Sessões de Conversação */}
+      <ConversationHistorySection
+        limit={5}
+        onSelectConversation={(convId, topic) => {
+          if (onNavigateToChatWithConversation) {
+            onNavigateToChatWithConversation(convId, topic);
+          } else {
+            StorageService.setActiveConversationId(convId);
+            onStartReview(topic || 'Conversação');
+          }
+        }}
+        onNewConversation={() => onStartReview('Conversação Geral')}
+      />
 
       {/* Dicionário de Equívocos Recorrentes */}
       <MisconceptionsDictionary onPracticeTopic={onStartReview} />

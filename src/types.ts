@@ -468,7 +468,8 @@ export type SRSGrade = 1 | 2 | 3 | 4; // 1: Novamente, 2: Difícil, 3: Bom, 4: F
 
 export type FlashcardFilterMode =
   | 'todos'
-  | 'criticos' // Domínio < 50% ou erros frequentes
+  | 'criticos' // Domínio < 60% ou erros frequentes
+  | 'menor_acerto' // Sessão rápida com os termos de menor taxa de acerto/retenção no grafo
   | 'falsos_amigos' // Falsos amigos e cognatos enganosos
   | 'expressoes' // Expressões idiomáticas & collocations
   | 'vencidos_hoje'; // Agendados para hoje pela repetição espaçada

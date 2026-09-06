@@ -39,6 +39,14 @@ function getGeminiClient(): GoogleGenAI | null {
  */
 const modelCooldownMap = new Map<string, number>();
 
+let ttsAuthFailedUntil = 0;
+function isTtsAuthFailed(): boolean {
+  return Date.now() < ttsAuthFailedUntil;
+}
+function markTtsAuthFailed(durationMs = 60000) {
+  ttsAuthFailedUntil = Date.now() + durationMs;
+}
+
 /**
  * Executa chamadas ao Gemini com retry inteligente, cooldown ativo e fallback automático de modelos
  * para 503 (High Demand/UNAVAILABLE), 429 e erros transitórios.
@@ -499,11 +507,20 @@ Forneça um objeto JSON estruturado com:
         return res.status(400).json({ error: 'Texto para síntese é obrigatório.' });
       }
 
+      if (isTtsAuthFailed()) {
+        return res.status(200).json({
+          error: 'Chave Gemini API inválida ou sem permissão de áudio. Ativando voz nativa do navegador.',
+          fallback: true,
+          reason: 'API_KEY_INVALID',
+        });
+      }
+
       const client = getGeminiClient();
       if (!client) {
-        return res.status(503).json({
-          error: 'Gemini client não configurado no servidor.',
+        return res.status(200).json({
+          error: 'Gemini client não configurado no servidor. Ativando voz nativa do navegador.',
           fallback: true,
+          reason: 'API_KEY_INVALID',
         });
       }
 
@@ -534,7 +551,7 @@ Forneça um objeto JSON estruturado com:
       const validVoices = ['Kore', 'Puck', 'Zephyr', 'Charon', 'Fenrir', 'Aoede'];
       const chosenVoice = validVoices.includes(voice) ? voice : 'Kore';
 
-      // Executa geração de fala com o modelo gemini-3.1-flash-tts-preview com retry para erros transitórios
+      // Executa geração de fala com o modelo gemini-3.1-flash-tts-preview
       let response: any = null;
       let lastTtsError: any = null;
 
@@ -563,6 +580,25 @@ Forneça um objeto JSON estruturado com:
           break;
         } catch (ttsErr: any) {
           lastTtsError = ttsErr;
+          const errMsg = (ttsErr?.message || String(ttsErr)).toLowerCase();
+          const isAuth =
+            errMsg.includes('api_key_invalid') ||
+            errMsg.includes('api key not valid') ||
+            errMsg.includes('invalid_argument') ||
+            errMsg.includes('unauthenticated') ||
+            errMsg.includes('permission_denied') ||
+            errMsg.includes('api key');
+
+          if (isAuth) {
+            markTtsAuthFailed();
+            console.log('[Gemini TTS] Chave de API inválida detectada. Ativando voz nativa do navegador.');
+            return res.status(200).json({
+              error: 'Chave Gemini API inválida ou sem permissão de voz. Fallback para voz do navegador ativado.',
+              fallback: true,
+              reason: 'API_KEY_INVALID',
+            });
+          }
+
           console.warn(`[Gemini TTS] Tentativa ${attempt + 1} falhou:`, ttsErr?.message || ttsErr);
           if (attempt === 0) {
             await new Promise((resolve) => setTimeout(resolve, 300));
@@ -574,12 +610,12 @@ Forneça um objeto JSON estruturado com:
         throw lastTtsError;
       }
 
-      const audioPart = response.candidates?.[0]?.content?.parts?.find(
+      const audioPart = response?.candidates?.[0]?.content?.parts?.find(
         (p: any) => p.inlineData && p.inlineData.data
       );
 
       if (!audioPart || !audioPart.inlineData?.data) {
-        return res.status(500).json({
+        return res.status(200).json({
           error: 'Nenhum áudio gerado pelo modelo Gemini TTS.',
           fallback: true,
         });
@@ -601,8 +637,26 @@ Forneça um objeto JSON estruturado com:
         textProcessed: cleanText,
       });
     } catch (err: any) {
-      console.error('[Gemini TTS] Erro ao sintetizar áudio:', err);
-      return res.status(500).json({
+      const errMsg = (err?.message || String(err)).toLowerCase();
+      const isAuth =
+        errMsg.includes('api_key_invalid') ||
+        errMsg.includes('api key not valid') ||
+        errMsg.includes('invalid_argument') ||
+        errMsg.includes('unauthenticated') ||
+        errMsg.includes('permission_denied') ||
+        errMsg.includes('api key');
+
+      if (isAuth) {
+        markTtsAuthFailed();
+        return res.status(200).json({
+          error: 'Chave Gemini API inválida. Fallback ativado.',
+          fallback: true,
+          reason: 'API_KEY_INVALID',
+        });
+      }
+
+      console.warn('[Gemini TTS] Síntese neural falhou, ativando fallback local:', err?.message || err);
+      return res.status(200).json({
         error: err?.message || 'Falha na síntese de voz neural',
         fallback: true,
       });

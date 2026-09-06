@@ -70,6 +70,8 @@ class SpeechSynthesisManager {
   private listeners: Set<(playing: boolean, id: string | null) => void> = new Set();
   private audioCache = new Map<string, string>(); // Cache de URL base64 por hash de texto + voz
   private preferredVoice = 'Kore';
+  private neuralFallbackMode = false;
+  private neuralFallbackResetTimer: any = null;
 
   // Web Audio API para análise de frequência em tempo real
   private audioContext: AudioContext | null = null;
@@ -425,6 +427,10 @@ class SpeechSynthesisManager {
     voiceName = this.preferredVoice,
     lang = 'en-US'
   ): Promise<string | null> {
+    if (this.neuralFallbackMode) {
+      return null;
+    }
+
     const cacheKey = `${voiceName}:${lang}:${text}`;
     if (this.audioCache.has(cacheKey)) {
       return this.audioCache.get(cacheKey)!;
@@ -444,18 +450,29 @@ class SpeechSynthesisManager {
       });
 
       if (!response.ok) {
-        console.warn(`[SpeechService] Falha na API TTS Neural (HTTP ${response.status})`);
         return null;
       }
 
       const data = await response.json();
+      if (data.fallback || !data.audioUrl) {
+        if (data.reason === 'API_KEY_INVALID') {
+          this.neuralFallbackMode = true;
+          if (typeof window !== 'undefined' && !this.neuralFallbackResetTimer) {
+            this.neuralFallbackResetTimer = window.setTimeout(() => {
+              this.neuralFallbackMode = false;
+              this.neuralFallbackResetTimer = null;
+            }, 60000);
+          }
+        }
+        return null;
+      }
+
       if (data.audioUrl) {
         this.audioCache.set(cacheKey, data.audioUrl);
         return data.audioUrl;
       }
       return null;
-    } catch (err) {
-      console.warn('[SpeechService] Erro de rede ao buscar áudio neural:', err);
+    } catch {
       return null;
     }
   }

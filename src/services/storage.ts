@@ -1224,24 +1224,172 @@ export const StorageService = {
       ];
     }
 
+    const now = Date.now();
     const defaultConv: ChatConversation = {
       id: initialConvId,
-      titulo: plan?.topico_inicial_recomendado ? `Plano: ${plan.topico_inicial_recomendado}` : 'Conversa Geral',
-      topico: plan?.topico_inicial_recomendado || `${lang}: Conversação Geral`,
+      titulo: plan?.topico_inicial_recomendado ? `Plano: ${plan.topico_inicial_recomendado}` : 'Connected Speech & Pronúncia Natural',
+      topico: plan?.topico_inicial_recomendado || `${lang}: Connected Speech & Pronúncia Natural`,
       idioma: lang,
       material_id: plan?.primeiro_material_estudo?.id,
       material_titulo: plan?.primeiro_material_estudo?.titulo,
-      criado_em: new Date().toISOString(),
-      atualizado_em: new Date().toISOString(),
+      criado_em: new Date(now - 1000 * 60 * 45).toISOString(),
+      atualizado_em: new Date(now - 1000 * 60 * 10).toISOString(),
       mensagens: initialMessages,
       nivel_cefr: plan?.nivel_cefr || stats.nivel_cefr || 'B1',
       total_mensagens: initialMessages.length,
     };
 
-    const list = [defaultConv];
+    // Gera sessões recentes realistas caso o usuário esteja no primeiro acesso
+    const pastConvs: ChatConversation[] = [
+      {
+        id: `conv-seed-work-${now - 86400000}`,
+        titulo: 'Phrasal Verbs no Trabalho & Reuniões',
+        topico: `${lang}: Phrasal Verbs Essenciais no Trabalho`,
+        idioma: lang,
+        criado_em: new Date(now - 86400000).toISOString(),
+        atualizado_em: new Date(now - 82800000).toISOString(),
+        nivel_cefr: 'B2',
+        total_mensagens: 4,
+        mensagens: [
+          {
+            id: `seed-msg-1`,
+            remetente: 'tutor',
+            conteudo: 'Let\'s practice workplace expressions! Imagine you need to finish a report before 5 PM. How would you tell your team using "wrap up"?',
+            timestamp: new Date(now - 86400000).toISOString(),
+            idioma: lang,
+          },
+          {
+            id: `seed-msg-2`,
+            remetente: 'user',
+            conteudo: 'I need to wrap up this project report before the meeting today.',
+            timestamp: new Date(now - 85000000).toISOString(),
+            idioma: lang,
+          },
+          {
+            id: `seed-msg-3`,
+            remetente: 'tutor',
+            conteudo: 'Spot on! "Wrap up" is natural and professional here. What about scheduling a quick follow-up: how would you ask to "touch base"?',
+            timestamp: new Date(now - 82800000).toISOString(),
+            idioma: lang,
+          },
+        ],
+      },
+      {
+        id: `conv-seed-falsefriends-${now - 172800000}`,
+        titulo: 'Falsos Amigos & Vícios de Tradução',
+        topico: `${lang}: Falsos Amigos & Vícios de Tradução`,
+        idioma: lang,
+        criado_em: new Date(now - 172800000).toISOString(),
+        atualizado_em: new Date(now - 170000000).toISOString(),
+        nivel_cefr: 'B1',
+        total_mensagens: 4,
+        mensagens: [
+          {
+            id: `seed-ff-1`,
+            remetente: 'tutor',
+            conteudo: 'Muitos alunos confundem "actually" e "currently". Como você diria "Eu atualmente moro em São Paulo"?',
+            timestamp: new Date(now - 172800000).toISOString(),
+            idioma: lang,
+          },
+          {
+            id: `seed-ff-2`,
+            remetente: 'user',
+            conteudo: 'I currently live in São Paulo, but I actually want to move abroad soon.',
+            timestamp: new Date(now - 170000000).toISOString(),
+            idioma: lang,
+          },
+          {
+            id: `seed-ff-3`,
+            remetente: 'tutor',
+            conteudo: 'Perfeito! Você usou os dois termos de forma exemplar no mesmo contexto.',
+            timestamp: new Date(now - 169000000).toISOString(),
+            idioma: lang,
+          },
+        ],
+      },
+      {
+        id: `conv-seed-cafe-${now - 259200000}`,
+        titulo: 'Simulação: Pedindo Café em Londres',
+        topico: `${lang}: Conversação Cotidiana & Situações Reais`,
+        idioma: lang,
+        criado_em: new Date(now - 259200000).toISOString(),
+        atualizado_em: new Date(now - 256000000).toISOString(),
+        nivel_cefr: 'A2',
+        total_mensagens: 3,
+        mensagens: [
+          {
+            id: `seed-cafe-1`,
+            remetente: 'tutor',
+            conteudo: 'Welcome to Costa Coffee! What can I get for you today?',
+            timestamp: new Date(now - 259200000).toISOString(),
+            idioma: lang,
+          },
+          {
+            id: `seed-cafe-2`,
+            remetente: 'user',
+            conteudo: 'Could I please have an oat latte to go with an extra shot?',
+            timestamp: new Date(now - 256000000).toISOString(),
+            idioma: lang,
+          },
+          {
+            id: `seed-cafe-3`,
+            remetente: 'tutor',
+            conteudo: 'Sure thing! That will be £3.80. Would you like to pay with card or contactless?',
+            timestamp: new Date(now - 255000000).toISOString(),
+            idioma: lang,
+          },
+        ],
+      },
+      {
+        id: `conv-seed-smalltalk-${now - 345600000}`,
+        titulo: 'Small Talk & Quebra-Gelo Cotidiano',
+        topico: `${lang}: Conversação Espontânea & Fluência`,
+        idioma: lang,
+        criado_em: new Date(now - 345600000).toISOString(),
+        atualizado_em: new Date(now - 340000000).toISOString(),
+        nivel_cefr: 'B1',
+        total_mensagens: 3,
+        mensagens: [
+          {
+            id: `seed-st-1`,
+            remetente: 'tutor',
+            conteudo: 'Small talk is great for building rapport. Try commenting on the weekend or the weather to start naturally!',
+            timestamp: new Date(now - 345600000).toISOString(),
+            idioma: lang,
+          },
+          {
+            id: `seed-st-2`,
+            remetente: 'user',
+            conteudo: 'Did you get up to anything exciting over the weekend?',
+            timestamp: new Date(now - 340000000).toISOString(),
+            idioma: lang,
+          },
+          {
+            id: `seed-st-3`,
+            remetente: 'tutor',
+            conteudo: 'Excelente uso de "get up to"! É uma expressão tipicamente nativa para perguntar o que alguém fez no fim de semana.',
+            timestamp: new Date(now - 339000000).toISOString(),
+            idioma: lang,
+          },
+        ],
+      },
+    ];
+
+    const list = [defaultConv, ...pastConvs];
     this.saveConversations(list, false);
     this.setActiveConversationId(initialConvId);
     return list;
+  },
+
+  getRecentConversations(limit = 5): ChatConversation[] {
+    const list = this.getConversations();
+    return [...list]
+      .sort((a, b) => {
+        const timeA = new Date(a.atualizado_em || a.criado_em || 0).getTime();
+        const timeB = new Date(b.atualizado_em || b.criado_em || 0).getTime();
+        return timeB - timeA;
+      })
+      .slice(0, limit);
   },
 
   saveConversations(conversations: ChatConversation[], sync = true) {

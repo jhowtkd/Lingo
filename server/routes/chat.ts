@@ -5,6 +5,7 @@ import { PedagogicalAnalyzer } from '../ai/pedagogicalAnalyzer';
 import { sanitizeTutorChatPayload, TutorStreamEvent } from '../ai/tutorContracts';
 import { AiTelemetry } from '../observability/aiTelemetry';
 import { getLanguageConfig } from '../../src/config/languages';
+import { generateLocalLanguageTutorResponse } from '../ai/localTutorFallback';
 
 export const chatRouter = express.Router();
 
@@ -134,6 +135,87 @@ chatRouter.post('/stream', async (req, res) => {
   } catch (err: any) {
     const isAborted = err instanceof ModelRouterError && err.code === 'ABORTED';
     if (isAborted) {
+      res.end();
+      return;
+    }
+
+    const isAuthOrUnavailable =
+      (err instanceof ModelRouterError &&
+        (err.code === 'AUTH_ERROR' || err.code === 'NO_API_KEY' || err.code === 'MODEL_UNAVAILABLE')) ||
+      (err?.message || '').toLowerCase().includes('api_key') ||
+      (err?.message || '').toLowerCase().includes('api key');
+
+    if (isAuthOrUnavailable && !timeToFirstChunkMs) {
+      console.warn(`[Chat Stream] Chave inválida ou indisponível. Acionando motor pedagógico local para req=${requestId}`);
+      const fallback = generateLocalLanguageTutorResponse(
+        sanitized.message,
+        sanitized.topic || 'Conversação Geral',
+        sanitized.language || 'Inglês',
+        sanitized.relevantMemories || [],
+        (req.body as any).adaptationPreference,
+        (req.body as any).studyPlan
+      );
+
+      sendEvent({
+        type: 'delta',
+        text: fallback.resposta_tutor,
+      });
+
+      sendEvent({
+        type: 'response_complete',
+        fullText: fallback.resposta_tutor,
+        modelUsed: 'local-pedagogical-fallback',
+        degraded: true,
+        durationMs: Date.now() - startTime,
+      });
+
+      const events: any[] = fallback.correcao
+        ? [
+            {
+              type: 'grammar_error',
+              evidence: fallback.correcao.evidencia,
+              correctedForm: fallback.correcao.resposta_corrigida,
+              explanation: fallback.correcao.explicacao,
+              confidence: 0.95,
+              severity:
+                fallback.correcao.gravidade === 'critica'
+                  ? 'high'
+                  : fallback.correcao.gravidade === 'moderada'
+                  ? 'medium'
+                  : 'low',
+              language: sanitized.language,
+            },
+          ]
+        : [];
+
+      sendEvent({
+        type: 'pedagogical_analysis',
+        analysis: {
+          hasError: fallback.possui_erro,
+          events,
+          adaptationNotice:
+            fallback.adaptacao?.rotulo ||
+            fallback.adaptacao?.justificativa ||
+            'Adaptação pedagógica aplicada',
+          xpEarned: fallback.xp_ganho,
+        },
+      });
+
+      AiTelemetry.record({
+        requestId,
+        route: '/api/chat/stream',
+        modelRequested: 'gemini-3.7-flash',
+        fallbackIndex: 1,
+        degraded: true,
+        durationMs: Date.now() - startTime,
+        inputCharacters: sanitized.message.length,
+        historyItems: sanitized.recentHistory.length,
+        memoryItems: sanitized.relevantMemories.length,
+        language: langConfig.id,
+        cefrLevel: sanitized.cefrLevel,
+        status: 'degraded',
+      });
+
       res.end();
       return;
     }
@@ -275,6 +357,39 @@ chatRouter.post('/', async (req, res) => {
       fallbackUsed: result.degraded,
     });
   } catch (err: any) {
+    const isAuthOrUnavailable =
+      (err instanceof ModelRouterError &&
+        (err.code === 'AUTH_ERROR' || err.code === 'NO_API_KEY' || err.code === 'MODEL_UNAVAILABLE')) ||
+      (err?.message || '').toLowerCase().includes('api_key') ||
+      (err?.message || '').toLowerCase().includes('api key');
+
+    if (isAuthOrUnavailable) {
+      console.warn(`[Chat Tutor] Chave inválida ou indisponível. Acionando motor pedagógico local para req=${requestId}`);
+      const fallback = generateLocalLanguageTutorResponse(
+        sanitized.message,
+        sanitized.topic || 'Conversação Geral',
+        sanitized.language || 'Inglês',
+        sanitized.relevantMemories || [],
+        (req.body as any).adaptationPreference,
+        (req.body as any).studyPlan
+      );
+
+      return res.json({
+        requestId,
+        resposta_tutor: fallback.resposta_tutor,
+        possui_erro: fallback.possui_erro,
+        events: [],
+        correcao: fallback.correcao,
+        conceitos_chave: fallback.conceitos_chave,
+        novos_nos_grafo: fallback.novos_nos_grafo,
+        adaptacao: fallback.adaptacao,
+        xp_ganho: fallback.xp_ganho,
+        modelUsed: 'local-pedagogical-fallback',
+        degraded: true,
+        fallbackUsed: true,
+      });
+    }
+
     console.error(`[Chat Error] req=${requestId}:`, err);
     return res.status(500).json({
       requestId,
