@@ -121,11 +121,13 @@ async function startServer() {
   app.use('/api/pronunciation-assessment', pronunciationRouter);
   app.use('/api/pronunciation', pronunciationRouter);
 
-  // Cota diária por usuário + burst/min restrito (6/min) na geração de materiais.
+  // Burst/min primeiro: requests rejeitados pelo limitador por minuto não
+  // queimam cota diária do usuário. Cota diária por usuário + burst restrito
+  // (6/min) na geração de materiais.
   app.use(
     '/api/materials/generate',
-    materialsQuota,
     jsonLimiter(6),
+    materialsQuota,
     createMaterialsRouter(getGeminiClient, appEnv.geminiTimeoutMs)
   );
 
@@ -135,11 +137,11 @@ async function startServer() {
 
   app.use('/api', createInsightsRouter(getGeminiClient, appEnv.geminiTimeoutMs));
 
-  // Cota diária por usuário + burst/min restrito (6/min) na geração de planos.
+  // Mesma ordem (burst/min antes da cota) na geração de planos do onboarding.
   app.use(
     '/api/onboarding/generate-plan',
-    onboardingQuota,
     jsonLimiter(6),
+    onboardingQuota,
     createOnboardingRouter(getGeminiClient, appEnv.geminiTimeoutMs)
   );
 

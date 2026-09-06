@@ -11,7 +11,7 @@ const CERTS_URL =
 const ISSUER = `https://securetoken.google.com/${PROJECT_ID}`;
 
 // E-mails com poder administrativo (devem estar reservados no Firebase Auth).
-// Default vazio: nenhum e-mail placeholder/reall vive no código — admins são
+// Default vazio: nenhum e-mail placeholder/real vive no código — admins são
 // definidos exclusivamente via variável de ambiente.
 const ADMIN_EMAILS = (process.env.ADMIN_EMAILS || '')
   .split(',')
