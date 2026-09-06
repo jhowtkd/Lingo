@@ -9,6 +9,7 @@ import {
 import { StorageService } from './storage';
 import { getLanguageConfig } from '../config/languages';
 import { AchievementEngine } from './achievementEngine';
+import { computeSM2Next, SM2_DEFAULTS } from './srsAlgorithm';
 
 export class FlashcardsEngine {
   /**
@@ -23,10 +24,10 @@ export class FlashcardsEngine {
     const targetLang = getLanguageConfig(idiomaFiltro);
     const now = new Date();
 
-    // Filtra por idioma de forma estrita
+    // Filtra por idioma de forma estrita (exclui leeches suspensos)
     let langNodes = allNodes.filter((node) => {
       const nodeLang = getLanguageConfig(node.idioma || 'ingles');
-      return nodeLang.id === targetLang.id;
+      return nodeLang.id === targetLang.id && !node.srs_suspenso;
     });
 
     // Aplica o filtro selecionado
@@ -187,10 +188,10 @@ export class FlashcardsEngine {
       dificuldade: node.dificuldade ?? 3,
       proxima_revisao: node.proxima_revisao || new Date().toISOString(),
       ultima_revisao: node.ultima_revisao,
-      intervalo_dias: node.dominio_estimado > 70 ? 4 : 1,
-      repeticoes: Math.max(0, Math.floor((node.dominio_estimado ?? 0) / 25)),
-      fator_facilidade: 2.5,
-      status_srs,
+      intervalo_dias: node.srs_intervalo_dias ?? (node.dominio_estimado > 70 ? 4 : 1),
+      repeticoes: node.srs_repeticoes ?? Math.max(0, Math.floor((node.dominio_estimado ?? 0) / 25)),
+      fator_facilidade: node.srs_fator_facilidade ?? SM2_DEFAULTS.fator_facilidade,
+      status_srs: node.srs_suspenso ? 'leech' : status_srs,
       tags,
     };
   }
@@ -211,38 +212,42 @@ export class FlashcardsEngine {
   } {
     const now = new Date();
     let novo_dominio = card.dominio_atual;
-    let novo_intervalo_dias = 1;
-    let repeatInSession = false;
     let xp_ganho = 10;
-    let nova_frequencia_erro = card.frequencia_erro;
 
-    // Algoritmo de Repetição Espaçada (SRS)
+    // SM-2 real: ease dinâmico, intervalos 1d → 6d → intervalo × EF e leech.
+    // Deltas de domínio e XP permanecem no engine (pedagogia do app).
+    const sm2 = computeSM2Next(
+      {
+        intervalo_dias: card.intervalo_dias || 1,
+        repeticoes: card.repeticoes ?? 0,
+        fator_facilidade: card.fator_facilidade || 2.5,
+        frequencia_erro: card.frequencia_erro ?? 0,
+      },
+      grade
+    );
+    const novo_intervalo_dias = sm2.intervalo_dias;
+    const repeatInSession = sm2.repetir_hoje;
+    const nova_frequencia_erro = sm2.frequencia_erro;
+
+    // Deltas de domínio e XP por nota (a matemática de agendamento é do SM-2)
     switch (grade) {
       case 1: // 🔴 Novamente (Errou ou não lembrou)
         novo_dominio = Math.max(10, card.dominio_atual - 15);
-        novo_intervalo_dias = 0; // Praticar ainda hoje
-        nova_frequencia_erro += 1;
-        repeatInSession = true;
         xp_ganho = 5;
         break;
 
       case 2: // 🟠 Difícil (Lembrou com muito esforço ou hesitação)
         novo_dominio = Math.min(95, card.dominio_atual + 5);
-        novo_intervalo_dias = 1;
         xp_ganho = 12;
         break;
 
       case 3: // 🟢 Bom (Resposta correta e tempo adequado)
         novo_dominio = Math.min(98, card.dominio_atual + 15);
-        novo_intervalo_dias = Math.max(2, Math.round(card.intervalo_dias * 2.2));
-        if (nova_frequencia_erro > 0) nova_frequencia_erro -= 1;
         xp_ganho = 20;
         break;
 
       case 4: // 🔵 Fácil (Domínio perfeito e imediato)
         novo_dominio = Math.min(100, card.dominio_atual + 25);
-        novo_intervalo_dias = Math.max(4, Math.round(card.intervalo_dias * 3.5));
-        if (nova_frequencia_erro > 0) nova_frequencia_erro -= 1;
         xp_ganho = 30;
         break;
     }
@@ -262,6 +267,11 @@ export class FlashcardsEngine {
       targetNode.ultima_revisao = now.toISOString();
       targetNode.proxima_revisao = proxima_revisao;
       targetNode.atualizado_em = now.toISOString();
+      // Estado SRS persistido no nó (SM-2); suspensão de leech é adesiva
+      targetNode.srs_fator_facilidade = sm2.fator_facilidade;
+      targetNode.srs_intervalo_dias = sm2.intervalo_dias;
+      targetNode.srs_repeticoes = sm2.repeticoes;
+      targetNode.srs_suspenso = sm2.suspender || Boolean(targetNode.srs_suspenso);
       StorageService.saveNodes(allNodes);
     }
 
@@ -276,9 +286,10 @@ export class FlashcardsEngine {
       frequencia_erro: nova_frequencia_erro,
       ultima_revisao: now.toISOString(),
       proxima_revisao,
-      intervalo_dias: novo_intervalo_dias,
-      repeticoes: card.repeticoes + 1,
-      status_srs: novoStatus,
+      intervalo_dias: sm2.intervalo_dias,
+      repeticoes: sm2.repeticoes,
+      fator_facilidade: sm2.fator_facilidade,
+      status_srs: sm2.suspender ? 'leech' : novoStatus,
     };
 
     // Atualiza UserStats e Conquistas

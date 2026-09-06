@@ -58,6 +58,11 @@ export interface GraphNode {
   pronuncia_ipa?: string;
   traducao?: string;
   exemplo_uso?: string;
+  // Estado SRS persistido (SM-2); opcionais para compatibilidade com nós antigos
+  srs_fator_facilidade?: number;
+  srs_intervalo_dias?: number;
+  srs_repeticoes?: number;
+  srs_suspenso?: boolean;
 }
 
 export interface GraphRelation {
@@ -494,7 +499,7 @@ export interface SRSFlashcard {
   intervalo_dias: number;
   repeticoes: number;
   fator_facilidade: number; // Ease Factor padrão 2.5 (SM-2)
-  status_srs: 'novo' | 'aprendendo' | 'revisando' | 'dominado';
+  status_srs: 'novo' | 'aprendendo' | 'revisando' | 'dominado' | 'leech';
   tags: string[];
 }
 

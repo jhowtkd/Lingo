@@ -668,7 +668,9 @@ export const FlashcardsView: React.FC<FlashcardsViewProps> = ({
 
                       <div className="flex items-center space-x-1 text-[11px] text-[var(--muted)]">
                         <Flame className="w-3.5 h-3.5 text-[var(--accent-deep)]" />
-                        <span className="font-bold text-[var(--fg)]">SRS {currentCard.status_srs}</span>
+                        <span className="font-bold text-[var(--fg)]">
+                          {currentCard.status_srs === 'leech' ? 'SRS Em pausa (leech)' : `SRS ${currentCard.status_srs}`}
+                        </span>
                       </div>
                     </div>
 
