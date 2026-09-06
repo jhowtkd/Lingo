@@ -155,6 +155,12 @@ async function startServer() {
   const app = express();
   const server = http.createServer(app);
 
+  // Telemetria AI persistida em disco: sobrevive a restarts do servidor
+  // (snapshots periódicos; caminho configurável via AI_TELEMETRY_PATH).
+  AiTelemetry.enablePersistence(
+    process.env.AI_TELEMETRY_PATH || '.telemetry/ai-telemetry.json'
+  );
+
   // Respeita X-Forwarded-For atrás de proxy (necessário para rate limit por IP)
   app.set('trust proxy', 1);
   app.use(compression());

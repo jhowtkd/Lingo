@@ -28,6 +28,7 @@ import {
   STORAGE_LIMITS,
   SyncCollection,
   clearStorageCache,
+  emitStorageHealth,
   readJsonCached,
   readSyncMeta,
   shouldApplyCloudCollection,
@@ -944,8 +945,15 @@ export const StorageService = {
           nodesCount: nodes.length,
           materialsCount: materials.length,
         });
+        emitStorageHealth({ kind: 'cloud-sync', status: 'success', at: new Date().toISOString() });
       } catch (err) {
         console.warn('Erro durante sincronização com o Firestore:', err);
+        emitStorageHealth({
+          kind: 'cloud-sync',
+          status: 'error',
+          error: err instanceof Error ? err.message : String(err),
+          at: new Date().toISOString(),
+        });
       }
     }, 1500);
   },

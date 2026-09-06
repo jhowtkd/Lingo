@@ -19,6 +19,8 @@ export interface TutorTelemetryLog {
 export class AiTelemetry {
   private static logs: TutorTelemetryLog[] = [];
   private static maxLogs = 200;
+  private static persistenceTimer: ReturnType<typeof setInterval> | null = null;
+  private static persistenceFilePath: string | null = null;
 
   static record(log: TutorTelemetryLog): void {
     // Registra métricas agregadas e estruturadas sem vazar dados brutos de mensagens ou PII
@@ -58,5 +60,45 @@ export class AiTelemetry {
       degradedRate: Math.round((degradedCount / total) * 100) / 100,
       errorRate: Math.round((errorCount / total) * 100) / 100,
     };
+  }
+
+  /** Persiste snapshots periódicos em disco — a telemetria em memória morre no restart. */
+  static enablePersistence(filePath: string, intervalMs = 60_000): void {
+    if (this.persistenceTimer) return;
+    this.persistenceFilePath = filePath;
+    void this.loadPersisted(filePath);
+    this.persistenceTimer = setInterval(() => {
+      void this.flushToDisk();
+    }, intervalMs);
+    this.persistenceTimer.unref?.();
+  }
+
+  static async flushToDisk(): Promise<void> {
+    if (!this.persistenceFilePath) return;
+    const fs = await import('fs');
+    const path = await import('path');
+    await fs.promises.mkdir(path.dirname(this.persistenceFilePath), { recursive: true });
+    await fs.promises.writeFile(
+      this.persistenceFilePath,
+      JSON.stringify({ savedAt: new Date().toISOString(), logs: this.logs }, null, 2),
+      'utf8'
+    );
+  }
+
+  static async loadPersisted(filePath: string): Promise<void> {
+    try {
+      const fs = await import('fs');
+      const raw = await fs.promises.readFile(filePath, 'utf8');
+      const parsed = JSON.parse(raw) as { logs?: TutorTelemetryLog[] };
+      if (Array.isArray(parsed.logs)) {
+        this.logs = parsed.logs.slice(0, this.maxLogs);
+      }
+    } catch {
+      // Sem snapshot anterior — começa vazio.
+    }
+  }
+
+  static resetForTests(): void {
+    this.logs = [];
   }
 }

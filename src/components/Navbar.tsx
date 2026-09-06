@@ -24,6 +24,7 @@ import { UserStats, UserProfile } from '../types';
 import { getLanguageTheme } from '../services/languageThemes';
 import { playSfx, sfx } from '../services/soundEffects';
 import { UserProfileMenu } from './UserProfileMenu';
+import { SyncStatusIndicator } from './SyncStatusIndicator';
 
 interface NavbarProps {
   activeTab: string;
@@ -132,6 +133,11 @@ export const Navbar: React.FC<NavbarProps> = ({
             {currentTopic.split(':')[1]?.trim() || currentTopic}
           </span>
         </button>
+
+        {/* Status de sincronização com a nuvem (desktop; invisível até o 1º evento de sync) */}
+        <div className="hidden md:flex items-center">
+          <SyncStatusIndicator />
+        </div>
 
         {/* Nav Links */}
         <div className="hidden lg:flex items-center gap-0.5 ml-auto overflow-x-auto scrollbar-none py-0.5">
